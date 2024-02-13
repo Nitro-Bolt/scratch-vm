@@ -745,6 +745,12 @@ class JSGenerator {
         case 'var.get':
             return this.descendVariable(node.variable);
 
+        case 'comments.reporter':
+            return new TypedInput(`${this.descendInput(node.value).asString()}`, TYPE_STRING)
+
+        case 'comments.boolean':
+            return new TypedInput(`${this.descendInput(node.value).asBoolean()}`, TYPE_BOOLEAN)
+
         default:
             log.warn(`JS: Unknown input: ${node.kind}`, node);
             throw new Error(`JS: Unknown input: ${node.kind}`);
@@ -1157,6 +1163,19 @@ class JSGenerator {
         }
         case 'var.show':
             this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.variable.id)}", element: "checkbox", value: true }, runtime);\n`;
+            break;
+
+        case 'comments.hat':
+            this.source += `\n`;
+            break;
+
+        case 'comments.command':
+            this.source += `\n`;
+            break;
+
+        case 'comments.loop':
+            this.source += `\n`;
+            this.descendStack(node.do, new Frame(true));
             break;
 
         case 'visualReport': {

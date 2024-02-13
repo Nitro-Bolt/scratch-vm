@@ -647,6 +647,20 @@ class ScriptTreeGenerator {
                 value: block.fields.SOUND_MENU.value
             };
 
+        case 'comments_reporter':
+            return {
+                kind: 'comments.reporter',
+                value: this.descendInputOfBlock(block, 'VALUE'),
+                comment: this.descendInputOfBlock(block, 'COMMENT'),
+            };
+
+        case 'comments_boolean':
+            return {
+                kind: 'comments.boolean',
+                value: this.descendInputOfBlock(block, 'VALUE'),
+                comment: this.descendInputOfBlock(block, 'COMMENT'),
+            };
+
         case 'tw_getLastKeyPressed':
             return {
                 kind: 'tw.lastKeyPressed'
@@ -1145,6 +1159,25 @@ class ScriptTreeGenerator {
         case 'sensing_resettimer':
             return {
                 kind: 'timer.reset'
+            };
+
+        case 'comments_hat':
+            return {
+                kind: 'comments.hat',
+                comment: this.descendInputOfBlock(block, 'COMMENT')
+            };
+
+        case 'comments_command':
+            return {
+                kind: 'comments.command',
+                comment: this.descendInputOfBlock(block, 'COMMENT')
+            };
+
+        case 'comments_loop':
+            return {
+                kind: 'comments.loop',
+                comment: this.descendInputOfBlock(block, 'COMMENT'),
+                do: this.descendSubstack(block, 'SUBSTACK')
             };
 
         default: {
