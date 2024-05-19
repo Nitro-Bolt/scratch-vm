@@ -264,7 +264,7 @@ class ExtensionManager {
      * @param {string} extensionURL - the URL for the extension to load OR the ID of an internal extension
      * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
      */
-    removeExtension(extensionURL) {
+    removeExtension (extensionURL) {
         if (!this.isExtensionLoaded(extensionURL)) {
             const message = `Rejecting attempt to remove an unloaded extension with ID ${extensionURL}`;
             log.warn(message);

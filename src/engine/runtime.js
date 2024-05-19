@@ -1096,7 +1096,7 @@ class Runtime extends EventEmitter {
      * @param  {ExtensionMetadata} extensionId - Id of the target extension
      * @private
      */
-    _removeExtensionPrimitive(extensionId) {
+    _removeExtensionPrimitive (extensionId) {
         const extensionIndex = this._blockInfo.findIndex(extension => extension.id === extensionId);
         const info = this._blockInfo[extensionIndex];
         this._blockInfo.splice(extensionIndex, 1);
