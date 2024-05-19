@@ -260,6 +260,27 @@ class ExtensionManager {
     }
 
     /**
+     * Unload an extension by URL or internal extension ID
+     * @param {string} extensionURL - the URL for the extension to load OR the ID of an internal extension
+     * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
+     */
+    removeExtension(extensionURL) {
+        if (!this.isExtensionLoaded(extensionURL)) {
+            const message = `Rejecting attempt to remove an unloaded extension with ID ${extensionURL}`;
+            log.warn(message);
+            return;
+        }
+        const serviceName = this._loadedExtensions.get(extensionURL);
+        delete dispatch.services[serviceName];
+        delete this.runtime[`ext_${extensionURL}`];
+        this._loadedExtensions.delete(extensionURL);
+        const workerId = +serviceName.split('.')[1];
+        delete this.workerURLs[workerId];
+        dispatch.call('runtime', '_removeExtensionPrimitive', extensionURL);
+        this.refreshBlocks();
+    }
+
+    /**
      * Wait until all async extensions have loaded
      * @returns {Promise} resolved when all async extensions have loaded
      */
