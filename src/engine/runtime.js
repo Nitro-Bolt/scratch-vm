@@ -1092,6 +1092,23 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Reorder the primitives of an extension
+     * @param  {ExtensionMetadata} extensionIndex - Index of the target extension
+     * @param  {ExtensionMetadata} reorderIndex - Reorder Index of the target extension
+     * @private
+     */
+    _reorderExtensionPrimitive (extensionIndex, reorderIndex) {
+        if (reorderIndex >= this._blockInfo.length) {
+            const padding = reorderIndex - this._blockInfo + 1;
+            while (padding--) {
+                this._blockInfo.push(undefined);
+            }
+        }
+        this._blockInfo.splice(reorderIndex, 0, this._blockInfo.splice(extensionIndex, 1)[0]);
+        this.emit(Runtime.EXTENSION_REORDERED);
+    }
+
+    /**
      * Remove the primitives of an extension
      * @param  {ExtensionMetadata} extensionId - Id of the target extension
      * @private

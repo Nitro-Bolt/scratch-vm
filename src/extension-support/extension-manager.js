@@ -260,6 +260,26 @@ class ExtensionManager {
     }
 
     /**
+     * Reorder an extension by using current index and reorder to index
+     * @param {string} extensionIndex - the index of the extension to reorder
+     * @param {string} reorderIndex - the index to reorder the extension to
+     * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
+     */
+    reorderExtension (extensionIndex, reorderIndex) {
+        let extensions = Array.from(this._loadedExtensions);
+        if (reorderIndex >= extensions.length) {
+            const padding = reorderIndex - extensions + 1;
+            while (padding--) {
+                extensions.push(undefined);
+            }
+        }
+        extensions.splice(reorderIndex, 0, extensions.splice(extensionIndex, 1)[0]);
+        this._loadedExtensions = new Map(extensions.map((extension) => [extension[0], extension[1]]));
+        dispatch.call('runtime', '_reorderExtensionPrimitive', extensionIndex, reorderIndex);
+        this.refreshBlocks();
+    }
+
+    /**
      * Unload an extension by URL or internal extension ID
      * @param {string} extensionURL - the URL for the extension to load OR the ID of an internal extension
      * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
