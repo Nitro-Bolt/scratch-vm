@@ -238,6 +238,44 @@ runtimeFunctions.toBoolean = `const toBoolean = value => {
 }`;
 
 /**
+ * Scratch cast to object.
+ * Similar to Cast.toObject()
+ * @param {*} value The value to cast
+ * @returns {object} The value cast to a object
+ */
+runtimeFunctions.toObject = `const toObject = value => {
+    if (typeof value === 'object' && !Array.isArray(value)) {
+        return value;
+    } else if (typeof value === 'number') {
+        return new Object();
+    }
+    try {
+        return JSON.parse(value);
+    } catch {
+        return new Object();
+    }
+}`;
+
+/**
+ * Scratch cast to array.
+ * Similar to Cast.toArray()
+ * @param {*} value The value to cast
+ * @returns {array} The value cast to a array
+ */
+runtimeFunctions.toArray = `const toArray = value => {
+    if (Array.isArray(value)) {
+        return value;
+    } else if (typeof value === 'number' || typeof value === 'object') {
+        return new Array();
+    }
+    try {
+        return JSON.parse(value);
+    } catch {
+        return new Array();
+    }
+}`;
+
+/**
  * If a number is very close to a whole number, round to that whole number.
  * @param {number} value Value to round
  * @returns {number} Rounded number or original number

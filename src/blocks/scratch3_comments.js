@@ -19,7 +19,9 @@ class Scratch3CommentsBlocks {
             comments_command: this.command,
             comments_loop: this.loop,
             comments_reporter: this.reporter,
-            comments_boolean: this.boolean
+            comments_boolean: this.boolean,
+            comments_object: this.object,
+            comments_array: this.array
         };
     }
 
@@ -41,6 +43,14 @@ class Scratch3CommentsBlocks {
 
     boolean (args) {
         return Cast.toBoolean(args.VALUE);
+    }
+
+    object (args) {
+        return Cast.toObject(args.VALUE);
+    }
+
+    array (args) {
+        return Cast.toArray(args.VALUE);
     }
 }
 

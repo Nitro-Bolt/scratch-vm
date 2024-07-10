@@ -29,6 +29,16 @@ const ArgumentType = {
     STRING: 'string',
 
     /**
+     * Object value with object shaped placeholder.
+     */
+    OBJECT: 'Object',
+
+    /**
+     * Array value with array shaped placeholder.
+     */
+    ARRAY: 'Array',
+
+    /**
      * String value with matrix field
      */
     MATRIX: 'matrix',

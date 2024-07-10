@@ -92,7 +92,48 @@ class Cast {
      * @return {string} The Scratch-casted string value.
      */
     static toString (value) {
+        if (typeof value === 'undefined'|| typeof value === 'null') {
+            return String();
+        } else if (typeof value === 'object') {
+            return JSON.stringify(value);
+        }
         return String(value);
+    }
+
+    /**
+     * Scratch cast to object.
+     * @param {*} value Value to cast to object.
+     * @return {object} The Scratch-casted object value.
+     */
+    static toObject (value) {
+        if (typeof value === 'object' && !Array.isArray(value)) {
+            return value;
+        } else if (typeof value === 'number') {
+            return new Object();
+        }
+        try {
+            return JSON.parse(value);
+        } catch {
+            return new Object();
+        }
+    }
+
+    /**
+     * Scratch cast to array.
+     * @param {*} value Value to cast to array.
+     * @return {array} The Scratch-casted array value.
+     */
+    static toArray (value) {
+        if (Array.isArray(value)) {
+            return value;
+        } else if (typeof value === 'number' || typeof value === 'object') {
+            return new Array();
+        }
+        try {
+            return JSON.parse(value);
+        } catch {
+            return new Array();
+        }
     }
 
     /**

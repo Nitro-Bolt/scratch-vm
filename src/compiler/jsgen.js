@@ -27,8 +27,10 @@ const sanitize = string => {
 const TYPE_NUMBER = 1;
 const TYPE_STRING = 2;
 const TYPE_BOOLEAN = 3;
-const TYPE_UNKNOWN = 4;
-const TYPE_NUMBER_NAN = 5;
+const TYPE_OBJECT = 4;
+const TYPE_ARRAY = 5;
+const TYPE_UNKNOWN = 6;
+const TYPE_NUMBER_NAN = 7;
 
 // Pen-related constants
 const PEN_EXT = 'runtime.ext_pen';
@@ -55,6 +57,8 @@ const generatorNameVariablePool = new VariablePool('gen');
  * @property {() => string} asNumberOrNaN
  * @property {() => string} asString
  * @property {() => string} asBoolean
+ * @property {() => string} asObject
+ * @property {() => string} asArray
  * @property {() => string} asColor
  * @property {() => string} asUnknown
  * @property {() => string} asSafe
@@ -93,6 +97,16 @@ class TypedInput {
     asBoolean () {
         if (this.type === TYPE_BOOLEAN) return this.source;
         return `toBoolean(${this.source})`;
+    }
+
+    asObject () {
+        if (this.type === TYPE_OBJECT) return this.source;
+        return `toObject(${this.source})`;
+    }
+
+    asArray () {
+        if (this.type === TYPE_ARRAY) return this.source;
+        return `toArray(${this.source})`;
     }
 
     asColor () {
@@ -155,6 +169,16 @@ class ConstantInput {
     asBoolean () {
         // Compute at compilation time
         return Cast.toBoolean(this.constantValue).toString();
+    }
+
+    asObject () {
+        // Compute at compilation time
+        return Cast.toObject(this.constantValue);
+    }
+
+    asArray () {
+        // Compute at compilation time
+        return Cast.toArray(this.constantValue);
     }
 
     asColor () {
@@ -264,6 +288,16 @@ class VariableInput {
     asBoolean () {
         if (this.type === TYPE_BOOLEAN) return this.source;
         return `toBoolean(${this.source})`;
+    }
+
+    asObject () {
+        if (this.type === TYPE_OBJECT) return this.source;
+        return `toObject(${this.source})`;
+    }
+
+    asArray () {
+        if (this.type === TYPE_ARRAY) return this.source;
+        return `toArray(${this.source})`;
     }
 
     asColor () {
@@ -435,6 +469,10 @@ class JSGenerator {
 
         case 'args.boolean':
             return new TypedInput(`toBoolean(p${node.index})`, TYPE_BOOLEAN);
+        case 'args.object':
+            return new TypedInput(`toObject(p${node.index})`, TYPE_OBJECT);
+        case 'args.array':
+            return new TypedInput(`toArray(p${node.index})`, TYPE_ARRAY);
         case 'args.stringNumber':
             return new TypedInput(`p${node.index}`, TYPE_UNKNOWN);
 
@@ -1455,6 +1493,8 @@ JSGenerator.unstable_exports = {
     TYPE_NUMBER,
     TYPE_STRING,
     TYPE_BOOLEAN,
+    TYPE_OBJECT,
+    TYPE_ARRAY,
     TYPE_UNKNOWN,
     TYPE_NUMBER_NAN,
     factoryNameVariablePool,

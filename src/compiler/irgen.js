@@ -227,6 +227,36 @@ class ScriptTreeGenerator {
                 index: index
             };
         }
+        case 'argument_reporter_object': {
+            // see argument_reporter_string_number above
+            const name = block.fields.VALUE.value;
+            const index = this.script.arguments.lastIndexOf(name);
+            if (index === -1) {
+                return {
+                    kind: 'constant',
+                    value: 0
+                };
+            }
+            return {
+                kind: 'args.object',
+                index: index
+            };
+        }
+        case 'argument_reporter_array': {
+            // see argument_reporter_string_number above
+            const name = block.fields.VALUE.value;
+            const index = this.script.arguments.lastIndexOf(name);
+            if (index === -1) {
+                return {
+                    kind: 'constant',
+                    value: 0
+                };
+            }
+            return {
+                kind: 'args.array',
+                index: index
+            };
+        }
 
         case 'control_get_counter':
             return {
@@ -678,7 +708,12 @@ class ScriptTreeGenerator {
                 const blockInfo = this.getBlockInfo(block.opcode);
                 if (blockInfo) {
                     const type = blockInfo.info.blockType;
-                    if (type === BlockType.REPORTER || type === BlockType.BOOLEAN) {
+                    if (
+                        type === BlockType.REPORTER
+                        || type === BlockType.BOOLEAN
+                        || type === BlockType.OBJECT
+                        || type === BlockType.ARRAY
+                    ) {
                         return this.descendCompatLayer(block);
                     }
                 }
