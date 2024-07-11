@@ -119,7 +119,7 @@ class Scratch3DataBlocks {
         if (allSingleLetters) {
             return list.value.join('');
         }
-        return list.value.join(' ');
+        return list.value.map(item => Cast.toString(item)).join(' ');
 
     }
 

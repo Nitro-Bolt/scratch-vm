@@ -246,6 +246,8 @@ runtimeFunctions.toBoolean = `const toBoolean = value => {
 runtimeFunctions.toObject = `const toObject = value => {
     if (typeof value === 'object' && !Array.isArray(value)) {
         return value;
+    } else if (Array.isArray(value) || Array.isArray(this.toArray(value))) {
+        return Object.fromEntries(value.map((item, index) => [index, item]));
     } else if (typeof value === 'number') {
         return new Object();
     }
@@ -564,7 +566,14 @@ runtimeFunctions.listContents = `const listContents = list => {
         // this is an intentional break from what scratch 3 does to address our automatic string -> number conversions
         // it fixes more than it breaks
         if ((listItem + '').length !== 1) {
-            return list.value.join(' ');
+            return list.value.map(value => {
+                if (typeof value === 'undefined' || typeof value === 'null') {
+                    return String();
+                } else if (typeof value === 'object') {
+                    return JSON.stringify(value);
+                }
+                return String(value);
+            }).join(' ');
         }
     }
     return list.value.join('');

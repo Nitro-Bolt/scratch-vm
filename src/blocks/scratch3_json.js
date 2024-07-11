@@ -23,7 +23,7 @@ class Scratch3JSONBlocks {
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
             json_delete_key: this.deleteKey,
-            json_join_object: this.joinObject,
+            json_merge_object: this.mergeObject,
             json_has_key: this.hasKey,
             json_new_array: this.newArray,
             json_to_array: this.toArray_,
@@ -33,7 +33,7 @@ class Scratch3JSONBlocks {
             json_replace_index: this.replaceIndex,
             json_delete_index: this.deleteIndex,
             json_delete_all_occurrences: this.deleteAllOccurrences,
-            json_join_array: this.joinArray,
+            json_merge_array: this.mergeArray,
             json_has_item: this.hasItem
         };
     }
@@ -77,7 +77,7 @@ class Scratch3JSONBlocks {
         return args.OBJ;
     }
 
-    joinObject (args) {
+    mergeObject (args) {
         args.OBJ1 = Cast.toObject(args.OBJ1);
         args.OBJ2 = Cast.toObject(args.OBJ2);
         return {...args.OBJ1, ...args.OBJ2};
@@ -137,7 +137,7 @@ class Scratch3JSONBlocks {
         return args.ARR.filter((item) => item !== args.ITEM);
     }
 
-    joinArray (args) {
+    mergeArray (args) {
         args.ARR1 = Cast.toArray(args.ARR1);
         args.ARR2 = Cast.toArray(args.ARR2);
         return [...args.ARR1, ...args.ARR2];

@@ -48,7 +48,7 @@ const inputs = [
     'json_value_of_key',
     'json_set_key',
     'json_delete_key',
-    'json_join_object',
+    'json_merge_object',
     'json_has_key',
     'json_new_array',
     'json_to_array',
@@ -58,7 +58,7 @@ const inputs = [
     'json_replace_index',
     'json_delete_index',
     'json_delete_all_occurrences',
-    'json_join_array',
+    'json_merge_array',
     'json_has_item',
     'comments_object',
     'comments_array'
