@@ -535,7 +535,7 @@ class JSGenerator {
         case 'json.values':
             return new TypedInput(`Object.values(${this.descendInput(node.object).asObject()})`, TYPE_ARRAY);
         case 'json.valueOfKey':
-            return new TypedInput(`${this.descendInput(node.object).asObject()}[${this.descendInput(node.key).asString()}] ?? ""`, TYPE_STRING);
+            return new TypedInput(`(${this.descendInput(node.object).asObject()}[${this.descendInput(node.key).asString()}] ?? "")`, TYPE_STRING);
         case 'json.setKey':
             return new TypedInput(`(object = ${this.descendInput(node.object).asObject()}, object[${this.descendInput(node.key).asString()}] = ${this.descendInput(node.value).asString()}, object)`, TYPE_OBJECT);
         case 'json.deleteKey':
@@ -549,9 +549,9 @@ class JSGenerator {
         case 'json.toArray_':
             return new TypedInput(`${this.descendInput(node.string).asArray()}`, TYPE_ARRAY);
         case 'json.valueOfIndex':
-            return new TypedInput(`${this.descendInput(node.array).asArray()}[${this.descendInput(node.index).asNumber()}] ?? ""`, TYPE_STRING);
+            return new TypedInput(`(${this.descendInput(node.array).asArray()}[${this.descendInput(node.index).asNumber()}] ?? "")`, TYPE_STRING);
         case 'json.indexOfValue':
-            return new TypedInput(`${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asString()}) !== -1 ? ${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asString()}) : ""`, TYPE_STRING);
+            return new TypedInput(`(${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asString()}) !== -1 ? ${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asString()}) : "")`, TYPE_STRING);
         case 'json.addItem':
             return new TypedInput(`(array = ${this.descendInput(node.array).asArray()}, array.push(${this.descendInput(node.item).asString()}), array)`, TYPE_ARRAY);
         case 'json.replaceIndex':
