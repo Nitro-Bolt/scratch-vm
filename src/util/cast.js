@@ -108,8 +108,6 @@ class Cast {
     static toObject (value) {
         if (typeof value === 'object' && !Array.isArray(value)) {
             return value;
-        } else if (Array.isArray(value) || Array.isArray(this.toArray(value))) {
-            return Object.fromEntries(value.map((item, index) => [index, item]));
         } else if (typeof value === 'number') {
             return new Object();
         }

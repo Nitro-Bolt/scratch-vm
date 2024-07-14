@@ -297,6 +297,120 @@ class ScriptTreeGenerator {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
             };
 
+        case 'json_new_object':
+            return {
+                kind: 'json.newObject'
+            };
+        case 'json_to_object':
+            return {
+                kind: 'json.toObject_',
+                string: this.descendInputOfBlock(block, 'STR')
+            };
+        case 'json_to_string':
+            return {
+                kind: 'json.toString_',
+                object: this.descendInputOfBlock(block, 'OBJ')
+            };
+        case 'json_keys':
+            return {
+                kind: 'json.keys',
+                object: this.descendInputOfBlock(block, 'OBJ')
+            };
+        case 'json_values':
+            return {
+                kind: 'json.values',
+                object: this.descendInputOfBlock(block, 'OBJ')
+            };
+        case 'json_value_of_key':
+            return {
+                kind: 'json.valueOfKey',
+                key: this.descendInputOfBlock(block, 'KEY'),
+                object: this.descendInputOfBlock(block, 'OBJ')
+            };
+        case 'json_set_key':
+            return {
+                kind: 'json.setKey',
+                key: this.descendInputOfBlock(block, 'KEY'),
+                object: this.descendInputOfBlock(block, 'OBJ'),
+                value: this.descendInputOfBlock(block, 'VALUE')
+            };
+        case 'json_delete_key':
+            return {
+                kind: 'json.deleteKey',
+                key: this.descendInputOfBlock(block, 'KEY'),
+                object: this.descendInputOfBlock(block, 'OBJ')
+            };
+        case 'json_merge_object':
+            return {
+                kind: 'json.mergeObject',
+                object1: this.descendInputOfBlock(block, 'OBJ1'),
+                object2: this.descendInputOfBlock(block, 'OBJ2')
+            };
+        case 'json_has_key':
+            return {
+                kind: 'json.hasKey',
+                object: this.descendInputOfBlock(block, 'OBJ'),
+                key: this.descendInputOfBlock(block, 'KEY')
+            };
+        case 'json_new_array':
+            return {
+                kind: 'json.newArray'
+            };
+        case 'json_to_array':
+            return {
+                kind: 'json.toArray_',
+                string: this.descendInputOfBlock(block, 'STR')
+            };
+        case 'json_value_of_index':
+            return {
+                kind: 'json.valueOfIndex',
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                array: this.descendInputOfBlock(block, 'ARR')
+            };
+        case 'json_index_of_value':
+            return {
+                kind: 'json.indexOfValue',
+                value: this.descendInputOfBlock(block, 'VALUE'),
+                array: this.descendInputOfBlock(block, 'ARR')
+            };
+        case 'json_add_item':
+            return {
+                kind: 'json.addItem',
+                item: this.descendInputOfBlock(block, 'ITEM'),
+                array: this.descendInputOfBlock(block, 'ARR')
+            };
+        case 'json_replace_index':
+            return {
+                kind: 'json.replaceIndex',
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                array: this.descendInputOfBlock(block, 'ARR'),
+                item: this.descendInputOfBlock(block, 'ITEM')
+            };
+        case 'json_delete_index':
+            return {
+                kind: 'json.deleteIndex',
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                array: this.descendInputOfBlock(block, 'ARR')
+            };
+        case 'json_delete_all_occurrences':
+            return {
+                kind: 'json.deleteAllOccurrences',
+                item: this.descendInputOfBlock(block, 'ITEM'),
+                array: this.descendInputOfBlock(block, 'ARR')
+            };
+        case 'json_merge_array':
+            return {
+                kind: 'json.mergeArray',
+                array1: this.descendInputOfBlock(block, 'ARR1'),
+                array2: this.descendInputOfBlock(block, 'ARR2')
+            };
+        case 'json_has_item':
+            return {
+                kind: 'json.hasItem',
+                array: this.descendInputOfBlock(block, 'ARR'),
+                item: this.descendInputOfBlock(block, 'ITEM')
+            };
+
         case 'event_broadcast_menu': {
             const broadcastOption = block.fields.BROADCAST_OPTION;
             const broadcastVariable = this.target.lookupBroadcastMsg(broadcastOption.id, broadcastOption.value);
@@ -684,10 +798,21 @@ class ScriptTreeGenerator {
                 value: this.descendInputOfBlock(block, 'VALUE'),
                 comment: this.descendInputOfBlock(block, 'COMMENT'),
             };
-
         case 'comments_boolean':
             return {
                 kind: 'comments.boolean',
+                value: this.descendInputOfBlock(block, 'VALUE'),
+                comment: this.descendInputOfBlock(block, 'COMMENT'),
+            };
+        case 'comments_object':
+            return {
+                kind: 'comments.object',
+                value: this.descendInputOfBlock(block, 'VALUE'),
+                comment: this.descendInputOfBlock(block, 'COMMENT'),
+            };
+        case 'comments_array':
+            return {
+                kind: 'comments.array',
                 value: this.descendInputOfBlock(block, 'VALUE'),
                 comment: this.descendInputOfBlock(block, 'COMMENT'),
             };
@@ -1202,13 +1327,11 @@ class ScriptTreeGenerator {
                 kind: 'comments.hat',
                 comment: this.descendInputOfBlock(block, 'COMMENT')
             };
-
         case 'comments_command':
             return {
                 kind: 'comments.command',
                 comment: this.descendInputOfBlock(block, 'COMMENT')
             };
-
         case 'comments_loop':
             return {
                 kind: 'comments.loop',

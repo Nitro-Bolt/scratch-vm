@@ -24,6 +24,20 @@ const sanitize = string => {
     return JSON.stringify(string).slice(1, -1);
 };
 
+const stringify = (object, type) => {
+    if (typeof object === 'number') {
+        switch (type) {
+            case 'object':
+                object = '{}';
+                break;
+            case 'array':
+                object = '[]';
+                break;
+        }
+    }
+    return typeof object === 'string' ? object : JSON.stringify(object);
+};
+
 const TYPE_NUMBER = 1;
 const TYPE_STRING = 2;
 const TYPE_BOOLEAN = 3;
@@ -91,7 +105,7 @@ class TypedInput {
 
     asString () {
         if (this.type === TYPE_STRING) return this.source;
-        return `("" + ${this.source})`;
+        return `toString(${this.source})`;
     }
 
     asBoolean () {
@@ -173,12 +187,12 @@ class ConstantInput {
 
     asObject () {
         // Compute at compilation time
-        return Cast.toObject(this.constantValue);
+        return `${stringify(this.constantValue, 'object')}`;
     }
 
     asArray () {
         // Compute at compilation time
-        return Cast.toArray(this.constantValue);
+        return `${stringify(this.constantValue, 'array')}`;
     }
 
     asColor () {
@@ -282,7 +296,7 @@ class VariableInput {
 
     asString () {
         if (this.type === TYPE_STRING) return this.source;
-        return `("" + ${this.source})`;
+        return `toString(${this.source})`;
     }
 
     asBoolean () {
@@ -509,6 +523,47 @@ class JSGenerator {
             return new TypedInput(`listIndexOf(${this.referenceVariable(node.list)}, ${this.descendInput(node.item).asUnknown()})`, TYPE_NUMBER);
         case 'list.length':
             return new TypedInput(`${this.referenceVariable(node.list)}.value.length`, TYPE_NUMBER);
+
+        case 'json.newObject':
+            return new TypedInput('new Object()', TYPE_OBJECT);
+        case 'json.toObject_':
+            return new TypedInput(`${this.descendInput(node.string).asObject()}`, TYPE_OBJECT);
+        case 'json.toString_':
+            return new TypedInput(`toString(${this.descendInput(node.object).asObject()})`, TYPE_STRING);
+        case 'json.keys':
+            return new TypedInput(`Object.keys(${this.descendInput(node.object).asObject()})`, TYPE_ARRAY);
+        case 'json.values':
+            return new TypedInput(`Object.values(${this.descendInput(node.object).asObject()})`, TYPE_ARRAY);
+        case 'json.valueOfKey':
+            return new TypedInput(`${this.descendInput(node.object).asObject()}[${this.descendInput(node.key).asString()}] ?? ""`, TYPE_STRING);
+        case 'json.setKey':
+            return new TypedInput(`(object = ${this.descendInput(node.object).asObject()}, object[${this.descendInput(node.key).asString()}] = ${this.descendInput(node.value).asString()}, object)`, TYPE_OBJECT);
+        case 'json.deleteKey':
+            return new TypedInput(`(object = ${this.descendInput(node.object).asObject()}, delete object[${this.descendInput(node.key).asString()}], object)`, TYPE_OBJECT);
+        case 'json.mergeObject':
+            return new TypedInput(`{...${this.descendInput(node.object1).asObject()}, ...${this.descendInput(node.object2).asObject()}}`, TYPE_OBJECT);
+        case 'json.hasKey':
+            return new TypedInput(`${this.descendInput(node.object).asObject()}.hasOwnProperty(${this.descendInput(node.key).asString()})`, TYPE_BOOLEAN);
+        case 'json.newArray':
+            return new TypedInput('new Array()', TYPE_ARRAY);
+        case 'json.toArray_':
+            return new TypedInput(`${this.descendInput(node.string).asArray()}`, TYPE_ARRAY);
+        case 'json.valueOfIndex':
+            return new TypedInput(`${this.descendInput(node.array).asArray()}[${this.descendInput(node.index).asNumber()}] ?? ""`, TYPE_STRING);
+        case 'json.indexOfValue':
+            return new TypedInput(`${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asString()}) !== -1 ? ${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asString()}) : ""`, TYPE_STRING);
+        case 'json.addItem':
+            return new TypedInput(`(array = ${this.descendInput(node.array).asArray()}, array.push(${this.descendInput(node.item).asString()}), array)`, TYPE_ARRAY);
+        case 'json.replaceIndex':
+            return new TypedInput(`(${this.descendInput(node.index).asNumber()} >= 0 && ${this.descendInput(node.index).asNumber()} < ${this.descendInput(node.array).asArray()}.length ? (array = ${this.descendInput(node.array).asArray()}, array[${this.descendInput(node.index).asNumber()}] = ${this.descendInput(node.item).asString()}, array) : new Array())`, TYPE_ARRAY);
+        case 'json.deleteIndex':
+            return new TypedInput(`(${this.descendInput(node.index).asNumber()} >= 0 && ${this.descendInput(node.index).asNumber()} < ${this.descendInput(node.array).asArray()}.length ? (array = ${this.descendInput(node.array).asArray()}, array.splice(${this.descendInput(node.index).asNumber()}, 1), array) : new Array())`, TYPE_ARRAY);
+        case 'json.deleteAllOccurrences':
+            return new TypedInput(`${this.descendInput(node.array).asArray()}.filter((item) => item !== ${this.descendInput(node.item).asString()})`, TYPE_ARRAY);
+        case 'json.mergeArray':
+            return new TypedInput(`[...${this.descendInput(node.array1).asArray()}, ...${this.descendInput(node.array2).asArray()}]`, TYPE_ARRAY);
+        case 'json.hasItem':
+            return new TypedInput(`${this.descendInput(node.array).asArray()}.includes(${this.descendInput(node.item).asString()})`, TYPE_BOOLEAN);
 
         case 'looks.size':
             return new TypedInput('Math.round(target.size)', TYPE_NUMBER);
@@ -784,10 +839,13 @@ class JSGenerator {
             return this.descendVariable(node.variable);
 
         case 'comments.reporter':
-            return new TypedInput(`${this.descendInput(node.value).asString()}`, TYPE_STRING)
-
+            return new TypedInput(`${this.descendInput(node.value).asString()}`, TYPE_STRING);
         case 'comments.boolean':
-            return new TypedInput(`${this.descendInput(node.value).asBoolean()}`, TYPE_BOOLEAN)
+            return new TypedInput(`${this.descendInput(node.value).asBoolean()}`, TYPE_BOOLEAN);
+        case 'comments.object':
+            return new TypedInput(`${this.descendInput(node.value).asObject()}`, TYPE_OBJECT);
+        case 'comments.array':
+            return new TypedInput(`${this.descendInput(node.value).asArray()}`, TYPE_ARRAY);
 
         default:
             log.warn(`JS: Unknown input: ${node.kind}`, node);
@@ -1206,11 +1264,9 @@ class JSGenerator {
         case 'comments.hat':
             this.source += `\n`;
             break;
-
         case 'comments.command':
             this.source += `\n`;
             break;
-
         case 'comments.loop':
             this.source += `\n`;
             this.descendStack(node.do, new Frame(true));

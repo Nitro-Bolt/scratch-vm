@@ -219,6 +219,21 @@ runtimeFunctions.retire = `const retire = () => {
 }`;
 
 /**
+ * Scratch cast to string.
+ * Similar to Cast.toString()
+ * @param {*} value The value to cast
+ * @returns {string} The value cast to a string
+ */
+runtimeFunctions.toString = `const toString = value => {
+    if (typeof value === 'undefined' || typeof value === 'null') {
+        return String();
+    } else if (typeof value === 'object') {
+        return JSON.stringify(value);
+    }
+    return String(value);
+}`;
+
+/**
  * Scratch cast to boolean.
  * Similar to Cast.toBoolean()
  * @param {*} value The value to cast
@@ -246,8 +261,6 @@ runtimeFunctions.toBoolean = `const toBoolean = value => {
 runtimeFunctions.toObject = `const toObject = value => {
     if (typeof value === 'object' && !Array.isArray(value)) {
         return value;
-    } else if (Array.isArray(value) || Array.isArray(this.toArray(value))) {
-        return Object.fromEntries(value.map((item, index) => [index, item]));
     } else if (typeof value === 'number') {
         return new Object();
     }
