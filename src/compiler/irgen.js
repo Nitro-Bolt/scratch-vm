@@ -238,7 +238,7 @@ class ScriptTreeGenerator {
                 };
             }
             return {
-                kind: 'args.object',
+                kind: 'procedures.argument',
                 index: index
             };
         }
@@ -253,7 +253,7 @@ class ScriptTreeGenerator {
                 };
             }
             return {
-                kind: 'args.array',
+                kind: 'procedures.argument',
                 index: index
             };
         }
