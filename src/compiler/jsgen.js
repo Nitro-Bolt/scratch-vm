@@ -528,9 +528,9 @@ class JSGenerator {
         case 'json.valueOfKey':
             return new TypedInput(`(${this.descendInput(node.object).asObject()}[${this.descendInput(node.key).asString()}] ?? "")`, TYPE_STRING);
         case 'json.setKey':
-            return new TypedInput(`(object = ${this.descendInput(node.object).asObject()}, object[${this.descendInput(node.key).asString()}] = ${this.descendInput(node.value).asString()}, object)`, TYPE_OBJECT);
+            return new TypedInput(`(object = {...${this.descendInput(node.object).asObject()}}, object[${this.descendInput(node.key).asString()}] = ${this.descendInput(node.value).asUnknown()}, object)`, TYPE_OBJECT);
         case 'json.deleteKey':
-            return new TypedInput(`(object = ${this.descendInput(node.object).asObject()}, delete object[${this.descendInput(node.key).asString()}], object)`, TYPE_OBJECT);
+            return new TypedInput(`(object = {...${this.descendInput(node.object).asObject()}}, delete object[${this.descendInput(node.key).asString()}], object)`, TYPE_OBJECT);
         case 'json.mergeObject':
             return new TypedInput(`{...${this.descendInput(node.object1).asObject()}, ...${this.descendInput(node.object2).asObject()}}`, TYPE_OBJECT);
         case 'json.hasKey':
@@ -542,19 +542,19 @@ class JSGenerator {
         case 'json.valueOfIndex':
             return new TypedInput(`(${this.descendInput(node.array).asArray()}[${this.descendInput(node.index).asNumber()}] ?? "")`, TYPE_STRING);
         case 'json.indexOfValue':
-            return new TypedInput(`(${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asString()}) !== -1 ? ${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asString()}) : "")`, TYPE_STRING);
+            return new TypedInput(`(${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asUnknown()}) !== -1 ? ${this.descendInput(node.array).asArray()}.indexOf(${this.descendInput(node.value).asUnknown()}) : "")`, TYPE_NUMBER);
         case 'json.addItem':
-            return new TypedInput(`(array = ${this.descendInput(node.array).asArray()}, array.push(${this.descendInput(node.item).asString()}), array)`, TYPE_ARRAY);
+            return new TypedInput(`(array = [...${this.descendInput(node.array).asArray()}], array.push(${this.descendInput(node.item).asUnknown()}), array)`, TYPE_ARRAY);
         case 'json.replaceIndex':
-            return new TypedInput(`(${this.descendInput(node.index).asNumber()} >= 0 && ${this.descendInput(node.index).asNumber()} < ${this.descendInput(node.array).asArray()}.length ? (array = ${this.descendInput(node.array).asArray()}, array[${this.descendInput(node.index).asNumber()}] = ${this.descendInput(node.item).asString()}, array) : new Array())`, TYPE_ARRAY);
+            return new TypedInput(`(${this.descendInput(node.index).asNumber()} >= 0 && ${this.descendInput(node.index).asNumber()} < ${this.descendInput(node.array).asArray()}.length ? (array = [...${this.descendInput(node.array).asArray()}], array[${this.descendInput(node.index).asNumber()}] = ${this.descendInput(node.item).asUnknown()}, array) : new Array())`, TYPE_ARRAY);
         case 'json.deleteIndex':
-            return new TypedInput(`(${this.descendInput(node.index).asNumber()} >= 0 && ${this.descendInput(node.index).asNumber()} < ${this.descendInput(node.array).asArray()}.length ? (array = ${this.descendInput(node.array).asArray()}, array.splice(${this.descendInput(node.index).asNumber()}, 1), array) : new Array())`, TYPE_ARRAY);
+            return new TypedInput(`(${this.descendInput(node.index).asNumber()} >= 0 && ${this.descendInput(node.index).asNumber()} < ${this.descendInput(node.array).asArray()}.length ? (array = [...${this.descendInput(node.array).asArray()}], array.splice(${this.descendInput(node.index).asNumber()}, 1), array) : new Array())`, TYPE_ARRAY);
         case 'json.deleteAllOccurrences':
             return new TypedInput(`${this.descendInput(node.array).asArray()}.filter((item) => item !== ${this.descendInput(node.item).asString()})`, TYPE_ARRAY);
         case 'json.mergeArray':
             return new TypedInput(`[...${this.descendInput(node.array1).asArray()}, ...${this.descendInput(node.array2).asArray()}]`, TYPE_ARRAY);
         case 'json.hasItem':
-            return new TypedInput(`${this.descendInput(node.array).asArray()}.includes(${this.descendInput(node.item).asString()})`, TYPE_BOOLEAN);
+            return new TypedInput(`${this.descendInput(node.array).asArray()}.includes(${this.descendInput(node.item).asUnknown()})`, TYPE_BOOLEAN);
 
         case 'looks.size':
             return new TypedInput('Math.round(target.size)', TYPE_NUMBER);

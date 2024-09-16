@@ -111,13 +111,11 @@ class Scratch3JSONBlocks {
 
     indexOfValue (args) {
         args.ARR = Cast.toArray(args.ARR);
-        args.VALUE = Cast.toString(args.VALUE);
         return args.ARR.indexOf(args.VALUE) !== -1 ? args.ARR.indexOf(args.VALUE) : "";
     }
 
     addItem (args) {
         args.ARR = Cast.toArray(args.ARR);
-        args.ITEM = Cast.toString(args.ITEM);
         args.ARR.push(args.ITEM);
         return args.ARR;
     }
@@ -158,7 +156,6 @@ class Scratch3JSONBlocks {
 
     hasItem (args) {
         args.ARR = Cast.toArray(args.ARR);
-        args.ITEM = Cast.toString(args.ITEM);
         return args.ARR.includes(args.ITEM);
     }
 }
