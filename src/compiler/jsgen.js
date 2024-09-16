@@ -481,15 +481,6 @@ class JSGenerator {
         case 'addons.call':
             return new TypedInput(`(${this.descendAddonCall(node)})`, TYPE_UNKNOWN);
 
-        case 'args.boolean':
-            return new TypedInput(`toBoolean(p${node.index})`, TYPE_BOOLEAN);
-        case 'args.object':
-            return new TypedInput(`toObject(p${node.index})`, TYPE_OBJECT);
-        case 'args.array':
-            return new TypedInput(`toArray(p${node.index})`, TYPE_ARRAY);
-        case 'args.stringNumber':
-            return new TypedInput(`p${node.index}`, TYPE_UNKNOWN);
-
         case 'compat':
             // Compatibility layer inputs never use flags.
             return new TypedInput(`(${this.generateCompatibilityLayerCall(node, false)})`, TYPE_UNKNOWN);
@@ -758,6 +749,8 @@ class JSGenerator {
             }
             return new TypedInput(`${procedureReference}(${joinedArgs})`, TYPE_UNKNOWN);
         }
+        case 'procedures.argument':
+            return new TypedInput(`p${node.index}`, TYPE_UNKNOWN);
 
         case 'sensing.answer':
             return new TypedInput(`runtime.ext_scratch3_sensing._answer`, TYPE_STRING);
