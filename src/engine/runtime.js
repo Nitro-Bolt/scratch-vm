@@ -3129,11 +3129,14 @@ class Runtime extends EventEmitter {
 
     /**
      * Emit value for reporter to show in the blocks.
+     * @param {Target} target The target that the block was run in.
      * @param {string} blockId ID for the block.
      * @param {string} value Value to show associated with the block.
      */
-    visualReport (blockId, value) {
-        this.emit(Runtime.VISUAL_REPORT, {id: blockId, value: Cast.toString(value)});
+    visualReport (target, blockId, value) {
+        if (target === this.getEditingTarget()) {
+            this.emit(Runtime.VISUAL_REPORT, {id: blockId, value: Cast.toString(value)});
+        }
     }
 
     /**

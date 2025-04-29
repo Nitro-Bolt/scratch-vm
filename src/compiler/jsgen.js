@@ -1269,7 +1269,7 @@ class JSGenerator {
             const value = this.localVariables.next();
             this.source += `const ${value} = ${this.descendInput(node.input).asUnknown()};`;
             // blocks like legacy no-ops can return a literal `undefined`
-            this.source += `if (${value} !== undefined) runtime.visualReport("${sanitize(this.script.topBlockId)}", ${value});\n`;
+            this.source += `if (${value} !== undefined) runtime.visualReport(target, "${sanitize(this.script.topBlockId)}", ${value});\n`;
             break;
         }
 
@@ -1450,6 +1450,8 @@ class JSGenerator {
         }
         const opcodeFunction = this.evaluateOnce(`runtime.getOpcodeFunction("${sanitize(opcode)}")`);
         result += `}, ${opcodeFunction}, ${this.isWarp}, ${setFlags}, "${sanitize(node.id)}", ${frameName})`;
+
+        this.yielded();
 
         return result;
     }
