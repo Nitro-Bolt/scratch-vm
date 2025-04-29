@@ -177,7 +177,7 @@ class ConstantInput {
     }
 
     asString () {
-        return `"${sanitize('' + this.constantValue)}"`;
+        return `"${sanitize('' + this.constantValue)}"`; // Should this be updated to use "Cast.toString"?
     }
 
     asBoolean () {
