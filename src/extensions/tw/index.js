@@ -10,7 +10,7 @@ const iconURI = `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org
  * Class for NitroBolt blocks
  * @constructor
  */
-class TurboWarpBlocks {
+class NitroBoltBlocks {
     constructor (runtime) {
         /**
          * The runtime instantiating this block package.
@@ -103,4 +103,4 @@ class TurboWarpBlocks {
     }
 }
 
-module.exports = TurboWarpBlocks;
+module.exports = NitroBoltBlocks;
