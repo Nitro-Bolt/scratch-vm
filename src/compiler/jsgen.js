@@ -25,17 +25,19 @@ const sanitize = string => {
 };
 
 const stringify = (object, type) => {
-    if (typeof object === 'number') {
-        switch (type) {
-            case 'object':
-                object = '{}';
-                break;
-            case 'array':
-                object = '[]';
-                break;
-        }
+    if (typeof object !== 'object' && typeof object !== 'string') {
+        if (type === 'object') return '{}';
+        if (type === 'array') return '[]';
+        throw new Error('Unexpected stringify type.');
     }
-    return typeof object === 'string' ? object : JSON.stringify(object);
+    if (typeof object === 'object') {
+        if (type === 'array' && !Array.isArray(object)) return '[]';
+        if (type === 'object' && Array.isArray(object)) return '{}';
+    }
+    console.log(object, type);
+    return ((typeof object === 'string') ? object : JSON.stringify(object ?? (
+        type === 'object' ? (new Object()) : (new Array())
+    )));
 };
 
 const TYPE_NUMBER = 1;
@@ -158,6 +160,7 @@ class ConstantInput {
     }
 
     asNumber () {
+        if (typeof this.constantValue === 'object') return '0';
         // Compute at compilation time
         const numberValue = +this.constantValue;
         if (numberValue) {
@@ -187,17 +190,20 @@ class ConstantInput {
 
     asObject () {
         // Compute at compilation time
-        return `${stringify(this.constantValue, 'object')}`;
+        return `${stringify(Cast.toObject(this.constantValue), 'object')}`;
     }
 
     asArray () {
         // Compute at compilation time
-        return `${stringify(this.constantValue, 'array')}`;
+        return `${stringify(Cast.toArray(this.constantValue), 'array')}`;
     }
 
     asColor () {
         // Attempt to parse hex code at compilation time
-        if (/^#[0-9a-f]{6,8}$/i.test(this.constantValue)) {
+        if (
+            (typeof this.constantValue === 'string') &&
+            /^#[0-9a-f]{6,8}$/i.test(this.constantValue)
+        ) {
             const hex = this.constantValue.substr(1);
             return Number.parseInt(hex, 16).toString();
         }

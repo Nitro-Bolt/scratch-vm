@@ -103,16 +103,20 @@ class Cast {
     /**
      * Scratch cast to object.
      * @param {*} value Value to cast to object.
+     * @param {?boolean} nullSafe Is null allowed.
      * @return {object} The Scratch-casted object value.
      */
-    static toObject (value) {
-        if (typeof value === 'object' && !Array.isArray(value)) {
+    static toObject (value, nullSafe) {
+        if (typeof value === 'object') {
+            if (value === null) {
+                if (nullSafe) return null;
+                return new Object();
+            }
+            if (Array.isArray(value)) return new Object();
             return value;
-        } else if (typeof value === 'number') {
-            return new Object();
         }
         try {
-            return JSON.parse(value);
+            return this.toObject(JSON.parse(value));
         } catch {
             return new Object();
         }
@@ -124,13 +128,12 @@ class Cast {
      * @return {array} The Scratch-casted array value.
      */
     static toArray (value) {
-        if (Array.isArray(value)) {
-            return value;
-        } else if (typeof value === 'number' || typeof value === 'object') {
-            return new Array();
-        }
+        if (Array.isArray(value)) return value;
         try {
-            return JSON.parse(value);
+            if (typeof value === 'string') {
+                return this.toArray(JSON.parse(value));
+            }
+            return Array.from(value);
         } catch {
             return new Array();
         }
