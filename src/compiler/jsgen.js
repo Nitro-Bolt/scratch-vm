@@ -177,7 +177,7 @@ class ConstantInput {
     }
 
     asString () {
-        return `"${sanitize('' + this.constantValue)}"`; // Should this be updated to use "Cast.toString"?
+        return `"${sanitize(Cast.toString(this.constantValue))}"`;
     }
 
     asBoolean () {
@@ -205,6 +205,8 @@ class ConstantInput {
     }
 
     asUnknown () {
+        if (Array.isArray(this.constantValue)) return this.asArray();
+        if (typeof this.constantValue === 'object') return this.asObject();
         // Attempt to convert strings to numbers if it is unlikely to break things
         if (typeof this.constantValue === 'number') {
             // todo: handle NaN?
