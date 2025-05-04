@@ -20,8 +20,23 @@ const globalState = {
 let baseRuntime = '';
 const runtimeFunctions = {};
 
-/** Null coalshing function */
+/**
+ * Null coalescing just incase it's not supported by the browser.
+ * @param {any} n
+ * @param {any} v
+ * @returns {!any}
+ */
 baseRuntime += `const nullCoalsh = (n, v) => ((n === null || n === (void 0)) ? v : n);`;
+
+/**
+ * Merges 2 objects. (use this to get around spread overflow)
+ * @param {object} a
+ * @param {object} b
+ * @returns {object}
+ */
+runtimeFunctions.mergeObjects = `const mergeObjects = (a, b) => {
+  return Object.fromEntries(Object.entries(a).concat(Object.entries(b)));
+};`;
 
 /**
  * Determine whether the current tick is likely stuck.

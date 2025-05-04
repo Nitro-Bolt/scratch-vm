@@ -85,7 +85,7 @@ class Scratch3JSONBlocks {
     mergeObject (args) {
         args.OBJ1 = Cast.toObject(args.OBJ1);
         args.OBJ2 = Cast.toObject(args.OBJ2);
-        return {...args.OBJ1, ...args.OBJ2};
+        return Object.fromEntries(Object.entries(args.OBJ1).concat(Object.entries(args.OBJ2)));
     }
 
     hasKey (args) {
@@ -151,7 +151,7 @@ class Scratch3JSONBlocks {
     mergeArray (args) {
         args.ARR1 = Cast.toArray(args.ARR1);
         args.ARR2 = Cast.toArray(args.ARR2);
-        return [...args.ARR1, ...args.ARR2];
+        return args.ARR1.concat(args.ARR2);
     }
 
     hasItem (args) {
