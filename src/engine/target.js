@@ -261,6 +261,26 @@ class Target extends EventEmitter {
     }
 
     /**
+    * Look up a table object for this target, and create it if one doesn't exist.
+    * Search begins for local tables; then look for globals.
+    * @param {!string} id Id of the table.
+    * @param {!string} name Name of the table.
+    * @return {!Varible} Variable object representing the found/created table.
+     */
+    lookupOrCreateTable (id, name) {
+        let table = this.lookupVariableById(id);
+        if (table) return table;
+
+        table = this.lookupVariableByNameAndType(name, Variable.TABLE_TYPE);
+        if (table) return table;
+
+        // No variable with this name exists - create it locally.
+        const newTable = new Variable(id, name, Variable.TABLE_TYPE, false);
+        this.variables[id] = newTable;
+        return newTable;
+    }
+
+    /**
      * Creates a variable with the given id and name and adds it to the
      * dictionary of variables.
      * @param {string} id Id of variable
@@ -343,11 +363,23 @@ class Target extends EventEmitter {
                         if (blockUpdated) this.runtime.requestBlocksUpdate();
                     }
 
+                    let name;
+                    switch (variable.type) {
+                        case Variable.TABLE_TYPE:
+                            name = 'TABLE';
+                            break;
+                        case Variable.LIST_TYPE:
+                            name = 'LIST';
+                            break;
+                        default:
+                            name = 'VARIABLE';
+                            break;
+                    }
                     const blocks = this.runtime.monitorBlocks;
                     blocks.changeBlock({
                         id: id,
                         element: 'field',
-                        name: variable.type === Variable.LIST_TYPE ? 'LIST' : 'VARIABLE',
+                        name,
                         value: id
                     }, this.runtime);
                     const monitorBlock = blocks.getBlock(variable.id);
@@ -423,6 +455,8 @@ class Target extends EventEmitter {
                 originalVariable.isCloud
             );
             if (newVariable.type === Variable.LIST_TYPE) {
+                newVariable.value = originalVariable.value.slice(0);
+            } else if (newVariable.type === Variable.TABLE_TYPE) {
                 newVariable.value = originalVariable.value.slice(0);
             } else {
                 newVariable.value = originalVariable.value;

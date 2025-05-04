@@ -31,7 +31,8 @@ class Scratch3DataBlocks {
             data_lengthoflist: this.lengthOfList,
             data_listcontainsitem: this.listContainsItem,
             data_hidelist: this.hideList,
-            data_showlist: this.showList
+            data_showlist: this.showList,
+            data_tablecontents: this.getTableContents
         };
     }
 
@@ -120,7 +121,6 @@ class Scratch3DataBlocks {
             return list.value.join('');
         }
         return list.value.map(item => Cast.toString(item)).join(' ');
-
     }
 
     addToList (args, util) {
@@ -234,6 +234,38 @@ class Scratch3DataBlocks {
             }
         }
         return false;
+    }
+
+    getTableContents (args, util) {
+        const table = util.target.lookupOrCreateTable(
+            args.TABLE.id, args.TABLE.name);
+
+        // If block is running for monitors, return copy of list as an array if changed.
+        if (util.thread.updateMonitor) {
+            // Return original list value if up-to-date, which doesn't trigger monitor update.
+            if (table._monitorUpToDate) return table.value;
+            // If value changed, reset the flag and return a copy to trigger monitor update.
+            // Because monitors use Immutable data structures, only new objects trigger updates.
+            table._monitorUpToDate = true;
+            return table.value.slice();
+        }
+
+        // Determine if the list is all single letters.
+        // If it is, report contents joined together with no separator.
+        // If it's not, report contents joined together with a space.
+        let allSingleLetters = true;
+        for (let i = 0; i < table.value.length; i++) {
+            const tableItem = table.value[i];
+            if (!((typeof tableItem === 'string') &&
+                  (tableItem.length === 1))) {
+                allSingleLetters = false;
+                break;
+            }
+        }
+        if (allSingleLetters) {
+            return table.value.join('');
+        }
+        return table.value.map(item => Cast.toString(item)).join(' ');
     }
 }
 
