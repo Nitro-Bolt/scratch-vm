@@ -95,7 +95,9 @@ class Cast {
         if (typeof value === 'undefined' || typeof value === 'null') {
             return String();
         } else if (typeof value === 'object') {
-            return JSON.stringify(value);
+            try {
+                return JSON.stringify(value);
+            } catch {} // Fallthrough
         }
         return String(value);
     }
