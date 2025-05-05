@@ -96,7 +96,11 @@ const ArgumentTypeMap = (() => {
         }
     };
     map[ArgumentType.BOOLEAN] = {
-        check: 'Boolean'
+        check: 'Boolean',
+        shadow: {
+            type: 'checkbox',
+            fieldName: 'CHECKBOX'
+        }
     };
     map[ArgumentType.OBJECT] = {
         check: 'Object'
