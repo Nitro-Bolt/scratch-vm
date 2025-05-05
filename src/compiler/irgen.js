@@ -177,6 +177,11 @@ class ScriptTreeGenerator {
                 kind: 'constant',
                 value: block.fields.TEXT.value
             };
+        case 'checkbox':
+            return {
+                kind: 'constant',
+                value: block.fields.CHECKBOX.value == 'TRUE'
+            };
 
         case 'argument_reporter_string_number': {
             const name = block.fields.VALUE.value;
