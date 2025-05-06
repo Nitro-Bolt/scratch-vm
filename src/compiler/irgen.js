@@ -180,7 +180,7 @@ class ScriptTreeGenerator {
         case 'checkbox':
             return {
                 kind: 'constant',
-                value: block.fields.CHECKBOX.value
+                value: String(block.fields.CHECKBOX.value).toLowerCase() == "true"
             };
 
         case 'argument_reporter_string_number': {
