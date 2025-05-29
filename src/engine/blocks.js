@@ -899,8 +899,9 @@ class Blocks {
      * Block management: delete blocks and their associated scripts. Does nothing if a block
      * with the given ID does not exist.
      * @param {!string} blockId Id of block to delete
+     * @param {boolean} preserve Should stack be kept intact
      */
-    deleteBlock (blockId) {
+    deleteBlock (blockId, preserve) {
         // @todo In runtime, stop threads running on this script.
 
         // Get block
@@ -911,8 +912,25 @@ class Blocks {
         }
 
         // Delete children
-        if (block.next !== null) {
+        if (block.next !== null && !preserve) {
             this.deleteBlock(block.next);
+        }
+        // Preservation if needed
+        if (preserve) {
+            const parent = this._blocks[block.parent];
+            const next = this._blocks[block.next];
+            const input = parent?.inputs
+                ? Object.values(parent.inputs).find(input => input.block === blockId)
+                : null;
+            if (parent && !input) {
+                parent.next = block.next;
+            }
+            if (next) {
+                next.parent = block.parent;
+            }
+            if (next && input) {
+                input.block = block.next;
+            }
         }
 
         // Delete inputs (including branches)
@@ -928,8 +946,21 @@ class Blocks {
             }
         }
 
-        // Delete any script starting with this block.
-        this._deleteScript(blockId);
+        // More preservation stuff
+        if (!preserve) {
+            this._deleteScript(blockId);
+        }
+        const index = this._scripts.indexOf(blockId);
+        if (preserve && index > -1) {
+            const next = this._blocks[block.next];
+            if (next) {
+                this._scripts.push(next.id);
+                next.topLevel = true;
+                next.x = block.x;
+                next.y = block.y;
+            }
+            this._scripts.splice(index, 1);
+        }
 
         // Delete block itself.
         delete this._blocks[blockId];
