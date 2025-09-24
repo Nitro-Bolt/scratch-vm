@@ -65,7 +65,7 @@ class Scratch3JSONBlocks {
     valueOfKey (args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
-        return args.OBJ[args.KEY] ?? "";
+        return args.OBJ[args.KEY] ?? '';
     }
 
     setKey (args) {
@@ -106,12 +106,12 @@ class Scratch3JSONBlocks {
     valueOfIndex (args) {
         args.ARR = Cast.toArray(args.ARR);
         args.INDEX = Cast.toNumber(args.INDEX);
-        return args.ARR[args.INDEX] ?? "";
+        return args.ARR[args.INDEX] ?? '';
     }
 
     indexOfValue (args) {
         args.ARR = Cast.toArray(args.ARR);
-        return args.ARR.indexOf(args.VALUE) !== -1 ? args.ARR.indexOf(args.VALUE) : "";
+        return args.ARR.indexOf(args.VALUE) !== -1 ? args.ARR.indexOf(args.VALUE) : '';
     }
 
     addItem (args) {
@@ -126,9 +126,9 @@ class Scratch3JSONBlocks {
         if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
             args.ARR[args.INDEX] = args.ITEM;
             return args.ARR;
-        } else {
-            return new Array();
         }
+        return new Array();
+        
     }
 
     deleteIndex (args) {
@@ -137,15 +137,15 @@ class Scratch3JSONBlocks {
         if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
             args.ARR.splice(args.INDEX, 1);
             return args.ARR;
-        } else {
-            return new Array();
         }
+        return new Array();
+        
     }
 
     deleteAllOccurrences (args) {
         args.ARR = Cast.toArray(args.ARR);
         args.ITEM = Cast.toString(args.ITEM);
-        return args.ARR.filter((item) => item !== args.ITEM);
+        return args.ARR.filter(item => item !== args.ITEM);
     }
 
     mergeArray (args) {

@@ -778,6 +778,8 @@ class JSGenerator {
             return new TypedInput(`(new Date().getMinutes())`, TYPE_NUMBER);
         case 'sensing.month':
             return new TypedInput(`(new Date().getMonth() + 1)`, TYPE_NUMBER);
+        case 'sensing.refreshTime':
+            return new TypedInput(`(runtime.screenRefreshTime / 1000)`, TYPE_NUMBER_NAN);
         case 'sensing.of': {
             const object = this.descendInput(node.object).asString();
             const property = node.property;
