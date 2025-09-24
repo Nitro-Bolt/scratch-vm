@@ -728,7 +728,7 @@ class ScriptTreeGenerator {
                 return {
                     kind: 'sensing.second'
                 };
-            case 'refreshTime':
+            case 'refreshtime':
                 return {
                     kind: 'sensing.refreshTime'
                 };
