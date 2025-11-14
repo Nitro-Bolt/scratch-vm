@@ -28,6 +28,7 @@ class Scratch3OperatorsBlocks {
             operator_not: this.not,
             operator_random: this.random,
             operator_join: this.join,
+            operator_join_extendable: this.joinExtendable,
             operator_letter_of: this.letterOf,
             operator_length: this.length,
             operator_contains: this.contains,
@@ -100,6 +101,15 @@ class Scratch3OperatorsBlocks {
 
     join (args) {
         return Cast.toString(args.STRING1) + Cast.toString(args.STRING2);
+    }
+
+    joinExtendable (args) {
+        let string = "";
+        const argCount = +args.STRINGS;
+        for (let i = 0; i < argCount; i++) {
+            string += Cast.toString(args["STRINGS_" + i + "_STRING"]);
+        }
+        return string;
     }
 
     letterOf (args) {
