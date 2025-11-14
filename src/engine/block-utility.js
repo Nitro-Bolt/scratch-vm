@@ -221,6 +221,24 @@ class BlockUtility {
     }
 
     /**
+     * Gets all arguments of a specific name in an extendable input in an args object as an array.
+     * @param {object} args The args object.
+     * @param {string} arg The name of the extendable arugment.
+     * @param {string} innerArg The name of the inner extendable arugment to get.
+     * @returns {array} All 
+     */
+    extendableToArray (args, arg, innerArg) {
+        let length = +args[arg];
+        // NaN and negative
+        if (!(length > 0)) length = 0;
+        const array = new Array(length);
+        for (let i = 0; i < length; i++) {
+            array[i] = args[`${arg}_${i.toString()}_${innerArg}`];
+        }
+        return array;
+    }
+
+    /**
      * Start all relevant hats.
      * @param {!string} requestedHat Opcode of hats to start.
      * @param {object=} optMatchFields Optionally, fields to match on the hat.

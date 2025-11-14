@@ -21,6 +21,10 @@ class Scratch3OperatorsBlocks {
             operator_multiply: this.multiply,
             operator_divide: this.divide,
             operator_power: this.power,
+            operator_add_extendable: this.addExtendable,
+            operator_subtract_extendable: this.subtractExtendable,
+            operator_multiply_extendable: this.multiplyExtendable,
+            operator_divide_extendable: this.divideExtendable,
             operator_lt: this.lt,
             operator_equals: this.equals,
             operator_gt: this.gt,
@@ -64,6 +68,26 @@ class Scratch3OperatorsBlocks {
 
     power (args) {
         return Cast.toNumber(args.NUM1) ** Cast.toNumber(args.NUM2);
+    }
+    
+    addExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'NUMS', 'NUM');
+        return arr.reduce((a, b) => Cast.toNumber(a) + Cast.toNumber(b));
+    }
+    
+    subtractExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'NUMS', 'NUM');
+        return arr.reduce((a, b) => Cast.toNumber(a) + Cast.toNumber(b));
+    }
+    
+    multiplyExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'NUMS', 'NUM');
+        return arr.reduce((a, b) => Cast.toNumber(a) * Cast.toNumber(b));
+    }
+    
+    divideExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'NUMS', 'NUM');
+        return arr.reduce((a, b) => Cast.toNumber(a) / Cast.toNumber(b));
     }
 
     lt (args) {
@@ -110,13 +134,9 @@ class Scratch3OperatorsBlocks {
         return Cast.toString(args.STRING1) + Cast.toString(args.STRING2);
     }
 
-    joinExtendable (args) {
-        let string = "";
-        const argCount = +args.STRINGS;
-        for (let i = 0; i < argCount; i++) {
-            string += Cast.toString(args["STRINGS_" + i + "_STRING"]);
-        }
-        return string;
+    joinExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'STRINGS', 'STRING');
+        return arr.reduce((a, b) => a + Cast.toString(b), '');
     }
 
     letterOf (args) {
