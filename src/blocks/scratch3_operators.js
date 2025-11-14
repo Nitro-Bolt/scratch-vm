@@ -30,6 +30,8 @@ class Scratch3OperatorsBlocks {
             operator_gt: this.gt,
             operator_and: this.and,
             operator_or: this.or,
+            operator_and_extendable: this.andExtendable,
+            operator_or_extendable: this.orExtendable,
             operator_not: this.not,
             operator_random: this.random,
             operator_join: this.join,
@@ -108,6 +110,16 @@ class Scratch3OperatorsBlocks {
 
     or (args) {
         return Cast.toBoolean(args.OPERAND1) || Cast.toBoolean(args.OPERAND2);
+    }
+
+    andExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        return !arr.some(input => !Cast.toBoolean(input));
+    }
+
+    orExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        return arr.some(Cast.toBoolean);
     }
 
     not (args) {
