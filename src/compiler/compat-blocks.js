@@ -41,6 +41,7 @@ const inputs = [
     'assets_metadata',
     'motion_xscroll',
     'motion_yscroll',
+    'operator_join_extendable',
     'sensing_loud',
     'sensing_loudness',
     'sensing_online',
