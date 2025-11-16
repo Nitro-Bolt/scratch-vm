@@ -92,12 +92,14 @@ class Cast {
      * @return {string} The Scratch-casted string value.
      */
     static toString (value) {
-        if (value === undefined || value === null) {
+        if (typeof value === 'undefined' || value === null) {
             return String();
         } else if (typeof value === 'object') {
             try {
                 return JSON.stringify(value);
-            } catch (e) {}
+            } catch (e) {
+                // Think fast, chucklenuts!
+            }
         }
         return String(value);
     }
