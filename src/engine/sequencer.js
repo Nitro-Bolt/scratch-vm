@@ -82,17 +82,23 @@ class Sequencer {
         // Whether `stepThreads` has run through a full single tick.
         let ranFirstTick = false;
         const doneThreads = [];
+
+        // tw: If this happens, the runtime is in initialization, do not execute any thread.
+        if (this.runtime.currentStepTime === 0) return [];
         // Conditions for continuing to stepping threads:
         // 1. We must have threads in the list, and some must be active.
         // 2. Time elapsed must be less than WORK_TIME.
         // 3. Either turbo mode, or no redraw has been requested by a primitive.
-        while (this.runtime.threads.length > 0 &&
-               numActiveThreads > 0 &&
-               this.timer.timeElapsed() < WORK_TIME &&
-               (this.runtime.turboMode || !this.runtime.redrawRequested)) {
+        while (
+            this.runtime.threads.length > 0 &&
+            numActiveThreads > 0 &&
+            (this.runtime.turboMode || !this.runtime.redrawRequested)
+        ) {
             if (this.runtime.profiler !== null) {
                 if (stepThreadsInnerProfilerId === -1) {
-                    stepThreadsInnerProfilerId = this.runtime.profiler.idByName(stepThreadsInnerProfilerFrame);
+                    stepThreadsInnerProfilerId = this.runtime.profiler.idByName(
+                        stepThreadsInnerProfilerFrame
+                    );
                 }
                 this.runtime.profiler.start(stepThreadsInnerProfilerId);
             }
@@ -102,25 +108,34 @@ class Sequencer {
             // Attempt to run each thread one time.
             const threads = this.runtime.threads;
             for (let i = 0; i < threads.length; i++) {
-                const activeThread = this.activeThread = threads[i];
+                const activeThread = (this.activeThread = threads[i]);
                 // Check if the thread is done so it is not executed.
-                if (activeThread.stack.length === 0 ||
-                    activeThread.status === Thread.STATUS_DONE) {
+                if (
+                    activeThread.stack.length === 0 ||
+                    activeThread.status === Thread.STATUS_DONE
+                ) {
                     // Finished with this thread.
                     stoppedThread = true;
                     continue;
                 }
-                if (activeThread.status === Thread.STATUS_YIELD_TICK &&
-                    !ranFirstTick) {
+                if (
+                    activeThread.status === Thread.STATUS_YIELD_TICK &&
+                    !ranFirstTick
+                ) {
                     // Clear single-tick yield from the last call of `stepThreads`.
                     activeThread.status = Thread.STATUS_RUNNING;
                 }
-                if (activeThread.status === Thread.STATUS_RUNNING ||
-                    activeThread.status === Thread.STATUS_YIELD) {
+                if (
+                    activeThread.status === Thread.STATUS_RUNNING ||
+                    activeThread.status === Thread.STATUS_YIELD
+                ) {
                     // Normal-mode thread: step.
                     if (this.runtime.profiler !== null) {
                         if (stepThreadProfilerId === -1) {
-                            stepThreadProfilerId = this.runtime.profiler.idByName(stepThreadProfilerFrame);
+                            stepThreadProfilerId =
+                                this.runtime.profiler.idByName(
+                                    stepThreadProfilerFrame
+                                );
                         }
 
                         // Increment the number of times stepThread is called.
@@ -134,8 +149,10 @@ class Sequencer {
                 }
                 // Check if the thread completed while it just stepped to make
                 // sure we remove it before the next iteration of all threads.
-                if (activeThread.stack.length === 0 ||
-                    activeThread.status === Thread.STATUS_DONE) {
+                if (
+                    activeThread.stack.length === 0 ||
+                    activeThread.status === Thread.STATUS_DONE
+                ) {
                     // Finished with this thread.
                     stoppedThread = true;
                 }
@@ -153,8 +170,10 @@ class Sequencer {
                 let nextActiveThread = 0;
                 for (let i = 0; i < this.runtime.threads.length; i++) {
                     const thread = this.runtime.threads[i];
-                    if (thread.stack.length !== 0 &&
-                        thread.status !== Thread.STATUS_DONE) {
+                    if (
+                        thread.stack.length !== 0 &&
+                        thread.status !== Thread.STATUS_DONE
+                    ) {
                         this.runtime.threads[nextActiveThread] = thread;
                         nextActiveThread++;
                     } else {
@@ -164,6 +183,10 @@ class Sequencer {
                 }
                 this.runtime.threads.length = nextActiveThread;
             }
+
+            // tw: Detect timer here so the sequencer won't break when FPS is greater than 1000
+            // and performance.now() is not available.
+            if (this.timer.timeElapsed() >= WORK_TIME) break;
         }
 
         this.activeThread = null;
@@ -205,7 +228,8 @@ class Sequencer {
             // Execute the current block.
             if (this.runtime.profiler !== null) {
                 if (executeProfilerId === -1) {
-                    executeProfilerId = this.runtime.profiler.idByName(executeProfilerFrame);
+                    executeProfilerId =
+                        this.runtime.profiler.idByName(executeProfilerFrame);
                 }
 
                 // Increment the number of times execute is called.
@@ -222,8 +246,10 @@ class Sequencer {
                 // Mark as running for next iteration.
                 thread.status = Thread.STATUS_RUNNING;
                 // In warp mode, yielded blocks are re-executed immediately.
-                if (isWarpMode &&
-                    thread.warpTimer.timeElapsed() <= Sequencer.WARP_TIME) {
+                if (
+                    isWarpMode &&
+                    thread.warpTimer.timeElapsed() <= Sequencer.WARP_TIME
+                ) {
                     continue;
                 }
                 return;
@@ -265,8 +291,10 @@ class Sequencer {
                     // Return to yield for the frame/tick in general.
                     // Unless we're in warp mode - then only return if the
                     // warp timer is up.
-                    if (!isWarpMode ||
-                        thread.warpTimer.timeElapsed() > Sequencer.WARP_TIME) {
+                    if (
+                        !isWarpMode ||
+                        thread.warpTimer.timeElapsed() > Sequencer.WARP_TIME
+                    ) {
                         // Don't do anything to the stack, since loops need
                         // to be re-executed.
                         return;
@@ -274,7 +302,6 @@ class Sequencer {
                     // Don't go to the next block for this level of the stack,
                     // since loops need to be re-executed.
                     continue;
-
                 } else if (stackFrame.waitingReporter) {
                     // This level of the stack was waiting for a value.
                     // This means a reporter has just returned - so don't go
@@ -317,7 +344,8 @@ class Sequencer {
      * @param {!string} procedureCode Procedure code of procedure to step to.
      */
     stepToProcedure (thread, procedureCode) {
-        const definition = thread.target.blocks.getProcedureDefinition(procedureCode);
+        const definition =
+            thread.target.blocks.getProcedureDefinition(procedureCode);
         if (!definition) {
             return;
         }
@@ -331,15 +359,18 @@ class Sequencer {
         // from the stack by the sequencer, returning control to the caller.
         thread.pushStack(definition);
         // In known warp-mode threads, only yield when time is up.
-        if (thread.peekStackFrame().warpMode &&
-            thread.warpTimer.timeElapsed() > Sequencer.WARP_TIME) {
+        if (
+            thread.peekStackFrame().warpMode &&
+            thread.warpTimer.timeElapsed() > Sequencer.WARP_TIME
+        ) {
             thread.status = Thread.STATUS_YIELD;
         } else {
             // Look for warp-mode flag on definition, and set the thread
             // to warp-mode if needed.
             const definitionBlock = thread.target.blocks.getBlock(definition);
             const innerBlock = thread.target.blocks.getBlock(
-                definitionBlock.inputs.custom_block.block);
+                definitionBlock.inputs.custom_block.block
+            );
             let doWarp = false;
             if (innerBlock && innerBlock.mutation) {
                 const warp = innerBlock.mutation.warp;

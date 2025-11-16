@@ -253,6 +253,7 @@ class Scratch3SensingBlocks {
         case 'hour': return date.getHours();
         case 'minute': return date.getMinutes();
         case 'second': return date.getSeconds();
+        case 'refreshtime': return this.runtime.screenRefreshTime / 1000;
         }
         return 0;
     }

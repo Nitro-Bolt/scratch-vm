@@ -922,9 +922,9 @@ class Blocks {
         if (preserve) {
             const parent = this._blocks[block.parent];
             const next = this._blocks[block.next];
-            const input = parent?.inputs
-                ? Object.values(parent.inputs).find(input => input.block === blockId)
-                : null;
+            const input = parent?.inputs ?
+                Object.values(parent.inputs).find(input => input.block === blockId) :
+                null;
             if (parent && !input) {
                 parent.next = block.next;
             }

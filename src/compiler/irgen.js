@@ -728,6 +728,10 @@ class ScriptTreeGenerator {
                 return {
                     kind: 'sensing.second'
                 };
+            case 'refreshtime':
+                return {
+                    kind: 'sensing.refreshTime'
+                };
             }
             return {
                 kind: 'constant',
@@ -796,25 +800,25 @@ class ScriptTreeGenerator {
             return {
                 kind: 'comments.reporter',
                 value: this.descendInputOfBlock(block, 'VALUE'),
-                comment: this.descendInputOfBlock(block, 'COMMENT'),
+                comment: this.descendInputOfBlock(block, 'COMMENT')
             };
         case 'comments_boolean':
             return {
                 kind: 'comments.boolean',
                 value: this.descendInputOfBlock(block, 'VALUE'),
-                comment: this.descendInputOfBlock(block, 'COMMENT'),
+                comment: this.descendInputOfBlock(block, 'COMMENT')
             };
         case 'comments_object':
             return {
                 kind: 'comments.object',
                 value: this.descendInputOfBlock(block, 'VALUE'),
-                comment: this.descendInputOfBlock(block, 'COMMENT'),
+                comment: this.descendInputOfBlock(block, 'COMMENT')
             };
         case 'comments_array':
             return {
                 kind: 'comments.array',
                 value: this.descendInputOfBlock(block, 'VALUE'),
-                comment: this.descendInputOfBlock(block, 'COMMENT'),
+                comment: this.descendInputOfBlock(block, 'COMMENT')
             };
 
         case 'tw_getLastKeyPressed':
@@ -834,10 +838,10 @@ class ScriptTreeGenerator {
                 if (blockInfo) {
                     const type = blockInfo.info.blockType;
                     if (
-                        type === BlockType.REPORTER
-                        || type === BlockType.BOOLEAN
-                        || type === BlockType.OBJECT
-                        || type === BlockType.ARRAY
+                        type === BlockType.REPORTER ||
+                        type === BlockType.BOOLEAN ||
+                        type === BlockType.OBJECT ||
+                        type === BlockType.ARRAY
                     ) {
                         return this.descendCompatLayer(block);
                     }
