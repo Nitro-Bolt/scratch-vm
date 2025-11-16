@@ -39,7 +39,7 @@ class Scratch3OperatorsBlocks {
     }
 
     checkbox () {
-      return true;
+        return true;
     }
 
     add (args) {

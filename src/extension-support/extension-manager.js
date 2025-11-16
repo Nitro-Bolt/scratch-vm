@@ -266,15 +266,15 @@ class ExtensionManager {
      * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
      */
     reorderExtension (extensionIndex, reorderIndex) {
-        let extensions = Array.from(this._loadedExtensions);
+        const extensions = Array.from(this._loadedExtensions);
         if (reorderIndex >= extensions.length) {
-            const padding = reorderIndex - extensions + 1;
+            let padding = reorderIndex - extensions.length + 1;
             while (padding--) {
-                extensions.push(undefined);
+                extensions.push(null);
             }
         }
         extensions.splice(reorderIndex, 0, extensions.splice(extensionIndex, 1)[0]);
-        this._loadedExtensions = new Map(extensions.map((extension) => [extension[0], extension[1]]));
+        this._loadedExtensions = new Map(extensions.map(extension => [extension[0], extension[1]]));
         dispatch.call('runtime', '_reorderExtensionPrimitive', extensionIndex, reorderIndex);
         this.refreshBlocks();
     }

@@ -1107,9 +1107,9 @@ class Runtime extends EventEmitter {
      */
     _reorderExtensionPrimitive (extensionIndex, reorderIndex) {
         if (reorderIndex >= this._blockInfo.length) {
-            const padding = reorderIndex - this._blockInfo + 1;
+            let padding = reorderIndex - this._blockInfo.length + 1;
             while (padding--) {
-                this._blockInfo.push(undefined);
+                this._blockInfo.push(null);
             }
         }
         this._blockInfo.splice(reorderIndex, 0, this._blockInfo.splice(extensionIndex, 1)[0]);
