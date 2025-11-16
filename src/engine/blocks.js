@@ -197,7 +197,7 @@ class Blocks {
         if (!branchNum) branchNum = 1;
 
         let inputName = Blocks.BRANCH_INPUT_PREFIX;
-        if (branchNum > 1) {
+        if (typeof branchNum === 'string' || branchNum > 1) {
             inputName += branchNum;
         }
 
