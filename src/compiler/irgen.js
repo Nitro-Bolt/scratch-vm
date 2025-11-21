@@ -357,8 +357,8 @@ class ScriptTreeGenerator {
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
         case 'json_index_of_value':
-            return new IntermediateInput(InputOpcode.JSON_INDEX_OF_VALUE, InputType.NUMBER, {
-                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.ANY),
+            return new IntermediateInput(InputOpcode.JSON_INDEX_OF_VALUE, InputType.NUMBER_WHOLE | InputType.STRING_NAN, {
+                value: this.descendInputOfBlock(block, 'VALUE'),
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
         case 'json_add_item':

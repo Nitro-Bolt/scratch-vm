@@ -41,6 +41,18 @@ runtimeFunctions.mergeObjects = `const mergeObjects = (a, b) => {
 };`;
 
 /**
+ * Find the 0-indexed index of an item in an array.
+ * @param {Array<*>} array The array.
+ * @param {*} item The item to search for
+ * @returns {number | string} The 0-indexed index of the item in the list, otherwise empty string
+ */
+runtimeFunctions.arrayIndexOf = `const arrayIndexOf = (array, item) => {
+    const index = array.indexOf(item);
+    if (index === -1) return "";
+    return index;
+}`;
+
+/**
  * Determine whether the current tick is likely stuck.
  * This implements similar functionality to the warp timer found in Scratch.
  * @returns {boolean} true if the current tick is likely stuck.

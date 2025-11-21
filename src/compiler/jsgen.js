@@ -287,7 +287,7 @@ class JSGenerator {
         case InputOpcode.JSON_VALUE_OF_INDEX:
             return `(${this.descendInput(node.array)}[${this.descendInput(node.index)}] ?? "")`;
         case InputOpcode.JSON_INDEX_OF_VALUE:
-            return `(${this.descendInput(node.array)}.indexOf(${this.descendInput(node.value)}) !== -1 ? ${this.descendInput(node.array)}.indexOf(${this.descendInput(node.value)}) : "")`;
+            return `arrayIndexOf(${this.descendInput(node.array)}, ${this.descendInput(node.value)})`;
         case InputOpcode.JSON_ADD_ITEM:
             return `(array = ${this.descendInput(node.array)}.slice(0), array.push(${this.descendInput(node.item)}), array)`;
         case InputOpcode.JSON_REPLACE_INDEX:
