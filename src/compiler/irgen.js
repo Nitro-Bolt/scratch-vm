@@ -683,22 +683,22 @@ class ScriptTreeGenerator {
         case 'comments_reporter':
             return new IntermediateInput(InputOpcode.COMMENTS_REPORTER, InputType.ANY, {
                 value: this.descendInputOfBlock(block, 'VALUE'),
-                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING),
+                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING)
             });
         case 'comments_boolean':
             return new IntermediateInput(InputOpcode.COMMENTS_BOOLEAN, InputType.BOOLEAN, {
                 value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.BOOLEAN),
-                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING),
+                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING)
             });
         case 'comments_object':
             return new IntermediateInput(InputOpcode.COMMENTS_OBJECT, InputType.OBJECT, {
                 value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.OBJECT),
-                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING),
+                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING)
             });
         case 'comments_array':
             return new IntermediateInput(InputOpcode.COMMENTS_ARRAY, InputType.ARRAY, {
                 value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.ARRAY),
-                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING),
+                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING)
             });
 
         case 'tw_getLastKeyPressed':

@@ -53,6 +53,37 @@ runtimeFunctions.arrayIndexOf = `const arrayIndexOf = (array, item) => {
 }`;
 
 /**
+ * Replaces an item at the defined index in an array
+ * @param {Array<*>} array The array
+ * @param {number} index The index of the item to replace
+ * @param {*} item The replacement item
+ * @returns {Array<*>} Updated array with the replaced item
+ */
+runtimeFunctions.arrayReplaceAtIndex = `const arrayReplaceAtIndex = (array, index, item) => {
+    if (index >= 0 && index < array.length) {
+        const newArray = [...array];
+        newArray[index] = item;
+        return newArray;
+    }
+    return new Array();
+}`;
+
+/**
+ * Deletes an item at the defined index in an array
+ * @param {Array<*>} array The array
+ * @param {number} index The index of the item to delete
+ * @returns {Array<*>} Updated array after deleting the item
+ */
+runtimeFunctions.arrayDeleteAtIndex = `const arrayDeleteAtIndex = (array, index) => {
+    if (index >= 0 && index < array.length) {
+        const newArray = [...array];
+        newArray.splice(index, 1);
+        return newArray;
+    }
+    return new Array();
+}`;
+
+/**
  * Determine whether the current tick is likely stuck.
  * This implements similar functionality to the warp timer found in Scratch.
  * @returns {boolean} true if the current tick is likely stuck.

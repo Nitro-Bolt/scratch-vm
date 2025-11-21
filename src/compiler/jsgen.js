@@ -18,7 +18,7 @@ const {
     IntermediateScript,
     IntermediateRepresentation
 } = require('./intermediate');
-const { Stack } = require('immutable');
+const {Stack} = require('immutable');
 /* eslint-enable no-unused-vars */
 
 /**
@@ -291,9 +291,9 @@ class JSGenerator {
         case InputOpcode.JSON_ADD_ITEM:
             return `(array = ${this.descendInput(node.array)}.slice(0), array.push(${this.descendInput(node.item)}), array)`;
         case InputOpcode.JSON_REPLACE_INDEX:
-            return `(${this.descendInput(node.index)} >= 0 && ${this.descendInput(node.index)} < ${this.descendInput(node.array)}.length ? (array = [...${this.descendInput(node.array)}], array[${this.descendInput(node.index)}] = ${this.descendInput(node.item)}, array) : new Array())`;
+            return `arrayReplaceAtIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)}, ${this.descendInput(node.item)})`;
         case InputOpcode.JSON_DELETE_INDEX:
-            return `(${this.descendInput(node.index)} >= 0 && ${this.descendInput(node.index)} < ${this.descendInput(node.array)}.length ? (array = [...${this.descendInput(node.array)}], array.splice(${this.descendInput(node.index)}, 1), array) : new Array())`;
+            return `arrayDeleteAtIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_DELETE_ALL_OCCURRENCES:
             return `${this.descendInput(node.array)}.filter((item) => item !== ${this.descendInput(node.item)})`;
         case InputOpcode.JSON_MERGE_ARRAY:
