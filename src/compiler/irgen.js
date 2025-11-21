@@ -682,7 +682,7 @@ class ScriptTreeGenerator {
 
         case 'comments_reporter':
             return new IntermediateInput(InputOpcode.COMMENTS_REPORTER, InputType.ANY, {
-                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.ANY),
+                value: this.descendInputOfBlock(block, 'VALUE'),
                 comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING),
             });
         case 'comments_boolean':
