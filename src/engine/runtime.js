@@ -1061,7 +1061,7 @@ class Runtime extends EventEmitter {
      * @param {ExtensionMetadata} extensionInfo - information about the extension (id, blocks, etc.)
      * @private
      */
-     async _registerExtensionPrimitives (extensionInfo) {
+    async _registerExtensionPrimitives (extensionInfo) {
 
         // If the extension requires other extensions, load them first.
         if (Array.isArray(extensionInfo.requiredExtensions)) {
@@ -1073,7 +1073,9 @@ class Runtime extends EventEmitter {
                 ) {
                     this.extensionManager.loadExtensionURL(extensionId);
                 } else {
-                    console.warn(`Failed to load required extension: ${extensionId} for extension: ${extensionInfo.id}`);
+                    console.warn(
+                        `Failed to load required extension: ${extensionId} for extension: ${extensionInfo.id}`
+                    );
                 }
             }
         }
