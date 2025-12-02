@@ -37,7 +37,7 @@ const coreExtensions = [
     'control',
     'sensing',
     'operators',
-    'variables',
+    'data',
     'json',
     'procedures',
     'comments'
