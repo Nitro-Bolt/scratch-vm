@@ -38,9 +38,9 @@ const coreExtensions = [
     'sensing',
     'operators',
     'variables',
-    'JSON',
-    'myBlocks',
-    'Comments'
+    'json',
+    'procedures',
+    'comments'
 ];
 
 /**
