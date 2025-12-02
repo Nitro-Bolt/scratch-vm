@@ -1061,7 +1061,25 @@ class Runtime extends EventEmitter {
      * @param {ExtensionMetadata} extensionInfo - information about the extension (id, blocks, etc.)
      * @private
      */
-    _registerExtensionPrimitives (extensionInfo) {
+    async _registerExtensionPrimitives (extensionInfo) {
+
+        // If the extension requires other extensions, load them first.
+        if (Array.isArray(extensionInfo.requiredExtensions)) {
+            for (const extensionId of extensionInfo.requiredExtensions) {
+                if (
+                    this.extensionManager.isCoreExtension(extensionId) ||
+                    this.extensionManager.isBuiltinExtension(extensionId) ||
+                    await this.extensionManager.securityManager.canLoadExtensionFromProject(extensionId)
+                ) {
+                    this.extensionManager.loadExtensionURL(extensionId);
+                } else {
+                    console.warn(
+                        `Failed to load required extension: ${extensionId} for extension: ${extensionInfo.id}`
+                    );
+                }
+            }
+        }
+
         const categoryInfo = {
             id: extensionInfo.id,
             name: maybeFormatMessage(extensionInfo.name),
