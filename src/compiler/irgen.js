@@ -150,6 +150,14 @@ class ScriptTreeGenerator {
     createConstantInput (constant, preserveStrings = false) {
         if (constant === null) throw new Error('IR: Constant cannot have a null value.');
 
+        if (typeof constant === 'object') {
+            if (Array.isArray(constant)) {
+                return new IntermediateInput(InputOpcode.CONSTANT, InputType.ARRAY, {value: constant});
+            } else {
+                return new IntermediateInput(InputOpcode.CONSTANT, InputType.OBJECT, {value: constant});
+            }
+        }
+
         constant += '';
         const numConstant = +constant;
         const preserve = preserveStrings && this.namesOfCostumesAndSounds.has(constant);
