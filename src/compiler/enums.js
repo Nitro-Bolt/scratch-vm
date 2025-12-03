@@ -90,7 +90,10 @@ const InputType = {
     /** Any array. */
     ARRAY: 0x4000,
 
-    /** Any value type (a type a scratch variable can hold). Equal to NUMBER_OR_NAN | STRING | BOOLEAN | OBJECT | ARRAY */
+    /**
+     * Any value type (a type a scratch variable can hold).
+     * Equal to NUMBER_OR_NAN | STRING | BOOLEAN | OBJECT | ARRAY
+     */
     ANY: 0x7FFF,
 
     /** An array of values in the form [R, G, B] */

@@ -153,9 +153,8 @@ class ScriptTreeGenerator {
         if (typeof constant === 'object') {
             if (Array.isArray(constant)) {
                 return new IntermediateInput(InputOpcode.CONSTANT, InputType.ARRAY, {value: constant});
-            } else {
-                return new IntermediateInput(InputOpcode.CONSTANT, InputType.OBJECT, {value: constant});
             }
+            return new IntermediateInput(InputOpcode.CONSTANT, InputType.OBJECT, {value: constant});
         }
 
         constant += '';
