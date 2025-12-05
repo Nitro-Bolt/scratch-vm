@@ -761,6 +761,13 @@ class ScriptTreeGenerator {
         }
 
         switch (block.opcode) {
+        case 'argument_reporter_statement': {
+            // see argument_reporter_string_number above
+            const name = block.fields.VALUE.value;
+            const index = this.script.arguments.lastIndexOf(name);
+            return new IntermediateStackBlock(StackOpcode.PROCEDURE_BRANCH, {index});
+        }
+
         case 'control_all_at_once':
             // In Scratch 3, this block behaves like "if 1 = 1"
             return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE, {
@@ -1249,7 +1256,12 @@ class ScriptTreeGenerator {
         for (let i = 0; i < paramIds.length; i++) {
             let value;
             if (block.inputs[paramIds[i]] && block.inputs[paramIds[i]].block) {
-                value = this.descendInputOfBlock(block, paramIds[i], true);
+                if (paramIds[i].startsWith("SUBSTACK")) {
+                    value = this.descendSubstack(block, paramIds[i]);
+                } else {
+                    value = this.descendInputOfBlock(block, paramIds[i], true);
+                }
+                
             } else {
                 value = this.createConstantInput(paramDefaults[i], true);
             }

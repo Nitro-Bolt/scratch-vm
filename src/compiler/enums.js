@@ -193,7 +193,8 @@ const StackOpcode = {
     COMMENTS_LOOP: 'comments.loop',
 
     PROCEDURE_RETURN: 'procedures.return',
-    PROCEDURE_CALL: 'procedures.call'
+    PROCEDURE_CALL: 'procedures.call',
+    PROCEDURE_BRANCH: 'procedures.branch'
 };
 
 /**
