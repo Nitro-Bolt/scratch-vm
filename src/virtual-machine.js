@@ -400,6 +400,25 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
+     * Emit project changes to connection manager.
+     * @param {Function} fn The function to emit.
+     * @param {*} args Arguments of said function.
+     * @param {Boolean} emit Emit toggle.
+     * @returns Returns if not an emit.
+     */
+    emitProjectMutationEvent (fn, args, emit = true) {
+        if (!emit) return;
+        try {
+            this.emit('PROJECT_MUTATION', {
+                fn,
+                args
+            });
+        } catch (e) {
+            console.error('Failed to emit PROJECT_MUTATION', e);
+        }
+    }
+
+    /**
      * Post I/O data to the virtual devices.
      * @param {?string} device Name of virtual I/O device.
      * @param {object} data Any data object to post to the I/O device.
@@ -890,7 +909,10 @@ class VirtualMachine extends EventEmitter {
                 // eslint-disable-next-line prefer-promise-reject-errors
                 return Promise.reject(`${errorPrefix} Unable to verify sprite version.`);
             })
-            .then(() => this.runtime.emitProjectChanged())
+            .then(() => {
+                this.runtime.emitProjectChanged();
+                this.emitProjectMutationEvent('addSprite', [input], true);
+            })
             .catch(error => {
                 // Intentionally rejecting here (want errors to be handled by caller)
                 if (Object.prototype.hasOwnProperty.call(error, 'validationError')) {
@@ -941,9 +963,10 @@ class VirtualMachine extends EventEmitter {
      * @property {number} [bitmapResolution] - the resolution scale for a bitmap costume.
      * @param {string} optTargetId - the id of the target to add to, if not the editing target.
      * @param {string} optVersion - if this is 2, load costume as sb2, otherwise load costume as sb3.
+     * @param {Boolean} emit Emit toggle.
      * @returns {?Promise} - a promise that resolves when the costume has been added
      */
-    addCostume (md5ext, costumeObject, optTargetId, optVersion) {
+    addCostume (md5ext, costumeObject, optTargetId, optVersion, emit = true) {
         const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
             this.editingTarget;
         if (target) {
@@ -953,6 +976,8 @@ class VirtualMachine extends EventEmitter {
                     target.getCostumes().length - 1
                 );
                 this.runtime.emitProjectChanged();
+
+                this.emitProjectMutationEvent('addCostume', [md5ext, costumeObject, optTargetId, optVersion], emit);
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -969,21 +994,23 @@ class VirtualMachine extends EventEmitter {
      * @property {number} rotationCenterX - the X component of the costume's origin.
      * @property {number} rotationCenterY - the Y component of the costume's origin.
      * @property {number} [bitmapResolution] - the resolution scale for a bitmap costume.
+     * @param {Boolean} emit Emit toggle.
      * @returns {?Promise} - a promise that resolves when the costume has been added
      */
-    addCostumeFromLibrary (md5ext, costumeObject) {
+    addCostumeFromLibrary (md5ext, costumeObject, emit = true) {
         // TODO: reject with an Error (possible breaking API change!)
         // eslint-disable-next-line prefer-promise-reject-errors
         if (!this.editingTarget) return Promise.reject();
-        return this.addCostume(md5ext, costumeObject, this.editingTarget.id, 2 /* optVersion */);
+        return this.addCostume(md5ext, costumeObject, this.editingTarget.id, 2 /* optVersion */, emit);
     }
 
     /**
      * Duplicate the costume at the given index. Add it at that index + 1.
      * @param {!int} costumeIndex Index of costume to duplicate
+     * @param {Boolean} emit Emit toggle.
      * @returns {?Promise} - a promise that resolves when the costume has been decoded and added
      */
-    duplicateCostume (costumeIndex) {
+    duplicateCostume (costumeIndex, emit = true) {
         const originalCostume = this.editingTarget.getCostumes()[costumeIndex];
         const clone = Object.assign({}, originalCostume);
         const md5ext = `${clone.assetId}.${clone.dataFormat}`;
@@ -991,36 +1018,45 @@ class VirtualMachine extends EventEmitter {
             this.editingTarget.addCostume(clone, costumeIndex + 1);
             this.editingTarget.setCostume(costumeIndex + 1);
             this.emitTargetsUpdate();
+
+            this.emitProjectMutationEvent('duplicateCostume', [costumeIndex], emit);
         });
     }
 
     /**
      * Duplicate the sound at the given index. Add it at that index + 1.
      * @param {!int} soundIndex Index of sound to duplicate
+     * @param {Boolean} emit Emit toggle.
      * @returns {?Promise} - a promise that resolves when the sound has been decoded and added
      */
-    duplicateSound (soundIndex) {
+    duplicateSound (soundIndex, emit = true) {
         const originalSound = this.editingTarget.getSounds()[soundIndex];
         const clone = Object.assign({}, originalSound);
         return loadSound(clone, this.runtime, this.editingTarget.sprite.soundBank).then(() => {
             this.editingTarget.addSound(clone, soundIndex + 1);
             this.emitTargetsUpdate();
+
+            this.emitProjectMutationEvent('duplicateSound', [soundIndex], emit);
         });
     }
 
     /**
      * Rename a costume on the current editing target.
      * @param {int} costumeIndex - the index of the costume to be renamed.
+     * @param {Boolean} emit Emit toggle.
      * @param {string} newName - the desired new name of the costume (will be modified if already in use).
      */
-    renameCostume (costumeIndex, newName) {
+    renameCostume (costumeIndex, newName, emit = true) {
         this.editingTarget.renameCostume(costumeIndex, newName);
         this.emitTargetsUpdate();
+
+        this.emitProjectMutationEvent('renameCostume', [costumeIndex, newName], emit);
     }
 
     /**
      * Delete a costume from the current editing target.
      * @param {int} costumeIndex - the index of the costume to be removed.
+     * @param {Boolean} emit Emit toggle.
      * @return {?function} A function to restore the deleted costume, or null,
      * if no costume was deleted.
      */
@@ -1032,6 +1068,8 @@ class VirtualMachine extends EventEmitter {
             return () => {
                 target.addCostume(deletedCostume);
                 this.emitTargetsUpdate();
+
+                this.emitProjectMutationEvent('deleteCostume', [costumeIndex], emit);
             };
         }
         return null;
@@ -1041,15 +1079,18 @@ class VirtualMachine extends EventEmitter {
      * Add a sound to the current editing target.
      * @param {!object} soundObject Object representing the costume.
      * @param {string} optTargetId - the id of the target to add to, if not the editing target.
+     * @param {Boolean} emit Emit toggle.
      * @returns {?Promise} - a promise that resolves when the sound has been decoded and added
      */
-    addSound (soundObject, optTargetId) {
+    addSound (soundObject, optTargetId, emit = true) {
         const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
             this.editingTarget;
         if (target) {
             return loadSound(soundObject, this.runtime, target.sprite.soundBank).then(() => {
                 target.addSound(soundObject);
                 this.emitTargetsUpdate();
+
+                this.emitProjectMutationEvent('addSound', [soundObject, optTargetId], emit);
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -1060,10 +1101,13 @@ class VirtualMachine extends EventEmitter {
      * Rename a sound on the current editing target.
      * @param {int} soundIndex - the index of the sound to be renamed.
      * @param {string} newName - the desired new name of the sound (will be modified if already in use).
+     * @param {Boolean} emit Emit toggle.
      */
-    renameSound (soundIndex, newName) {
+    renameSound (soundIndex, newName, emit = true) {
         this.editingTarget.renameSound(soundIndex, newName);
         this.emitTargetsUpdate();
+
+        this.emitProjectMutationEvent('renameSound', [soundIndex, newName], emit);
     }
 
     /**
@@ -1084,8 +1128,9 @@ class VirtualMachine extends EventEmitter {
      * @param {int} soundIndex - the index of the sound to be updated.
      * @param {AudioBuffer} newBuffer - new audio buffer for the audio engine.
      * @param {ArrayBuffer} soundEncoding - the new (wav) encoded sound to be stored
+     * @param {Boolean} emit Emit toggle.
      */
-    updateSoundBuffer (soundIndex, newBuffer, soundEncoding) {
+    updateSoundBuffer (soundIndex, newBuffer, soundEncoding, emit = true) {
         const sound = this.editingTarget.sprite.sounds[soundIndex];
         if (sound && sound.broken) delete sound.broken;
         const id = sound ? sound.soundId : null;
@@ -1119,15 +1164,18 @@ class VirtualMachine extends EventEmitter {
         // case, and gui should have logged an error.
 
         this.emitTargetsUpdate();
+
+        this.emitProjectMutationEvent('updateSoundBuffer', [soundIndex, /* we don't send raw buffer; send encoded data */ Array.from(new Uint8Array(soundEncoding))], emit);
     }
 
     /**
      * Delete a sound from the current editing target.
      * @param {int} soundIndex - the index of the sound to be removed.
+     * @param {Boolean} emit Emit toggle.
      * @return {?Function} A function to restore the sound that was deleted,
      * or null, if no sound was deleted.
      */
-    deleteSound (soundIndex) {
+    deleteSound (soundIndex, emit = true) {
         const target = this.editingTarget;
         const deletedSound = this.editingTarget.deleteSound(soundIndex);
         if (deletedSound) {
@@ -1136,6 +1184,9 @@ class VirtualMachine extends EventEmitter {
                 target.addSound(deletedSound);
                 this.emitTargetsUpdate();
             };
+
+            this.emitProjectMutationEvent('deleteSound', [soundIndex], emit);
+
             return restoreFun;
         }
         return null;
@@ -1199,7 +1250,7 @@ class VirtualMachine extends EventEmitter {
         );
     }
 
-    _updateBitmap (costume, bitmap, rotationCenterX, rotationCenterY, bitmapResolution) {
+    _updateBitmap (costume, bitmap, rotationCenterX, rotationCenterY, bitmapResolution, emit = true) {
         if (!(costume && this.runtime && this.runtime.renderer)) return;
         if (costume && costume.broken) delete costume.broken;
 
@@ -1243,6 +1294,15 @@ class VirtualMachine extends EventEmitter {
                 costume.assetId = costume.asset.assetId;
                 costume.md5 = `${costume.assetId}.${costume.dataFormat}`;
                 this.emitTargetsUpdate();
+
+                const target = this.runtime.targets.find(t =>
+                    t.getCostumes().some(c => c === costume)
+                );
+                if (target) {
+                    const costumeIndex = target.getCostumes().indexOf(costume);
+                    const pngBytes = Array.from(new Uint8Array(reader.result));
+                    this.emitProjectMutationEvent('_updateBitmap', [target.id, costumeIndex, pngBytes, rotationCenterX, rotationCenterY, bitmapResolution], emit);
+                }
             });
             // Bitmaps with a zero width or height return null for their blob
             if (blob){
@@ -1267,7 +1327,7 @@ class VirtualMachine extends EventEmitter {
         );
     }
 
-    _updateSvg (costume, svg, rotationCenterX, rotationCenterY) {
+    _updateSvg (costume, svg, rotationCenterX, rotationCenterY, emit = true) {
         if (costume && costume.broken) delete costume.broken;
         if (costume && this.runtime && this.runtime.renderer) {
             costume.rotationCenterX = rotationCenterX;
@@ -1290,6 +1350,12 @@ class VirtualMachine extends EventEmitter {
         costume.assetId = costume.asset.assetId;
         costume.md5 = `${costume.assetId}.${costume.dataFormat}`;
         this.emitTargetsUpdate();
+
+        const target = this.runtime.targets.find(t => t.getCostumes().some(c => c === costume));
+        if (target) {
+            const idx = target.getCostumes().indexOf(costume);
+            this.emitProjectMutationEvent('_updateSvg', [target.id, idx, svg, rotationCenterX, rotationCenterY], emit);
+        }
     }
 
     /**
@@ -1300,14 +1366,17 @@ class VirtualMachine extends EventEmitter {
      * @property {number} rotationCenterX - the X component of the backdrop's origin.
      * @property {number} rotationCenterY - the Y component of the backdrop's origin.
      * @property {number} [bitmapResolution] - the resolution scale for a bitmap backdrop.
+     * @param {Boolean} emit Emit toggle.
      * @returns {?Promise} - a promise that resolves when the backdrop has been added
      */
-    addBackdrop (md5ext, backdropObject) {
+    addBackdrop (md5ext, backdropObject, emit = true) {
         return loadCostume(md5ext, backdropObject, this.runtime).then(() => {
             const stage = this.runtime.getTargetForStage();
             stage.addCostume(backdropObject);
             stage.setCostume(stage.getCostumes().length - 1);
             this.runtime.emitProjectChanged();
+
+            this.emitProjectMutationEvent('addBackdrop', [md5ext, backdropObject], emit);
         });
     }
 
@@ -1315,8 +1384,9 @@ class VirtualMachine extends EventEmitter {
      * Rename a sprite.
      * @param {string} targetId ID of a target whose sprite to rename.
      * @param {string} newName New name of the sprite.
+     * @param {Boolean} emit Emit toggle.
      */
-    renameSprite (targetId, newName) {
+    renameSprite (targetId, newName, emit = true) {
         const target = this.runtime.getTargetById(targetId);
         if (target) {
             if (!target.isSprite()) {
@@ -1343,6 +1413,8 @@ class VirtualMachine extends EventEmitter {
                 }
 
                 if (newUnusedName !== oldName) this.emitTargetsUpdate();
+
+                this.emitProjectMutationEvent('renameSprite', [targetId, newUnusedName], emit);
             }
         } else {
             throw new Error('No target with the provided id.');
@@ -1388,6 +1460,14 @@ class VirtualMachine extends EventEmitter {
             }
             // Sprite object should be deleted by GC.
             this.emitTargetsUpdate();
+
+            spritePromise.then(spriteBuffer => {
+                const arr = Array.from(new Uint8Array(spriteBuffer));
+                this.emitProjectMutationEvent('deleteSprite', [targetId, arr], true);
+            }).catch(e => {
+                this.emitProjectMutationEvent('deleteSprite', [targetId], true);
+            });
+
             return restoreSprite;
         }
 
@@ -1397,10 +1477,11 @@ class VirtualMachine extends EventEmitter {
     /**
      * Duplicate a sprite.
      * @param {string} targetId ID of a target whose sprite to duplicate.
+     * @param {Boolean} emit Emit toggle.
      * @returns {Promise} Promise that resolves when duplicated target has
      *     been added to the runtime.
      */
-    duplicateSprite (targetId) {
+    duplicateSprite (targetId, emit = true) {
         const target = this.runtime.getTargetById(targetId);
         if (!target) {
             throw new Error('No target with the provided id.');
@@ -1413,6 +1494,8 @@ class VirtualMachine extends EventEmitter {
             this.runtime.addTarget(newTarget);
             newTarget.goBehindOther(target);
             this.setEditingTarget(newTarget.id);
+
+            this.emitProjectMutationEvent('duplicateSprite', [targetId, newTarget.id], emit);
         });
     }
 
@@ -1572,9 +1655,10 @@ class VirtualMachine extends EventEmitter {
      * @param {!string} targetId Id of target to add blocks to.
      * @param {?string} optFromTargetId Optional target id indicating that blocks are being
      * shared from that target. This is needed for resolving any potential variable conflicts.
+     * @param {Boolean} emit Emit toggle.
      * @return {!Promise} Promise that resolves when the extensions and blocks have been added.
      */
-    shareBlocksToTarget (blocks, targetId, optFromTargetId) {
+    shareBlocksToTarget (blocks, targetId, optFromTargetId, emit = true) {
         const sb3 = require('./serialization/sb3');
 
         const {blocks: copiedBlocks, extensionURLs} = sb3.deserializeStandaloneBlocks(blocks);
@@ -1600,6 +1684,8 @@ class VirtualMachine extends EventEmitter {
                 target.blocks.createBlock(block);
             });
             target.blocks.updateTargetSpecificBlocks(target.isStage);
+
+            this.emitProjectMutationEvent('shareBlocksToTarget', [blocks, targetId, optFromTargetId], emit);
         });
     }
 
@@ -1608,9 +1694,10 @@ class VirtualMachine extends EventEmitter {
      * Sets the newly added costume as the current costume.
      * @param {!number} costumeIndex Index of the costume of the editing target to share.
      * @param {!string} targetId Id of target to add the costume.
+     * @param {Boolean} emit Emit toggle.
      * @return {Promise} Promise that resolves when the new costume has been loaded.
      */
-    shareCostumeToTarget (costumeIndex, targetId) {
+    shareCostumeToTarget (costumeIndex, targetId, emit = true) {
         const originalCostume = this.editingTarget.getCostumes()[costumeIndex];
         const clone = Object.assign({}, originalCostume);
         const md5ext = `${clone.assetId}.${clone.dataFormat}`;
@@ -1621,6 +1708,8 @@ class VirtualMachine extends EventEmitter {
                 target.setCostume(
                     target.getCostumes().length - 1
                 );
+
+                this.emitProjectMutationEvent('shareCostumeToTarget', [costumeIndex, targetId], emit);
             }
         });
     }
@@ -1629,9 +1718,10 @@ class VirtualMachine extends EventEmitter {
      * Called when sounds are dragged from editing target to another target.
      * @param {!number} soundIndex Index of the sound of the editing target to share.
      * @param {!string} targetId Id of target to add the sound.
+     * @param {Boolean} emit Emit toggle.
      * @return {Promise} Promise that resolves when the new sound has been loaded.
      */
-    shareSoundToTarget (soundIndex, targetId) {
+    shareSoundToTarget (soundIndex, targetId, emit = true) {
         const originalSound = this.editingTarget.getSounds()[soundIndex];
         const clone = Object.assign({}, originalSound);
         const target = this.runtime.getTargetById(targetId);
@@ -1639,6 +1729,8 @@ class VirtualMachine extends EventEmitter {
             if (target) {
                 target.addSound(clone);
                 this.emitTargetsUpdate();
+
+                this.emitProjectMutationEvent('shareSoundToTarget', [soundIndex, targetId], emit);
             }
         });
     }
