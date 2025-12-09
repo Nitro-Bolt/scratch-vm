@@ -1199,6 +1199,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     const {soundBank, soundPromises} = assets;
     // Create the first clone, and load its run-state from JSON.
     const target = sprite.createClone(object.isStage ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER);
+    // Set the blocks target to the target just created.
+    blocks._target = target
     // Load target properties from JSON.
     if (Object.prototype.hasOwnProperty.call(object, 'tempo')) {
         target.tempo = object.tempo;

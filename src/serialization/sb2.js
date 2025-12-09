@@ -604,6 +604,8 @@ const parseScratchObject = function (object, runtime, extensions, topLevel, zip,
     // Create the first clone, and load its run-state from JSON.
     const target = sprite.createClone(topLevel ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER);
 
+    blocks._target = target;
+
     const getVariableId = generateVariableIdGetter(target.id, topLevel);
 
     const globalBroadcastMsgObj = globalBroadcastMsgStateGenerator(topLevel);

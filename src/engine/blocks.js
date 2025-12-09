@@ -8,6 +8,7 @@ const BlocksExecuteCache = require('./blocks-execute-cache');
 const BlocksRuntimeCache = require('./blocks-runtime-cache');
 const log = require('../util/log');
 const Variable = require('./variable');
+const Target = require('./target');
 const getMonitorIdForBlockWithArgs = require('../util/get-monitor-id');
 
 /**
@@ -20,10 +21,11 @@ const getMonitorIdForBlockWithArgs = require('../util/get-monitor-id');
  * Create a block container.
  * @param {Runtime} runtime The runtime this block container operates within
  * @param {boolean} optNoGlow Optional flag to indicate that blocks in this container
+ * @param {Target} optTarget Optional target to indicate which target the blocks are in
  * should not request glows. This does not affect glows when clicking on a block to execute it.
  */
 class Blocks {
-    constructor (runtime, optNoGlow) {
+    constructor (runtime, optNoGlow, optTarget) {
         this.runtime = runtime;
 
         /**
@@ -111,6 +113,12 @@ class Blocks {
          * @type {boolean}
          */
         this.forceNoGlow = optNoGlow || false;
+
+        /**
+         * Indicates which target the blocks are inside of.
+         * @type {Target}
+         */
+        this._target = optTarget ?? null;
     }
 
     /**
@@ -404,7 +412,7 @@ class Blocks {
             return;
         }
         const stage = this.runtime.getTargetForStage();
-        const editingTarget = this.runtime.getEditingTarget();
+        const editingTarget = this._target;
 
         // UI event: clicked scripts toggle in the runtime.
         if (e.element === 'stackclick') {
@@ -524,8 +532,8 @@ class Blocks {
         }
         case 'comment_create':
             this.resetCache(); // tw: comments can affect compilation
-            if (this.runtime.getEditingTarget()) {
-                const currTarget = this.runtime.getEditingTarget();
+            if (this._target) {
+                const currTarget = this._target;
                 currTarget.createComment(e.commentId, e.blockId, e.text,
                     e.xy.x, e.xy.y, e.width, e.height, e.minimized);
 
@@ -545,8 +553,8 @@ class Blocks {
             break;
         case 'comment_change':
             this.resetCache(); // tw: comments can affect compilation
-            if (this.runtime.getEditingTarget()) {
-                const currTarget = this.runtime.getEditingTarget();
+            if (this._target) {
+                const currTarget = this._target;
                 if (!Object.prototype.hasOwnProperty.call(currTarget.comments, e.commentId)) {
                     log.warn(`Cannot change comment with id ${e.commentId} because it does not exist.`);
                     return;
@@ -568,8 +576,8 @@ class Blocks {
             }
             break;
         case 'comment_move':
-            if (this.runtime.getEditingTarget()) {
-                const currTarget = this.runtime.getEditingTarget();
+            if (this._target) {
+                const currTarget = this._target;
                 if (currTarget && !Object.prototype.hasOwnProperty.call(currTarget.comments, e.commentId)) {
                     log.warn(`Cannot change comment with id ${e.commentId} because it does not exist.`);
                     return;
@@ -584,8 +592,8 @@ class Blocks {
             break;
         case 'comment_delete':
             this.resetCache(); // tw: comments can affect compilation
-            if (this.runtime.getEditingTarget()) {
-                const currTarget = this.runtime.getEditingTarget();
+            if (this._target) {
+                const currTarget = this._target;
                 if (!Object.prototype.hasOwnProperty.call(currTarget.comments, e.commentId)) {
                     // If we're in this state, we have probably received
                     // a delete event from a workspace that we switched from
@@ -688,7 +696,7 @@ class Blocks {
             if (args.name === 'VARIABLE' || args.name === 'LIST' ||
                 args.name === 'BROADCAST_OPTION') {
                 // Get variable name using the id in args.value.
-                const variable = this.runtime.getEditingTarget().lookupVariableById(args.value);
+                const variable = this._target.lookupVariableById(args.value);
                 if (variable) {
                     block.fields[args.name].value = variable.name;
                     block.fields[args.name].id = args.value;
@@ -766,7 +774,7 @@ class Blocks {
                 // If creating a new sprite specific monitor, the only possible target is
                 // the current editing one b/c you cannot dynamically create monitors.
                 // Also, do not change the targetId if it has already been assigned
-                block.targetId = block.targetId || this.runtime.getEditingTarget().id;
+                block.targetId = block.targetId || this._target.id;
             } else {
                 block.targetId = null;
             }
