@@ -870,9 +870,10 @@ class VirtualMachine extends EventEmitter {
      * Add a sprite, this could be .sprite2 or .sprite3. Unpack and validate
      * such a file first.
      * @param {string | object} input A json string, object, or ArrayBuffer representing the project to load.
+     * @param {Boolean} emit Emit toggle.
      * @return {!Promise} Promise that resolves after targets are installed.
      */
-    addSprite (input) {
+    addSprite (input, emit = true) {
         const errorPrefix = 'Sprite Upload Error:';
         if (typeof input === 'object' && !(input instanceof ArrayBuffer) &&
           !ArrayBuffer.isView(input)) {
@@ -911,7 +912,7 @@ class VirtualMachine extends EventEmitter {
             })
             .then(() => {
                 this.runtime.emitProjectChanged();
-                this.emitProjectMutationEvent('addSprite', [input], true);
+                this.emitProjectMutationEvent('addSprite', [input], emit);
             })
             .catch(error => {
                 // Intentionally rejecting here (want errors to be handled by caller)
