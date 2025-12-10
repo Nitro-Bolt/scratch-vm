@@ -677,6 +677,89 @@ class RenderedTarget extends Target {
     }
 
     /**
+     * Add a generic asset, taking care to avoid duplicate names.
+     * @param {!object} assetObject Object representing the asset.
+     * @param {?int} index Index at which to add asset
+     */
+    addAsset (assetObject, index) {
+        if (!this.sprite.assets) this.sprite.assets = [];
+        const usedNames = this.sprite.assets.map(asset => asset.name);
+        assetObject.name = StringUtil.unusedName(assetObject.name, usedNames);
+        if (typeof index === 'number' && !isNaN(index)) {
+            this.sprite.assets.splice(index, 0, assetObject);
+        } else {
+            this.sprite.assets.push(assetObject);
+        }
+    }
+
+    /**
+     * Rename an asset, taking care to avoid duplicate names.
+     * @param {int} assetIndex - the index of the asset to be renamed.
+     * @param {string} newName - the desired new name of the asset (will be modified if already in use).
+     */
+    renameAsset (assetIndex, newName) {
+        if (!this.sprite.assets) return;
+        const usedNames = this.sprite.assets
+            .filter((asset, index) => assetIndex !== index)
+            .map(asset => asset.name);
+        const oldName = this.sprite.assets[assetIndex].name;
+        const newUnusedName = StringUtil.unusedName(newName, usedNames);
+        this.sprite.assets[assetIndex].name = newUnusedName;
+        // If you reference assets by name in blocks, update here:
+        this.blocks.updateAssetName(oldName, newUnusedName, 'asset');
+    }
+
+    /**
+     * Delete an asset by index.
+     * @param {number} index Asset index to be deleted
+     * @return {?object} The asset that was deleted or null
+     */
+    deleteAsset (index) {
+        if (!this.sprite.assets || index < 0 || index >= this.sprite.assets.length) return null;
+        const deletedAsset = this.sprite.assets.splice(index, 1)[0];
+        this.runtime.requestTargetsUpdate(this);
+        return deletedAsset;
+    }
+
+    /**
+     * Duplicate an asset by index.
+     * @param {number} index Asset index to duplicate
+     */
+    duplicateAsset (index) {
+        if (!this.sprite.assets || index < 0 || index >= this.sprite.assets.length) return;
+        const original = this.sprite.assets[index];
+        const clone = Object.assign({}, original);
+        this.addAsset(clone, index + 1);
+        this.runtime.requestTargetsUpdate(this);
+    }
+
+    /**
+     * Reorder asset list by moving asset at assetIndex to newIndex.
+     * @param {!number} assetIndex Index of the asset to move.
+     * @param {!number} newIndex New index for that asset.
+     * @returns {boolean} If a change occurred
+     */
+    reorderAsset (assetIndex, newIndex) {
+        if (!this.sprite.assets) return false;
+        newIndex = MathUtil.clamp(newIndex, 0, this.sprite.assets.length - 1);
+        assetIndex = MathUtil.clamp(assetIndex, 0, this.sprite.assets.length - 1);
+        if (newIndex === assetIndex) return false;
+        const asset = this.sprite.assets[assetIndex];
+        this.sprite.assets.splice(assetIndex, 1);
+        this.sprite.assets.splice(newIndex, 0, asset);
+        this.runtime.requestTargetsUpdate(this);
+        return true;
+    }
+
+    /**
+     * Get full asset list
+     * @return {object[]} list of assets
+     */
+    getAssets () {
+        return this.sprite.assets || [];
+    }
+
+    /**
      * Update all drawable properties for this rendered target.
      * Use when a batch has changed, e.g., when the drawable is first created.
      */

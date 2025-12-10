@@ -172,7 +172,66 @@ const deserializeCostume = function (costume, runtime, zip, assetFileName, textL
     ]);
 };
 
+/**
+ * Deserializes a generic asset from file into storage cache so that it can
+ * be loaded into the runtime.
+ * @param {object} asset Descriptor for asset from sb3 file
+ * @param {Runtime} runtime The runtime containing the storage to cache the assets in
+ * @param {JSZip} zip The zip containing the asset file being described by `asset`
+ * @param {string} assetFileName Optional file name for the given asset
+ * @return {Promise} Promise that resolves after the described asset has been stored
+ * into the runtime storage cache, the asset was already stored, or an error has
+ * occurred.
+ */
+const deserializeAsset = function (asset, runtime, zip, assetFileName) {
+    const fileName = assetFileName ? assetFileName : asset.md5 || asset.md5ext;
+    const storage = runtime.storage;
+    if (!storage) {
+        log.warn('No storage module present; cannot load asset: ', fileName);
+        return Promise.resolve(null);
+    }
+
+    if (!zip) {
+        // Zip will not be provided if loading project json from server
+        return Promise.resolve(null);
+    }
+
+    let assetFile = zip.file(fileName);
+    if (!assetFile) {
+        // look for assetfile in a flat list of files, or in a folder
+        const fileMatch = new RegExp(`^([^/]*/)?${fileName}$`);
+        assetFile = zip.file(fileMatch)[0]; // use first matching file
+    }
+
+    if (!assetFile) {
+        log.error(`Could not find asset file associated with the ${asset.name} asset.`);
+        return Promise.resolve(null);
+    }
+
+    if (!JSZip.support.uint8array) {
+        log.error('JSZip uint8array is not supported in this browser.');
+        return Promise.resolve(null);
+    }
+
+    const assetType = storage.AssetType.Project || storage.AssetType.Unknown;
+    const dataFormat = asset.dataFormat ? asset.dataFormat.toLowerCase() : 'bin';
+
+    return assetFile.async('uint8array').then(data => storage.createAsset(
+        assetType,
+        dataFormat,
+        data,
+        null,
+        true
+    ))
+        .then(storedAsset => {
+            asset.asset = storedAsset;
+            asset.assetId = storedAsset.assetId;
+            asset.md5 = `${storedAsset.assetId}.${storedAsset.dataFormat}`;
+        });
+};
+
 module.exports = {
     deserializeSound,
-    deserializeCostume
+    deserializeCostume,
+    deserializeAsset
 };

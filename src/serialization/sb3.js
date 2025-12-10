@@ -20,7 +20,7 @@ const compress = require('./tw-compress-sb3');
 
 const {loadCostume} = require('../import/load-costume.js');
 const {loadSound} = require('../import/load-sound.js');
-const {deserializeCostume, deserializeSound} = require('./deserialize-assets.js');
+const {deserializeCostume, deserializeSound, deserializeAsset} = require('./deserialize-assets.js');
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
@@ -483,6 +483,20 @@ const serializeSound = function (sound) {
     return obj;
 };
 
+/**
+ * Serialize the given asset.
+ * @param {object} asset The asset to be serialized.
+ * @return {object} A serialized representation of the asset.
+ */
+const serializeAsset = function (asset) {
+    const obj = Object.create(null);
+    obj.name = asset.name;
+    obj.dataFormat = asset.dataFormat ? asset.dataFormat.toLowerCase() : '';
+    obj.assetId = asset.assetId;
+    obj.md5ext = asset.md5;
+    return obj;
+};
+
 // Using some bugs, it can be possible to get values like undefined, null, or complex objects into
 // variables or lists. This will cause make the project unusable after exporting without JSON editing
 // as it will fail validation in scratch-parser.
@@ -606,6 +620,7 @@ const serializeTarget = function (target, extensions) {
     obj.currentCostume = target.currentCostume;
     obj.costumes = target.costumes.map(serializeCostume);
     obj.sounds = target.sounds.map(serializeSound);
+    obj.assets = (target.sprite.assets || []).map(serializeAsset);
     if (Object.prototype.hasOwnProperty.call(target, 'volume')) obj.volume = target.volume;
     if (Object.prototype.hasOwnProperty.call(target, 'layerOrder')) obj.layerOrder = target.layerOrder;
     if (obj.isStage) { // Only the stage should have these properties
@@ -1149,6 +1164,12 @@ const parseScratchAssets = function (object, runtime, zip) {
         // process has been completed.
     });
 
+    // Assets from JSON.
+    assets.assetPromises = (object.assets || []).map(assetSource =>
+    deserializeAsset(assetSource, runtime, zip)
+        .then(() => assetSource)
+    );
+
     return assets;
 };
 
@@ -1197,6 +1218,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     const {costumePromises} = assets;
     // Sounds from JSON
     const {soundBank, soundPromises} = assets;
+    // Assets from JSON
+    const {assetPromises} = assets;
     // Create the first clone, and load its run-state from JSON.
     const target = sprite.createClone(object.isStage ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER);
     // Load target properties from JSON.
@@ -1327,7 +1350,10 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
         // Make sure if soundBank is undefined, sprite.soundBank is then null.
         sprite.soundBank = soundBank || null;
     });
-    return Promise.all(costumePromises.concat(soundPromises)).then(() => target);
+    Promise.all(assetPromises).then(assets => {
+        sprite.assets = assets;
+    });
+    return Promise.all(costumePromises.concat(soundPromises).concat(assetPromises)).then(() => target);
 };
 
 const deserializeMonitor = function (monitorData, runtime, targets, extensions) {

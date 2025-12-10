@@ -1417,6 +1417,88 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
+     * Add a generic asset to the current editing target.
+     * @param {!object} assetObject Object representing the asset.
+     * @param {string} optTargetId - the id of the target to add to, if not the editing target.
+     * @returns {?Promise} - a promise that resolves when the asset has been added
+     */
+    addAsset (assetObject, optTargetId) {
+        const target = optTargetId ? this.runtime.getTargetById(optTargetId) : this.editingTarget;
+        if (target) {
+            target.addAsset(assetObject);
+            this.runtime.emitProjectChanged();
+            return Promise.resolve();
+        }
+        return Promise.reject(new Error(`No target with ID: ${optTargetId}`));
+    }
+
+    /**
+     * Duplicate the asset at the given index. Add it at that index + 1.
+     * @param {!int} assetIndex Index of asset to duplicate
+     * @returns {?Promise} - a promise that resolves when the asset has been duplicated
+     */
+    duplicateAsset (assetIndex) {
+        if (this.editingTarget) {
+            this.editingTarget.duplicateAsset(assetIndex);
+            this.emitTargetsUpdate();
+            return Promise.resolve();
+        }
+        return Promise.reject(new Error('No editing target'));
+    }
+
+    /**
+     * Rename an asset on the current editing target.
+     * @param {int} assetIndex - the index of the asset to be renamed.
+     * @param {string} newName - the desired new name of the asset (will be modified if already in use).
+     */
+    renameAsset (assetIndex, newName) {
+        if (this.editingTarget) {
+            this.editingTarget.renameAsset(assetIndex, newName);
+            this.emitTargetsUpdate();
+        }
+    }
+
+    /**
+     * Delete an asset from the current editing target.
+     * @param {int} assetIndex - the index of the asset to be removed.
+     * @return {?function} A function to restore the deleted asset, or null,
+     * if no asset was deleted.
+     */
+    deleteAsset (assetIndex) {
+        if (this.editingTarget) {
+            const deletedAsset = this.editingTarget.deleteAsset(assetIndex);
+            if (deletedAsset) {
+                const target = this.editingTarget;
+                this.runtime.emitProjectChanged();
+                return () => {
+                    target.addAsset(deletedAsset);
+                    this.emitTargetsUpdate();
+                };
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Reorder the assets of a target if it exists. Return whether it succeeded.
+     * @param {!string} targetId ID of the target which owns the assets.
+     * @param {!number} assetIndex index of the asset to move.
+     * @param {!number} newIndex index that the asset should be moved to.
+     * @returns {boolean} Whether an asset was reordered.
+     */
+    reorderAsset (targetId, assetIndex, newIndex) {
+        const target = this.runtime.getTargetById(targetId);
+        if (target) {
+            const reorderSuccessful = target.reorderAsset(assetIndex, newIndex);
+            if (reorderSuccessful) {
+                this.runtime.emitProjectChanged();
+            }
+            return reorderSuccessful;
+        }
+        return false;
+    }
+
+    /**
      * Set the audio engine for the VM/runtime
      * @param {!AudioEngine} audioEngine The audio engine to attach
      */
