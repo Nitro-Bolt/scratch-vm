@@ -27,6 +27,8 @@ const {serializeSounds, serializeCostumes} = require('./serialization/serialize-
 require('canvas-toBlob');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
 const Base64Util = require('./util/base64-util');
+const { TargetType } = require('./extension-support/tw-extension-api-common.js');
+const Target = require('./engine/target.js');
 
 const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
 
@@ -404,14 +406,17 @@ class VirtualMachine extends EventEmitter {
      * @param {Function} fn The function to emit.
      * @param {*} args Arguments of said function.
      * @param {Boolean} emit Emit toggle.
+     * @param {string} spriteName Sprite name to execute of said function.
      * @returns Returns if not an emit.
      */
-    emitProjectMutationEvent (fn, args, emit = true) {
+    emitProjectMutationEvent (fn, args, emit = true, spriteName) {
         if (!emit) return;
+        console.log('SENDING PROJECT MUTATION: ', fn, args);
         try {
             this.emit('PROJECT_MUTATION', {
                 fn,
-                args
+                args,
+                sprite: spriteName
             });
         } catch (e) {
             console.error('Failed to emit PROJECT_MUTATION', e);
@@ -822,9 +827,10 @@ class VirtualMachine extends EventEmitter {
      * @param {Array.<Target>} targets - the targets to be installed
      * @param {ImportedExtensionsInfo} extensions - metadata about extensions used by these targets
      * @param {boolean} wholeProject - set to true if installing a whole project, as opposed to a single sprite.
+     * @param {boolean} keepEditingTarget - editing target will not change if set to true.
      * @returns {Promise} resolved once targets have been installed
      */
-    async installTargets (targets, extensions, wholeProject) {
+    async installTargets (targets, extensions, wholeProject, keepEditingTarget) {
         await this.extensionManager.allAsyncExtensionsLoaded();
 
         targets = targets.filter(target => !!target);
@@ -834,7 +840,7 @@ class VirtualMachine extends EventEmitter {
                 this.runtime.addTarget(target);
                 (/** @type RenderedTarget */ target).updateAllDrawableProperties();
                 // Ensure unique sprite name
-                if (target.isSprite()) this.renameSprite(target.id, target.getName());
+                if (target.isSprite()) this.renameSprite(target.id, target.getName(), false);
             });
             // Sort the executable targets by layerOrder.
             // Remove layerOrder property after use.
@@ -843,11 +849,13 @@ class VirtualMachine extends EventEmitter {
                 delete target.layerOrder;
             });
 
-            // Select the first target for editing, e.g., the first sprite.
-            if (wholeProject && (targets.length > 1)) {
-                this.editingTarget = targets[1];
-            } else {
-                this.editingTarget = targets[0];
+            if (!keepEditingTarget) {
+                // Select the first target for editing, e.g., the first sprite.
+                if (wholeProject && (targets.length > 1)) {
+                    this.editingTarget = targets[1];
+                } else {
+                    this.editingTarget = targets[0];
+                }
             }
 
             if (!wholeProject) {
@@ -861,7 +869,8 @@ class VirtualMachine extends EventEmitter {
             // Update the VM user's knowledge of targets and blocks on the workspace.
             this.emitTargetsUpdate(false /* Don't emit project change */);
             this.emitWorkspaceUpdate();
-            this.runtime.setEditingTarget(this.editingTarget);
+            console.log(keepEditingTarget);
+            if (!keepEditingTarget) this.runtime.setEditingTarget(this.editingTarget);
             this.runtime.ioDevices.cloud.setStage(this.runtime.getTargetForStage());
         });
     }
@@ -901,10 +910,10 @@ class VirtualMachine extends EventEmitter {
             .then(validatedInput => {
                 const projectVersion = validatedInput[0].projectVersion;
                 if (projectVersion === 2) {
-                    return this._addSprite2(validatedInput[0], validatedInput[1]);
+                    return this._addSprite2(validatedInput[0], validatedInput[1], !emit);
                 }
                 if (projectVersion === 3) {
-                    return this._addSprite3(validatedInput[0], validatedInput[1]);
+                    return this._addSprite3(validatedInput[0], validatedInput[1], !emit);
                 }
                 // TODO: reject with an Error (possible breaking API change!)
                 // eslint-disable-next-line prefer-promise-reject-errors
@@ -929,29 +938,31 @@ class VirtualMachine extends EventEmitter {
      * Add a single sprite from the "Sprite2" (i.e., SB2 sprite) format.
      * @param {object} sprite Object representing 2.0 sprite to be added.
      * @param {?ArrayBuffer} zip Optional zip of assets being referenced by json
+     * @param {boolean} keepEditingTarget Editing target will not change if set to true.
      * @returns {Promise} Promise that resolves after the sprite is added
      */
-    _addSprite2 (sprite, zip) {
+    _addSprite2 (sprite, zip, keepEditingTarget) {
         // Validate & parse
 
         const sb2 = require('./serialization/sb2');
         return sb2.deserialize(sprite, this.runtime, true, zip)
             .then(({targets, extensions}) =>
-                this.installTargets(targets, extensions, false));
+                this.installTargets(targets, extensions, false, keepEditingTarget));
     }
 
     /**
      * Add a single sb3 sprite.
      * @param {object} sprite Object rperesenting 3.0 sprite to be added.
      * @param {?ArrayBuffer} zip Optional zip of assets being referenced by target json
+     * @param {boolean} keepEditingTarget Editing target will not change if set to true.
      * @returns {Promise} Promise that resolves after the sprite is added
      */
-    _addSprite3 (sprite, zip) {
+    _addSprite3 (sprite, zip, keepEditingTarget) {
         // Validate & parse
         const sb3 = require('./serialization/sb3');
         return sb3
             .deserialize(sprite, this.runtime, zip, true)
-            .then(({targets, extensions}) => this.installTargets(targets, extensions, false));
+            .then(({targets, extensions}) => this.installTargets(targets, extensions, false, keepEditingTarget));
     }
 
     /**
@@ -965,11 +976,11 @@ class VirtualMachine extends EventEmitter {
      * @param {string} optTargetId - the id of the target to add to, if not the editing target.
      * @param {string} optVersion - if this is 2, load costume as sb2, otherwise load costume as sb3.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @returns {?Promise} - a promise that resolves when the costume has been added
      */
-    addCostume (md5ext, costumeObject, optTargetId, optVersion, emit = true) {
-        const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
-            this.editingTarget;
+    addCostume (md5ext, costumeObject, optTargetId, optVersion, emit = true, target = this.editingTarget) {
+        if (optTargetId && target !== this.editingTarget) target = this.runtime.getTargetById(optTargetId);
         if (target) {
             return loadCostume(md5ext, costumeObject, this.runtime, optVersion).then(() => {
                 target.addCostume(costumeObject);
@@ -978,7 +989,7 @@ class VirtualMachine extends EventEmitter {
                 );
                 this.runtime.emitProjectChanged();
 
-                this.emitProjectMutationEvent('addCostume', [md5ext, costumeObject, optTargetId, optVersion], emit);
+                this.emitProjectMutationEvent('addCostume', [md5ext, costumeObject, optTargetId, optVersion], emit, target);
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -996,28 +1007,30 @@ class VirtualMachine extends EventEmitter {
      * @property {number} rotationCenterY - the Y component of the costume's origin.
      * @property {number} [bitmapResolution] - the resolution scale for a bitmap costume.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @returns {?Promise} - a promise that resolves when the costume has been added
      */
-    addCostumeFromLibrary (md5ext, costumeObject, emit = true) {
+    addCostumeFromLibrary (md5ext, costumeObject, emit = true, target = this.editingTarget) {
         // TODO: reject with an Error (possible breaking API change!)
         // eslint-disable-next-line prefer-promise-reject-errors
         if (!this.editingTarget) return Promise.reject();
-        return this.addCostume(md5ext, costumeObject, this.editingTarget.id, 2 /* optVersion */, emit);
+        return this.addCostume(md5ext, costumeObject, target.id, 2 /* optVersion */, emit);
     }
 
     /**
      * Duplicate the costume at the given index. Add it at that index + 1.
      * @param {!int} costumeIndex Index of costume to duplicate
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @returns {?Promise} - a promise that resolves when the costume has been decoded and added
      */
-    duplicateCostume (costumeIndex, emit = true) {
-        const originalCostume = this.editingTarget.getCostumes()[costumeIndex];
+    duplicateCostume (costumeIndex, emit = true, target = this.editingTarget) {
+        const originalCostume = target.getCostumes()[costumeIndex];
         const clone = Object.assign({}, originalCostume);
         const md5ext = `${clone.assetId}.${clone.dataFormat}`;
         return loadCostume(md5ext, clone, this.runtime).then(() => {
-            this.editingTarget.addCostume(clone, costumeIndex + 1);
-            this.editingTarget.setCostume(costumeIndex + 1);
+            target.addCostume(clone, costumeIndex + 1);
+            target.setCostume(costumeIndex + 1);
             this.emitTargetsUpdate();
 
             this.emitProjectMutationEvent('duplicateCostume', [costumeIndex], emit);
@@ -1028,13 +1041,14 @@ class VirtualMachine extends EventEmitter {
      * Duplicate the sound at the given index. Add it at that index + 1.
      * @param {!int} soundIndex Index of sound to duplicate
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @returns {?Promise} - a promise that resolves when the sound has been decoded and added
      */
-    duplicateSound (soundIndex, emit = true) {
-        const originalSound = this.editingTarget.getSounds()[soundIndex];
+    duplicateSound (soundIndex, emit = true, target = this.editingTarget) {
+        const originalSound = target.getSounds()[soundIndex];
         const clone = Object.assign({}, originalSound);
-        return loadSound(clone, this.runtime, this.editingTarget.sprite.soundBank).then(() => {
-            this.editingTarget.addSound(clone, soundIndex + 1);
+        return loadSound(clone, this.runtime, target.sprite.soundBank).then(() => {
+            target.addSound(clone, soundIndex + 1);
             this.emitTargetsUpdate();
 
             this.emitProjectMutationEvent('duplicateSound', [soundIndex], emit);
@@ -1044,11 +1058,12 @@ class VirtualMachine extends EventEmitter {
     /**
      * Rename a costume on the current editing target.
      * @param {int} costumeIndex - the index of the costume to be renamed.
-     * @param {Boolean} emit Emit toggle.
      * @param {string} newName - the desired new name of the costume (will be modified if already in use).
+     * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      */
-    renameCostume (costumeIndex, newName, emit = true) {
-        this.editingTarget.renameCostume(costumeIndex, newName);
+    renameCostume (costumeIndex, newName, emit = true, target = this.editingTarget) {
+        target.renameCostume(costumeIndex, newName);
         this.emitTargetsUpdate();
 
         this.emitProjectMutationEvent('renameCostume', [costumeIndex, newName], emit);
@@ -1058,19 +1073,18 @@ class VirtualMachine extends EventEmitter {
      * Delete a costume from the current editing target.
      * @param {int} costumeIndex - the index of the costume to be removed.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @return {?function} A function to restore the deleted costume, or null,
      * if no costume was deleted.
      */
-    deleteCostume (costumeIndex) {
-        const deletedCostume = this.editingTarget.deleteCostume(costumeIndex);
+    deleteCostume (costumeIndex, emit = true, target = this.editingTarget) {
+        const deletedCostume = target.deleteCostume(costumeIndex);
         if (deletedCostume) {
-            const target = this.editingTarget;
             this.runtime.emitProjectChanged();
+            this.emitProjectMutationEvent('deleteCostume', [costumeIndex], emit, target.getName());
             return () => {
                 target.addCostume(deletedCostume);
                 this.emitTargetsUpdate();
-
-                this.emitProjectMutationEvent('deleteCostume', [costumeIndex], emit);
             };
         }
         return null;
@@ -1103,9 +1117,10 @@ class VirtualMachine extends EventEmitter {
      * @param {int} soundIndex - the index of the sound to be renamed.
      * @param {string} newName - the desired new name of the sound (will be modified if already in use).
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      */
-    renameSound (soundIndex, newName, emit = true) {
-        this.editingTarget.renameSound(soundIndex, newName);
+    renameSound (soundIndex, newName, emit = true, target = this.editingTarget) {
+        target.renameSound(soundIndex, newName);
         this.emitTargetsUpdate();
 
         this.emitProjectMutationEvent('renameSound', [soundIndex, newName], emit);
@@ -1166,19 +1181,19 @@ class VirtualMachine extends EventEmitter {
 
         this.emitTargetsUpdate();
 
-        this.emitProjectMutationEvent('updateSoundBuffer', [soundIndex, /* we don't send raw buffer; send encoded data */ Array.from(new Uint8Array(soundEncoding))], emit);
+        this.emitProjectMutationEvent('updateSoundBuffer', [soundIndex, newBuffer, soundEncoding], emit);
     }
 
     /**
      * Delete a sound from the current editing target.
      * @param {int} soundIndex - the index of the sound to be removed.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @return {?Function} A function to restore the sound that was deleted,
      * or null, if no sound was deleted.
      */
-    deleteSound (soundIndex, emit = true) {
-        const target = this.editingTarget;
-        const deletedSound = this.editingTarget.deleteSound(soundIndex);
+    deleteSound (soundIndex, emit = true, target = this.editingTarget) {
+        const deletedSound = target.deleteSound(soundIndex);
         if (deletedSound) {
             this.runtime.emitProjectChanged();
             const restoreFun = () => {
@@ -1241,19 +1256,29 @@ class VirtualMachine extends EventEmitter {
      * @param {!number} bitmapResolution 1 for bitmaps that have 1 pixel per unit of stage,
      *     2 for double-resolution bitmaps
      */
-    updateBitmap (costumeIndex, bitmap, rotationCenterX, rotationCenterY, bitmapResolution) {
+    updateBitmap (costumeIndex, bitmap, rotationCenterX, rotationCenterY, bitmapResolution, emit = true, target = this.editingTarget) {
         return this._updateBitmap(
-            this.editingTarget.getCostumes()[costumeIndex],
+            target.getCostumes()[costumeIndex],
             bitmap,
             rotationCenterX,
             rotationCenterY,
-            bitmapResolution
+            bitmapResolution,
+            emit,
         );
     }
 
     _updateBitmap (costume, bitmap, rotationCenterX, rotationCenterY, bitmapResolution, emit = true) {
         if (!(costume && this.runtime && this.runtime.renderer)) return;
         if (costume && costume.broken) delete costume.broken;
+
+        // Handle a serialized bitmap
+        if (!(bitmap instanceof ImageData)) {
+            bitmap = new ImageData(
+                new Uint8ClampedArray(bitmap.data),
+                bitmap.width,
+                bitmap.height
+            )
+        }
 
         costume.rotationCenterX = rotationCenterX;
         costume.rotationCenterY = rotationCenterY;
@@ -1301,8 +1326,12 @@ class VirtualMachine extends EventEmitter {
                 );
                 if (target) {
                     const costumeIndex = target.getCostumes().indexOf(costume);
-                    const pngBytes = Array.from(new Uint8Array(reader.result));
-                    this.emitProjectMutationEvent('_updateBitmap', [target.id, costumeIndex, pngBytes, rotationCenterX, rotationCenterY, bitmapResolution], emit);
+                    const serializedBitmap = {
+                        data: bitmap.data.buffer,
+                        width: bitmap.width,
+                        height: bitmap.height
+                    }
+                    this.emitProjectMutationEvent('updateBitmap', [costumeIndex, serializedBitmap, rotationCenterX, rotationCenterY, bitmapResolution], emit, target.getName());
                 }
             });
             // Bitmaps with a zero width or height return null for their blob
@@ -1318,13 +1347,16 @@ class VirtualMachine extends EventEmitter {
      * @param {string} svg - new SVG for the renderer.
      * @param {number} rotationCenterX x of point about which the costume rotates, relative to its upper left corner
      * @param {number} rotationCenterY y of point about which the costume rotates, relative to its upper left corner
+     * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target in which to update svg (currently editing target if none).
      */
-    updateSvg (costumeIndex, svg, rotationCenterX, rotationCenterY) {
+    updateSvg (costumeIndex, svg, rotationCenterX, rotationCenterY, emit = true, target = this.editingTarget) {
         return this._updateSvg(
-            this.editingTarget.getCostumes()[costumeIndex],
+            target.getCostumes()[costumeIndex],
             svg,
             rotationCenterX,
-            rotationCenterY
+            rotationCenterY,
+            emit
         );
     }
 
@@ -1355,7 +1387,7 @@ class VirtualMachine extends EventEmitter {
         const target = this.runtime.targets.find(t => t.getCostumes().some(c => c === costume));
         if (target) {
             const idx = target.getCostumes().indexOf(costume);
-            this.emitProjectMutationEvent('_updateSvg', [target.id, idx, svg, rotationCenterX, rotationCenterY], emit);
+            this.emitProjectMutationEvent('updateSvg', [idx, svg, rotationCenterX, rotationCenterY], emit, target.getName());
         }
     }
 
@@ -1386,9 +1418,13 @@ class VirtualMachine extends EventEmitter {
      * @param {string} targetId ID of a target whose sprite to rename.
      * @param {string} newName New name of the sprite.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      */
-    renameSprite (targetId, newName, emit = true) {
-        const target = this.runtime.getTargetById(targetId);
+    renameSprite (targetId, newName, emit = true, target) {
+        if (typeof target === 'undefined') {
+            console.warn('getting target via ID');
+            target = this.runtime.getTargetById(targetId);
+        }
         if (target) {
             if (!target.isSprite()) {
                 throw new Error('Cannot rename non-sprite targets.');
@@ -1415,7 +1451,7 @@ class VirtualMachine extends EventEmitter {
 
                 if (newUnusedName !== oldName) this.emitTargetsUpdate();
 
-                this.emitProjectMutationEvent('renameSprite', [targetId, newUnusedName], emit);
+                this.emitProjectMutationEvent('renameSprite', [targetId, newUnusedName], emit, oldName);
             }
         } else {
             throw new Error('No target with the provided id.');
@@ -1425,11 +1461,11 @@ class VirtualMachine extends EventEmitter {
     /**
      * Delete a sprite and all its clones.
      * @param {string} targetId ID of a target whose sprite to delete.
+     * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @return {Function} Returns a function to restore the sprite that was deleted
      */
-    deleteSprite (targetId) {
-        const target = this.runtime.getTargetById(targetId);
-
+    deleteSprite (targetId, emit, target = this.runtime.getTargetById(targetId)) {
         if (target) {
             const targetIndexBeforeDelete = this.runtime.targets.map(t => t.id).indexOf(target.id);
             if (!target.isSprite()) {
@@ -1439,7 +1475,7 @@ class VirtualMachine extends EventEmitter {
             if (!sprite) {
                 throw new Error('No sprite associated with this target.');
             }
-            const spritePromise = this.exportSprite(targetId, 'uint8array');
+            const spritePromise = this.exportSprite(target.id, 'uint8array');
             const restoreSprite = () => spritePromise.then(spriteBuffer => this.addSprite(spriteBuffer));
             // Remove monitors from the runtime state and remove the
             // target-specific monitored blocks (e.g. local variables)
@@ -1462,12 +1498,15 @@ class VirtualMachine extends EventEmitter {
             // Sprite object should be deleted by GC.
             this.emitTargetsUpdate();
 
+            this.emitProjectMutationEvent('deleteSprite', [targetId], emit, target.getName());
+            /*
             spritePromise.then(spriteBuffer => {
                 const arr = Array.from(new Uint8Array(spriteBuffer));
                 this.emitProjectMutationEvent('deleteSprite', [targetId, arr], true);
             }).catch(e => {
                 this.emitProjectMutationEvent('deleteSprite', [targetId], true);
             });
+            */
 
             return restoreSprite;
         }
@@ -1478,12 +1517,14 @@ class VirtualMachine extends EventEmitter {
     /**
      * Duplicate a sprite.
      * @param {string} targetId ID of a target whose sprite to duplicate.
+     * @param {number} optX X of new sprite, random if none.
+     * @param {number} optY Y of new sprite, random if none.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @returns {Promise} Promise that resolves when duplicated target has
      *     been added to the runtime.
      */
-    duplicateSprite (targetId, emit = true) {
-        const target = this.runtime.getTargetById(targetId);
+    duplicateSprite (targetId, optX, optY, emit = true, target = this.runtime.getTargetById(targetId)) {
         if (!target) {
             throw new Error('No target with the provided id.');
         } else if (!target.isSprite()) {
@@ -1491,12 +1532,12 @@ class VirtualMachine extends EventEmitter {
         } else if (!target.sprite) {
             throw new Error('No sprite associated with this target.');
         }
-        return target.duplicate().then(newTarget => {
+        return target.duplicate(optX, optY).then(newTarget => {
             this.runtime.addTarget(newTarget);
             newTarget.goBehindOther(target);
-            this.setEditingTarget(newTarget.id);
+            if (emit) this.setEditingTarget(newTarget.id);
 
-            this.emitProjectMutationEvent('duplicateSprite', [targetId, newTarget.id], emit);
+            this.emitProjectMutationEvent('duplicateSprite', [targetId, newTarget.x, newTarget.y], emit, target.getName());
         });
     }
 
@@ -1944,18 +1985,17 @@ class VirtualMachine extends EventEmitter {
     /**
      * Post/edit sprite info for the current editing target or the drag target.
      * @param {object} data An object with sprite info data to set.
+     * @param {Boolean} emit Emit toggle.
      */
-    postSpriteInfo (data) {
-        if (this._dragTarget) {
-            this._dragTarget.postSpriteInfo(data);
-        } else {
-            this.editingTarget.postSpriteInfo(data);
-        }
+    postSpriteInfo (data, emit = true) {
+        const target = this._dragTarget || this.editingTarget;
+        target.postSpriteInfo(data);
         // Post sprite info means the gui has changed something about a sprite,
         // either through the sprite info pane fields (e.g. direction, size) or
         // through dragging a sprite on the stage
         // Emit a project changed event.
         this.runtime.emitProjectChanged();
+        this.emitProjectMutationEvent('postSpriteInfo', [data], emit, target.getName());
     }
 
     /**

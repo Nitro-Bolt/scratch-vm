@@ -986,15 +986,17 @@ class RenderedTarget extends Target {
 
     /**
      * Make a duplicate using a duplicate sprite.
+     * @param {number} optX X position of new sprite, random if none.
+     * @param {number} optY Y position of new sprite, random if none. 
      * @return {RenderedTarget} New clone.
      */
-    duplicate () {
+    duplicate (optX, optY) {
         return this.sprite.duplicate().then(newSprite => {
             const newTarget = newSprite.createClone();
             // Copy all properties.
             // @todo refactor with clone methods
-            newTarget.x = (Math.random() - 0.5) * 400 / 2;
-            newTarget.y = (Math.random() - 0.5) * 300 / 2;
+            newTarget.x = optX ? optX : (Math.random() - 0.5) * 400 / 2;
+            newTarget.y = optY ? optY : (Math.random() - 0.5) * 300 / 2;
             newTarget.direction = this.direction;
             newTarget.draggable = this.draggable;
             newTarget.visible = this.visible;
