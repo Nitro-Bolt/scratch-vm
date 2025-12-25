@@ -406,17 +406,17 @@ class VirtualMachine extends EventEmitter {
      * @param {Function} fn The function to emit.
      * @param {*} args Arguments of said function.
      * @param {Boolean} emit Emit toggle.
-     * @param {string} spriteName Sprite name to execute of said function.
+     * @param {Target | string} target Target or target name to execute said function.
      * @returns Returns if not an emit.
      */
-    emitProjectMutationEvent (fn, args, emit = true, spriteName) {
+    emitProjectMutationEvent (fn, args, emit = true, target) {
         if (!emit) return;
         console.log('SENDING PROJECT MUTATION: ', fn, args);
         try {
             this.emit('PROJECT_MUTATION', {
                 fn,
                 args,
-                sprite: spriteName
+                sprite: target instanceof Target ? (target.isStage ? '_stage_' : target.getName()) : target
             });
         } catch (e) {
             console.error('Failed to emit PROJECT_MUTATION', e);
@@ -1033,7 +1033,7 @@ class VirtualMachine extends EventEmitter {
             target.setCostume(costumeIndex + 1);
             this.emitTargetsUpdate();
 
-            this.emitProjectMutationEvent('duplicateCostume', [costumeIndex], emit);
+            this.emitProjectMutationEvent('duplicateCostume', [costumeIndex], emit, target);
         });
     }
 
@@ -1051,7 +1051,7 @@ class VirtualMachine extends EventEmitter {
             target.addSound(clone, soundIndex + 1);
             this.emitTargetsUpdate();
 
-            this.emitProjectMutationEvent('duplicateSound', [soundIndex], emit);
+            this.emitProjectMutationEvent('duplicateSound', [soundIndex], emit, target);
         });
     }
 
@@ -1066,7 +1066,7 @@ class VirtualMachine extends EventEmitter {
         target.renameCostume(costumeIndex, newName);
         this.emitTargetsUpdate();
 
-        this.emitProjectMutationEvent('renameCostume', [costumeIndex, newName], emit);
+        this.emitProjectMutationEvent('renameCostume', [costumeIndex, newName], emit, target);
     }
 
     /**
@@ -1081,7 +1081,7 @@ class VirtualMachine extends EventEmitter {
         const deletedCostume = target.deleteCostume(costumeIndex);
         if (deletedCostume) {
             this.runtime.emitProjectChanged();
-            this.emitProjectMutationEvent('deleteCostume', [costumeIndex], emit, target.getName());
+            this.emitProjectMutationEvent('deleteCostume', [costumeIndex], emit, target);
             return () => {
                 target.addCostume(deletedCostume);
                 this.emitTargetsUpdate();
@@ -1123,7 +1123,7 @@ class VirtualMachine extends EventEmitter {
         target.renameSound(soundIndex, newName);
         this.emitTargetsUpdate();
 
-        this.emitProjectMutationEvent('renameSound', [soundIndex, newName], emit);
+        this.emitProjectMutationEvent('renameSound', [soundIndex, newName], emit, target);
     }
 
     /**
@@ -1201,7 +1201,7 @@ class VirtualMachine extends EventEmitter {
                 this.emitTargetsUpdate();
             };
 
-            this.emitProjectMutationEvent('deleteSound', [soundIndex], emit);
+            this.emitProjectMutationEvent('deleteSound', [soundIndex], emit, target);
 
             return restoreFun;
         }
@@ -1331,7 +1331,7 @@ class VirtualMachine extends EventEmitter {
                         width: bitmap.width,
                         height: bitmap.height
                     }
-                    this.emitProjectMutationEvent('updateBitmap', [costumeIndex, serializedBitmap, rotationCenterX, rotationCenterY, bitmapResolution], emit, target.getName());
+                    this.emitProjectMutationEvent('updateBitmap', [costumeIndex, serializedBitmap, rotationCenterX, rotationCenterY, bitmapResolution], emit, target);
                 }
             });
             // Bitmaps with a zero width or height return null for their blob
@@ -1387,7 +1387,7 @@ class VirtualMachine extends EventEmitter {
         const target = this.runtime.targets.find(t => t.getCostumes().some(c => c === costume));
         if (target) {
             const idx = target.getCostumes().indexOf(costume);
-            this.emitProjectMutationEvent('updateSvg', [idx, svg, rotationCenterX, rotationCenterY], emit, target.getName());
+            this.emitProjectMutationEvent('updateSvg', [idx, svg, rotationCenterX, rotationCenterY], emit, target);
         }
     }
 
@@ -1420,11 +1420,7 @@ class VirtualMachine extends EventEmitter {
      * @param {Boolean} emit Emit toggle.
      * @param {Target} target Target to run mutation in. Editing target if none.
      */
-    renameSprite (targetId, newName, emit = true, target) {
-        if (typeof target === 'undefined') {
-            console.warn('getting target via ID');
-            target = this.runtime.getTargetById(targetId);
-        }
+    renameSprite (targetId, newName, emit = true, target = this.runtime.getTargetById(targetId)) {
         if (target) {
             if (!target.isSprite()) {
                 throw new Error('Cannot rename non-sprite targets.');
@@ -1498,7 +1494,7 @@ class VirtualMachine extends EventEmitter {
             // Sprite object should be deleted by GC.
             this.emitTargetsUpdate();
 
-            this.emitProjectMutationEvent('deleteSprite', [targetId], emit, target.getName());
+            this.emitProjectMutationEvent('deleteSprite', [targetId], emit, target);
             /*
             spritePromise.then(spriteBuffer => {
                 const arr = Array.from(new Uint8Array(spriteBuffer));
@@ -1537,7 +1533,7 @@ class VirtualMachine extends EventEmitter {
             newTarget.goBehindOther(target);
             if (emit) this.setEditingTarget(newTarget.id);
 
-            this.emitProjectMutationEvent('duplicateSprite', [targetId, newTarget.x, newTarget.y], emit, target.getName());
+            this.emitProjectMutationEvent('duplicateSprite', [targetId, newTarget.x, newTarget.y], emit, target);
         });
     }
 
@@ -1995,7 +1991,7 @@ class VirtualMachine extends EventEmitter {
         // through dragging a sprite on the stage
         // Emit a project changed event.
         this.runtime.emitProjectChanged();
-        this.emitProjectMutationEvent('postSpriteInfo', [data], emit, target.getName());
+        this.emitProjectMutationEvent('postSpriteInfo', [data], emit, target);
     }
 
     /**
