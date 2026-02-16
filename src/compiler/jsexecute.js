@@ -65,7 +65,7 @@ runtimeFunctions.arrayReplaceAtIndex = `const arrayReplaceAtIndex = (array, inde
         newArray[index] = item;
         return newArray;
     }
-    return new Array();
+    return array;
 }`;
 
 /**
@@ -80,7 +80,7 @@ runtimeFunctions.arrayDeleteAtIndex = `const arrayDeleteAtIndex = (array, index)
         newArray.splice(index, 1);
         return newArray;
     }
-    return new Array();
+    return array;
 }`;
 
 /**

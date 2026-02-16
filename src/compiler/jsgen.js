@@ -270,6 +270,8 @@ class JSGenerator {
             return `Object.keys(${this.descendInput(node.object)})`;
         case InputOpcode.JSON_VALUES:
             return `Object.values(${this.descendInput(node.object)})`;
+        case InputOpcode.JSON_ENTRIES:
+            return `Object.entries(${this.descendInput(node.object)})`;
         case InputOpcode.JSON_VALUE_OF_KEY:
             return `(${this.descendInput(node.object)}[${this.descendInput(node.key)}] ?? "")`;
         case InputOpcode.JSON_SET_KEY:

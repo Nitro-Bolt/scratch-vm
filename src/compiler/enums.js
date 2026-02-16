@@ -307,6 +307,7 @@ const InputOpcode = {
     JSON_TO_STRING: 'json.toString_',
     JSON_KEYS: 'json.keys',
     JSON_VALUES: 'json.values',
+    JSON_ENTRIES: 'json.entries',
     JSON_VALUE_OF_KEY: 'json.valueOfKey',
     JSON_SET_KEY: 'json.setKey',
     JSON_DELETE_KEY: 'json.deleteKey',

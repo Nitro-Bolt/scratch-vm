@@ -20,6 +20,7 @@ class Scratch3JSONBlocks {
             json_to_string: this.toString_,
             json_keys: this.keys,
             json_values: this.values,
+            json_entries: this.entries,
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
             json_delete_key: this.deleteKey,
@@ -60,6 +61,11 @@ class Scratch3JSONBlocks {
     values (args) {
         args.OBJ = Cast.toObject(args.OBJ);
         return Object.values(args.OBJ);
+    }
+
+    entries (args) {
+        args.OBJ = Cast.toObject(args.OBJ);
+        return Object.entries(args.OBJ);
     }
 
     valueOfKey (args) {

@@ -326,6 +326,10 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_VALUES, InputType.ARRAY, {
                 object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
             });
+        case 'json_entries':
+            return new IntermediateInput(InputOpcode.JSON_ENTRIES, InputType.ARRAY, {
+                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
+            });
         case 'json_value_of_key':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_KEY, InputType.STRING, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
