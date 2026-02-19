@@ -668,7 +668,7 @@ class Blocks {
      */
     changeBlock (args) {
         // Validate
-        if (['field', 'mutation', 'shadow', 'checkbox'].indexOf(args.element) === -1) return;
+        if (['field', 'mutation', 'shadow', 'checkbox', 'collapsed'].indexOf(args.element) === -1) return;
         let block = this._blocks[args.id];
         if (typeof block === 'undefined') return;
         switch (args.element) {
@@ -790,6 +790,9 @@ class Blocks {
             }
             break;
         }
+        case 'collapsed':
+            block.collapsed = args.value;
+            break;
         }
 
         this.emitProjectChanged();
