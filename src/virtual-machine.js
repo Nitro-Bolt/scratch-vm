@@ -981,6 +981,19 @@ class VirtualMachine extends EventEmitter {
      */
     addCostume (md5ext, costumeObject, optTargetId, optVersion, emit = true, target = this.editingTarget) {
         if (optTargetId && target !== this.editingTarget) target = this.runtime.getTargetById(optTargetId);
+        
+        if (costumeObject.asset && !(costumeObject.asset instanceof this.runtime.storage.Asset)) {
+            const storage = this.runtime.storage;
+            costumeObject.asset = storage.createAsset(
+                costumeObject.asset.dataFormat === 'svg' ? storage.AssetType.ImageVector : storage.AssetType.ImageBitmap,
+                costumeObject.asset.dataFormat,
+                new Uint8Array(costumeObject.asset.data),
+                costumeObject.asset.assetId,
+                false
+            );
+        }
+        
+
         if (target) {
             return loadCostume(md5ext, costumeObject, this.runtime, optVersion).then(() => {
                 target.addCostume(costumeObject);
@@ -989,7 +1002,7 @@ class VirtualMachine extends EventEmitter {
                 );
                 this.runtime.emitProjectChanged();
 
-                this.emitProjectMutationEvent('addCostume', [md5ext, costumeObject, optTargetId, optVersion], emit, target);
+                this.emitProjectMutationEvent('addCostume', [md5ext, structuredClone(costumeObject), optTargetId, optVersion], emit, target);
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -1095,17 +1108,30 @@ class VirtualMachine extends EventEmitter {
      * @param {!object} soundObject Object representing the costume.
      * @param {string} optTargetId - the id of the target to add to, if not the editing target.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      * @returns {?Promise} - a promise that resolves when the sound has been decoded and added
      */
-    addSound (soundObject, optTargetId, emit = true) {
-        const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
-            this.editingTarget;
+    addSound (soundObject, optTargetId, emit = true, target = this.editingTarget) {
+        if (optTargetId && target !== this.editingTarget) target = this.runtime.getTargetById(optTargetId);
+        console.log(soundObject);
+
+        if (soundObject.asset && !(soundObject.asset instanceof this.runtime.storage.Asset)) {
+            const storage = this.runtime.storage;
+            soundObject.asset = storage.createAsset(
+                storage.AssetType.Sound,
+                soundObject.asset.dataFormat,
+                new Uint8Array(soundObject.asset.data),
+                soundObject.asset.assetId,
+                false
+            );
+        }
+        
         if (target) {
             return loadSound(soundObject, this.runtime, target.sprite.soundBank).then(() => {
                 target.addSound(soundObject);
                 this.emitTargetsUpdate();
 
-                this.emitProjectMutationEvent('addSound', [soundObject, optTargetId], emit);
+                this.emitProjectMutationEvent('addSound', [structuredClone(soundObject), optTargetId], emit);
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -1145,13 +1171,21 @@ class VirtualMachine extends EventEmitter {
      * @param {AudioBuffer} newBuffer - new audio buffer for the audio engine.
      * @param {ArrayBuffer} soundEncoding - the new (wav) encoded sound to be stored
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
      */
-    updateSoundBuffer (soundIndex, newBuffer, soundEncoding, emit = true) {
-        const sound = this.editingTarget.sprite.sounds[soundIndex];
+    updateSoundBuffer (soundIndex, newBuffer, soundEncoding, emit = true, target = this.editingTarget) {
+        const sound = target.sprite.sounds[soundIndex];
         if (sound && sound.broken) delete sound.broken;
         const id = sound ? sound.soundId : null;
         if (id && this.runtime && this.runtime.audioEngine) {
-            this.editingTarget.sprite.soundBank.getSoundPlayer(id).buffer = newBuffer;
+            if (newBuffer?._ab && soundEncoding) {
+                const ctx = new AudioContext();
+                ctx.decodeAudioData(soundEncoding.slice(0)).then(a => {
+                    target.sprite.soundBank.getSoundPlayer(id).buffer = a;
+                });
+            } else {
+                target.sprite.soundBank.getSoundPlayer(id).buffer = newBuffer;
+            }
         }
         // Update sound in runtime
         if (soundEncoding) {
@@ -1181,7 +1215,15 @@ class VirtualMachine extends EventEmitter {
 
         this.emitTargetsUpdate();
 
-        this.emitProjectMutationEvent('updateSoundBuffer', [soundIndex, newBuffer, soundEncoding], emit);
+        this.emitProjectMutationEvent('updateSoundBuffer', [
+            soundIndex,
+            {
+                _ab: true,
+                sampleRate: newBuffer.sampleRate,
+                length: newBuffer.length,
+            },
+            soundEncoding
+        ], emit, target);
     }
 
     /**
@@ -1694,20 +1736,31 @@ class VirtualMachine extends EventEmitter {
      * @param {?string} optFromTargetId Optional target id indicating that blocks are being
      * shared from that target. This is needed for resolving any potential variable conflicts.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target | undefined} target Target to share blocks to.
      * @return {!Promise} Promise that resolves when the extensions and blocks have been added.
      */
-    shareBlocksToTarget (blocks, targetId, optFromTargetId, emit = true) {
+    shareBlocksToTarget (
+        blocks, targetId, optFromTargetId,
+        optFromTarget, emit = true,
+        target
+    ) {
+        if (!optFromTarget) {
+            optFromTarget = this.runtime.getTargetById(optFromTargetId);
+        }
+        if (!target) {
+            target = this.runtime.getTargetById(targetId);
+        }
+        console.log(target);
         const sb3 = require('./serialization/sb3');
+
 
         const {blocks: copiedBlocks, extensionURLs} = sb3.deserializeStandaloneBlocks(blocks);
         newBlockIds(copiedBlocks);
-        const target = this.runtime.getTargetById(targetId);
 
-        if (optFromTargetId) {
+        if (optFromTarget) {
             // If the blocks are being shared from another target,
             // resolve any possible variable conflicts that may arise.
-            const fromTarget = this.runtime.getTargetById(optFromTargetId);
-            fromTarget.resolveVariableSharingConflictsWithTarget(copiedBlocks, target);
+            optFromTarget.resolveVariableSharingConflictsWithTarget(copiedBlocks, target);
         }
 
         // Create a unique set of extensionIds that are not yet loaded
@@ -1723,7 +1776,7 @@ class VirtualMachine extends EventEmitter {
             });
             target.blocks.updateTargetSpecificBlocks(target.isStage);
 
-            this.emitProjectMutationEvent('shareBlocksToTarget', [blocks, targetId, optFromTargetId], emit);
+            this.emitProjectMutationEvent('shareBlocksToTarget', [blocks, null, null, null], emit, target);
         });
     }
 
@@ -1733,12 +1786,25 @@ class VirtualMachine extends EventEmitter {
      * @param {!number} costumeIndex Index of the costume of the editing target to share.
      * @param {!string} targetId Id of target to add the costume.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to share costume to.
      * @return {Promise} Promise that resolves when the new costume has been loaded.
      */
-    shareCostumeToTarget (costumeIndex, targetId, emit = true) {
-        const originalCostume = this.editingTarget.getCostumes()[costumeIndex];
+    shareCostumeToTarget (costumeIndex, targetId, emit = true, fromTarget = this.editingTarget) {
+        const originalCostume = fromTarget.getCostumes()[costumeIndex];
         const clone = Object.assign({}, originalCostume);
         const md5ext = `${clone.assetId}.${clone.dataFormat}`;
+
+        if (costumeObject.asset && !(costumeObject.asset instanceof this.runtime.storage.Asset)) {
+            const storage = this.runtime.storage;
+            costumeObject.asset = storage.createAsset(
+                costumeObject.asset.dataFormat === 'svg' ? storage.AssetType.ImageVector : storage.AssetType.ImageBitmap,
+                costumeObject.asset.dataFormat,
+                new Uint8Array(costumeObject.asset.data),
+                costumeObject.asset.assetId,
+                false
+            );
+        }
+
         return loadCostume(md5ext, clone, this.runtime).then(() => {
             const target = this.runtime.getTargetById(targetId);
             if (target) {
