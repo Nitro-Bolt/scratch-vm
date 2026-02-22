@@ -330,6 +330,12 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_ENTRIES, InputType.ARRAY, {
                 object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
             });
+        case 'json_get_properties':
+            const property = block.fields.PROPERTY.value.toLowerCase()
+            return new IntermediateInput(InputOpcode.JSON_GET_PROPERTIES, InputType.ARRAY, {
+                property,
+                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
+            });
         case 'json_value_of_key':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_KEY, InputType.STRING, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
@@ -402,6 +408,20 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_HAS_ITEM, InputType.BOOLEAN, {
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY),
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
+            });
+        case 'json_array_length':
+            return new IntermediateInput(InputOpcode.JSON_ARRAY_LENGTH, InputType.NUMBER_WHOLE, {
+                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+            });
+        case 'json_slice_array':
+            return new IntermediateInput(InputOpcode.JSON_SLICE_ARRAY, InputType.ARRAY, {
+                start: this.descendInputOfBlock(block, 'START').toType(InputType.NUMBER),
+                end: this.descendInputOfBlock(block, 'END').toType(InputType.NUMBER),
+                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+            });
+        case 'json_reverse_array':
+            return new IntermediateInput(InputOpcode.JSON_REVERSE_ARRAY, InputType.ARRAY, {
+                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
 
         case 'event_broadcast_menu': {

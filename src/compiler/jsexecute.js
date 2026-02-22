@@ -84,6 +84,20 @@ runtimeFunctions.arrayDeleteAtIndex = `const arrayDeleteAtIndex = (array, index)
 }`;
 
 /**
+ * Slices an array (inclusive)
+ * @param {Array<*>} array The array
+ * @param {number} start The index to start from
+ * @param {number} end The index to end in
+ * @returns {Array<*>} Items from index start to index end
+ */
+runtimeFunctions.sliceArray = `const sliceArray = (array, start, end) => {
+    const _start = Math.max(0, start);
+    const _end = Math.min(array.length, end + 1);
+    if (_end <= _start) return [];
+    return array.slice(_start, _end);
+}`;
+
+/**
  * Determine whether the current tick is likely stuck.
  * This implements similar functionality to the warp timer found in Scratch.
  * @returns {boolean} true if the current tick is likely stuck.

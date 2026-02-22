@@ -272,6 +272,18 @@ class JSGenerator {
             return `Object.values(${this.descendInput(node.object)})`;
         case InputOpcode.JSON_ENTRIES:
             return `Object.entries(${this.descendInput(node.object)})`;
+        case InputOpcode.JSON_GET_PROPERTIES: {
+            const property = node.property; 
+            const obj = this.descendInput(node.object);
+            if (property === 'keys') {
+                return `Object.keys(${obj})`;
+            } else if (property === 'values') {
+                return `Object.values(${obj})`;
+            } else if (property === 'entries') {
+                return `Object.entries(${obj})`;
+            }
+            return `[]`;
+        }
         case InputOpcode.JSON_VALUE_OF_KEY:
             return `(${this.descendInput(node.object)}[${this.descendInput(node.key)}] ?? "")`;
         case InputOpcode.JSON_SET_KEY:
@@ -302,6 +314,12 @@ class JSGenerator {
             return `${this.descendInput(node.array1)}.concat(${this.descendInput(node.array2)})`;
         case InputOpcode.JSON_HAS_ITEM:
             return `${this.descendInput(node.array)}.includes(${this.descendInput(node.item)})`;
+        case InputOpcode.JSON_ARRAY_LENGTH:
+            return `${this.descendInput(node.array)}.length`;
+        case InputOpcode.JSON_SLICE_ARRAY:
+            return `sliceArray(${this.descendInput(node.array)}, ${this.descendInput(node.start)}, ${this.descendInput(node.end)})`;
+        case InputOpcode.JSON_REVERSE_ARRAY:
+            return `${this.descendInput(node.array)}.slice(0).reverse()`;
 
         case InputOpcode.LOOKS_SIZE_GET:
             return 'Math.round(target.size)';

@@ -1,7 +1,7 @@
 const Cast = require('../util/cast');
 
 class Scratch3JSONBlocks {
-    constructor (runtime) {
+    constructor(runtime) {
         /**
          * The runtime instantiating this block package.
          * @type {Runtime}
@@ -13,7 +13,7 @@ class Scratch3JSONBlocks {
      * Retrieve the block primitives implemented by this package.
      * @return {object.<string, Function>} Mapping of opcode to Function.
      */
-    getPrimitives () {
+    getPrimitives() {
         return {
             json_new_object: this.newObject,
             json_to_object: this.toObject_,
@@ -21,6 +21,7 @@ class Scratch3JSONBlocks {
             json_keys: this.keys,
             json_values: this.values,
             json_entries: this.entries,
+            json_get_properties: this.getProperties,
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
             json_delete_key: this.deleteKey,
@@ -35,98 +36,117 @@ class Scratch3JSONBlocks {
             json_delete_index: this.deleteIndex,
             json_delete_all_occurrences: this.deleteAllOccurrences,
             json_merge_array: this.mergeArray,
-            json_has_item: this.hasItem
+            json_has_item: this.hasItem,
+            json_array_length: this.arrayLength,
+            json_slice_array: this.sliceArray,
+            json_reverse_array: this.reverseArray,
         };
     }
 
-    newObject () {
+    newObject() {
         return new Object();
     }
 
-    toObject_ (args) {
+    toObject_(args) {
         args.STR = Cast.toString(args.STR);
         return Cast.toObject(args.STR);
     }
 
-    toString_ (args) {
+    toString_(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         return Cast.toString(args.OBJ);
     }
 
-    keys (args) {
+    keys(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         return Object.keys(args.OBJ);
     }
 
-    values (args) {
+    values(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         return Object.values(args.OBJ);
     }
 
-    entries (args) {
+    entries(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         return Object.entries(args.OBJ);
     }
 
-    valueOfKey (args) {
+    getProperties (args) {
+        const obj = Cast.toObject(args.OBJ);
+        const property = args.PROPERTY;
+
+        switch (property) {
+            case 'keys':
+                return Object.keys(obj);
+            case 'values':
+                return Object.values(obj);
+            case 'entries':
+                return Object.entries(obj);
+            default:
+                return [];
+        }
+    }
+
+    valueOfKey(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
         return args.OBJ[args.KEY] ?? '';
     }
 
-    setKey (args) {
+    setKey(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
         args.OBJ[args.KEY] = args.VALUE;
         return args.OBJ;
     }
 
-    deleteKey (args) {
+    deleteKey(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
         delete args.OBJ[args.KEY];
         return args.OBJ;
     }
 
-    mergeObject (args) {
+    mergeObject(args) {
         args.OBJ1 = Cast.toObject(args.OBJ1);
         args.OBJ2 = Cast.toObject(args.OBJ2);
         return Object.fromEntries(Object.entries(args.OBJ1).concat(Object.entries(args.OBJ2)));
     }
 
-    hasKey (args) {
+    hasKey(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
         return Object.hasOwn(args.OBJ, args.KEY);
     }
 
-    newArray () {
+    newArray() {
         return new Array();
     }
 
-    toArray_ (args) {
+    toArray_(args) {
         args.STR = Cast.toString(args.STR);
         return Cast.toArray(args.STR);
     }
 
-    valueOfIndex (args) {
+    valueOfIndex(args) {
         args.ARR = Cast.toArray(args.ARR);
         args.INDEX = Cast.toNumber(args.INDEX);
         return args.ARR[args.INDEX] ?? '';
     }
 
-    indexOfValue (args) {
+    indexOfValue(args) {
         args.ARR = Cast.toArray(args.ARR);
         return args.ARR.indexOf(args.VALUE) === -1 ? '' : args.ARR.indexOf(args.VALUE);
     }
 
-    addItem (args) {
+    addItem(args) {
         args.ARR = Cast.toArray(args.ARR);
         args.ARR.push(args.ITEM);
         return args.ARR;
     }
 
-    replaceIndex (args) {
+    replaceIndex(args) {
         args.ARR = Cast.toArray(args.ARR);
         args.INDEX = Cast.toNumber(args.INDEX);
         if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
@@ -136,7 +156,7 @@ class Scratch3JSONBlocks {
         return new Array();
     }
 
-    deleteIndex (args) {
+    deleteIndex(args) {
         args.ARR = Cast.toArray(args.ARR);
         args.INDEX = Cast.toNumber(args.INDEX);
         if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
@@ -146,21 +166,44 @@ class Scratch3JSONBlocks {
         return new Array();
     }
 
-    deleteAllOccurrences (args) {
+    deleteAllOccurrences(args) {
         args.ARR = Cast.toArray(args.ARR);
         args.ITEM = Cast.toString(args.ITEM);
         return args.ARR.filter(item => item !== args.ITEM);
     }
 
-    mergeArray (args) {
+    mergeArray(args) {
         args.ARR1 = Cast.toArray(args.ARR1);
         args.ARR2 = Cast.toArray(args.ARR2);
         return args.ARR1.concat(args.ARR2);
     }
 
-    hasItem (args) {
+    hasItem(args) {
         args.ARR = Cast.toArray(args.ARR);
         return args.ARR.includes(args.ITEM);
+    }
+
+    arrayLength(args) {
+        args.ARR = Cast.toArray(args.ARR);
+        return args.ARR.length;
+    }
+
+    sliceArray(args) {
+        args.ARR = Cast.toArray(args.ARR);
+        args.START = Cast.toNumber(args.START);
+        args.END = Cast.toNumber(args.END);
+
+        const start = Math.max(0, args.START);
+        const end = Math.min(args.ARR.length, args.END + 1);
+
+        if (end <= start) return [];
+
+        return args.ARR.slice(start, end);
+    }
+
+    reverseArray(args) {
+        args.ARR = Cast.toArray(args.ARR);
+        return [...args.ARR].reverse();
     }
 }
 

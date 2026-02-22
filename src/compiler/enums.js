@@ -308,6 +308,7 @@ const InputOpcode = {
     JSON_KEYS: 'json.keys',
     JSON_VALUES: 'json.values',
     JSON_ENTRIES: 'json.entries',
+    JSON_GET_PROPERTIES: 'json.getProperties',
     JSON_VALUE_OF_KEY: 'json.valueOfKey',
     JSON_SET_KEY: 'json.setKey',
     JSON_DELETE_KEY: 'json.deleteKey',
@@ -323,6 +324,9 @@ const InputOpcode = {
     JSON_DELETE_ALL_OCCURRENCES: 'json.deleteAllOccurrences',
     JSON_MERGE_ARRAY: 'json.mergeArray',
     JSON_HAS_ITEM: 'json.hasItem',
+    JSON_ARRAY_LENGTH: 'json.arrayLength',
+    JSON_SLICE_ARRAY: 'json.sliceArray',
+    JSON_REVERSE_ARRAY: 'json.reverseArray',
 
     COMMENTS_REPORTER: 'comments.reporter',
     COMMENTS_BOOLEAN: 'comments.boolean',
