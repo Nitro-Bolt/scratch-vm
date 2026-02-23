@@ -1219,6 +1219,16 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
+     * Rename an asset on the current editing target.
+     * @param {int} assetIndex - the index of the asset to be renamed.
+     * @param {string} newName - the desired new name of the asset (will be modified if already in use).
+     */
+    renameAsset (assetIndex, newName) {
+        this.editingTarget.renameAsset(assetIndex, newName);
+        this.emitTargetsUpdate();
+    }
+
+    /**
      * Get a string representation of the image from storage.
      * @param {int} costumeIndex - the index of the costume to be got.
      * @return {string} the costume's SVG string if it's SVG,
