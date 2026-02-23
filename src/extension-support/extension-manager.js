@@ -29,6 +29,20 @@ const defaultBuiltinExtensions = {
     tw: () => require('../extensions/tw')
 };
 
+const coreExtensions = [
+    'motion',
+    'looks',
+    'sound',
+    'events',
+    'control',
+    'sensing',
+    'operators',
+    'data',
+    'json',
+    'procedures',
+    'comments'
+];
+
 /**
  * @typedef {object} ArgumentInfo - Information about an extension block argument
  * @property {ArgumentType} type - the type of value this argument can take
@@ -126,6 +140,7 @@ class ExtensionManager {
         this.asyncExtensionsLoadedCallbacks = [];
 
         this.builtinExtensions = Object.assign({}, defaultBuiltinExtensions);
+        this.coreExtensions = coreExtensions;
 
         dispatch.setService('extensions', createExtensionService(this)).catch(e => {
             log.error(`ExtensionManager was unable to register extension service: ${JSON.stringify(e)}`);
@@ -151,6 +166,16 @@ class ExtensionManager {
      */
     isBuiltinExtension (extensionId) {
         return Object.prototype.hasOwnProperty.call(this.builtinExtensions, extensionId);
+    }
+
+    /**
+     * Determine whether an extension with a given ID is registered as a core extension in the VM, such as motion.
+     * Note that custom extensions or extensions that don't load on startup will return false here.
+     * @param {string} extensionId
+     * @returns {boolean}
+     */
+    isCoreExtension (extensionId) {
+        return this.coreExtensions.includes(extensionId);
     }
 
     /**
@@ -207,8 +232,8 @@ class ExtensionManager {
             return;
         }
 
-        if (this.isExtensionURLLoaded(extensionURL)) {
-            // Extension is already loaded.
+        if (this.isExtensionURLLoaded(extensionURL) || this.isCoreExtension(extensionURL)) {
+            // Extension is already loaded or is a core extension.
             return;
         }
 
@@ -266,15 +291,15 @@ class ExtensionManager {
      * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
      */
     reorderExtension (extensionIndex, reorderIndex) {
-        let extensions = Array.from(this._loadedExtensions);
+        const extensions = Array.from(this._loadedExtensions);
         if (reorderIndex >= extensions.length) {
-            const padding = reorderIndex - extensions + 1;
+            let padding = reorderIndex - extensions.length + 1;
             while (padding--) {
-                extensions.push(undefined);
+                extensions.push(null);
             }
         }
         extensions.splice(reorderIndex, 0, extensions.splice(extensionIndex, 1)[0]);
-        this._loadedExtensions = new Map(extensions.map((extension) => [extension[0], extension[1]]));
+        this._loadedExtensions = new Map(extensions.map(extension => [extension[0], extension[1]]));
         dispatch.call('runtime', '_reorderExtensionPrimitive', extensionIndex, reorderIndex);
         this.refreshBlocks();
     }

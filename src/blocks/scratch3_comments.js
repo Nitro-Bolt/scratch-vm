@@ -25,11 +25,11 @@ class Scratch3CommentsBlocks {
         };
     }
 
-    hat (args) {
+    hat () {
         // No Operation;
     }
 
-    command (args) {
+    command () {
         // No Operation;
     }
 

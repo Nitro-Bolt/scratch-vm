@@ -3,7 +3,6 @@ const mutationAdapter = require('./mutation-adapter');
 const xmlEscape = require('../util/xml-escape');
 const MonitorRecord = require('./monitor-record');
 const Clone = require('../util/clone');
-const {Map} = require('immutable');
 const BlocksExecuteCache = require('./blocks-execute-cache');
 const BlocksRuntimeCache = require('./blocks-runtime-cache');
 const log = require('../util/log');
@@ -668,7 +667,7 @@ class Blocks {
      */
     changeBlock (args) {
         // Validate
-        if (['field', 'mutation', 'checkbox'].indexOf(args.element) === -1) return;
+        if (['field', 'mutation', 'shadow', 'checkbox', 'collapsed'].indexOf(args.element) === -1) return;
         let block = this._blocks[args.id];
         if (typeof block === 'undefined') return;
         switch (args.element) {
@@ -714,15 +713,18 @@ class Blocks {
 
                 const flyoutBlock = block.shadow && block.parent ? this._blocks[block.parent] : block;
                 if (flyoutBlock.isMonitored) {
-                    this.runtime.requestUpdateMonitor(Map({
+                    this.runtime.requestUpdateMonitor({
                         id: flyoutBlock.id,
                         params: this._getBlockParams(flyoutBlock)
-                    }));
+                    });
                 }
             }
             break;
         case 'mutation':
             block.mutation = mutationAdapter(args.value);
+            break;
+        case 'shadow':
+            block.shadow = args.value;
             break;
         case 'checkbox': {
             // A checkbox usually has a one to one correspondence with the monitor
@@ -793,7 +795,7 @@ class Blocks {
                         break;
                 }
                 if (!this.runtime.requestShowMonitor(block.id)) {
-                    this.runtime.requestAddMonitor(MonitorRecord({
+                    this.runtime.requestAddMonitor(new MonitorRecord({
                         id: block.id,
                         targetId: block.targetId,
                         spriteName: block.targetId ? this.runtime.getTargetById(block.targetId).getName() : null,
@@ -807,6 +809,9 @@ class Blocks {
             }
             break;
         }
+        case 'collapsed':
+            block.collapsed = args.value;
+            break;
         }
 
         this.emitProjectChanged();
@@ -919,8 +924,9 @@ class Blocks {
      * Block management: delete blocks and their associated scripts. Does nothing if a block
      * with the given ID does not exist.
      * @param {!string} blockId Id of block to delete
+     * @param {boolean} preserve Should stack be kept intact
      */
-    deleteBlock (blockId) {
+    deleteBlock (blockId, preserve) {
         // @todo In runtime, stop threads running on this script.
 
         // Get block
@@ -931,8 +937,25 @@ class Blocks {
         }
 
         // Delete children
-        if (block.next !== null) {
+        if (block.next !== null && !preserve) {
             this.deleteBlock(block.next);
+        }
+        // Preservation if needed
+        if (preserve) {
+            const parent = this._blocks[block.parent];
+            const next = this._blocks[block.next];
+            const input = parent?.inputs ?
+                Object.values(parent.inputs).find(i => i.block === blockId) :
+                null;
+            if (parent && !input) {
+                parent.next = block.next;
+            }
+            if (next) {
+                next.parent = block.parent;
+            }
+            if (next && input) {
+                input.block = block.next;
+            }
         }
 
         // Delete inputs (including branches)
@@ -948,8 +971,21 @@ class Blocks {
             }
         }
 
-        // Delete any script starting with this block.
-        this._deleteScript(blockId);
+        // More preservation stuff
+        if (!preserve) {
+            this._deleteScript(blockId);
+        }
+        const index = this._scripts.indexOf(blockId);
+        if (preserve && index > -1) {
+            const next = this._blocks[block.next];
+            if (next) {
+                this._scripts.push(next.id);
+                next.topLevel = true;
+                next.x = block.x;
+                next.y = block.y;
+            }
+            this._scripts.splice(index, 1);
+        }
 
         // Delete block itself.
         delete this._blocks[blockId];
