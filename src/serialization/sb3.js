@@ -494,6 +494,7 @@ const serializeSound = function (sound) {
 const serializeAsset = function (asset) {
     const obj = Object.create(null);
     obj.name = asset.name;
+    obj.lastModified = asset.lastModified;
     obj.dataFormat = asset.dataFormat.toLowerCase();
     obj.assetId = asset.assetId;
     obj.md5 = asset.md5;
@@ -1173,6 +1174,7 @@ const parseScratchAssets = function (object, runtime, zip) {
             dataFormat: assetSource.dataFormat,
             contentType: assetSource.contentType,
             name: assetSource.name,
+            lastModified: assetSource.lastModified,
             md5: assetSource.md5,
             data: null
         };
