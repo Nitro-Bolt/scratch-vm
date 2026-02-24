@@ -39,7 +39,8 @@ const inputs = [
     'sensing_loud',
     'sensing_loudness',
     'sensing_userid',
-    'sound_volume'
+    'sound_volume',
+    'assets_test'
 ];
 
 module.exports = {

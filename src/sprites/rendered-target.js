@@ -597,8 +597,10 @@ class RenderedTarget extends Target {
         const usedNames = this.sprite.assets
             .filter((asset, index) => assetIndex !== index)
             .map(asset => asset.name);
+        const oldName = this.sprite.assets[assetIndex].name;
         const newUnusedName = StringUtil.unusedName(newName, usedNames);
         this.sprite.assets[assetIndex].name = newUnusedName;
+        this.blocks.updateAssetName(oldName, newUnusedName, 'asset');
     }
 
     /**
