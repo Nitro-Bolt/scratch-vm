@@ -131,6 +131,16 @@ const StackOpcode = {
     CONTROL_CLEAR_COUNTER: 'control.counterClear',
     CONTORL_INCR_COUNTER: 'control.counterIncr',
 
+    TABLE_ADD: 'table.add',
+    TABLE_INSERT: 'table.insert',
+    TABLE_SET_CELL: 'table.setCell',
+    TABLE_DELETE_CELL: 'table.deleteCell',
+    TABLE_DELETE: 'table.delete',
+    TABLE_DELETE_ALL: 'table.deleteAll',
+    TABLE_SET: 'table.set',
+    TABLE_SHOW: 'table.show',
+    TABLE_HIDE: 'table.hide',
+
     LIST_ADD: 'list.add',
     LIST_INSERT: 'list.instert',
     LIST_REPLACE: 'list.replace',
@@ -234,6 +244,13 @@ const InputOpcode = {
     LIST_CONTAINS: 'list.contains',
     LIST_INDEX_OF: 'list.indexOf',
     LIST_CONTENTS: 'list.contents',
+
+    TABLE_CELL_VALUE: 'table.cellValue',
+    TABLE_DIMENSION_VALUES: 'table.dimensionValues',
+    TABLE_DIMENSION_LENGTH: 'table.dimensionLength',
+    TABLE_DIMENSION_COUNT: 'table.dimensionCount',
+    TABLE_CONTAINS_VALUE: 'table.containsValue',
+    TABLE_AS_ARRAY: 'table.asArray',
 
     MOTION_X_GET: 'motion.x',
     MOTION_Y_GET: 'motion.y',

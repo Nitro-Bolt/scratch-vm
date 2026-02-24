@@ -18,7 +18,6 @@ const {
     IntermediateScript,
     IntermediateRepresentation
 } = require('./intermediate');
-const {Stack} = require('immutable');
 /* eslint-enable no-unused-vars */
 
 /**
@@ -259,6 +258,19 @@ class JSGenerator {
             return `listIndexOf(${this.referenceVariable(node.list)}, ${this.descendInput(node.item)})`;
         case InputOpcode.LIST_LENGTH:
             return `${this.referenceVariable(node.list)}.value.length`;
+
+        case InputOpcode.TABLE_CELL_VALUE:
+            return `tableGetCell(${this.referenceVariable(node.table)}.value, ${this.descendInput(node.row)}, ${this.descendInput(node.column)})`;
+        case InputOpcode.TABLE_DIMENSION_VALUES:
+            return `tableGetDimension(${this.referenceVariable(node.table)}.value, "${sanitize(node.dimension)}", ${this.descendInput(node.index)})`;
+        case InputOpcode.TABLE_DIMENSION_LENGTH:
+            return `tableDimensionLength(${this.referenceVariable(node.table)}.value, "${sanitize(node.dimension)}", ${this.descendInput(node.index)})`;
+        case InputOpcode.TABLE_DIMENSION_COUNT:
+            return `tableDimensionCount(${this.referenceVariable(node.table)}.value, "${sanitize(node.dimension)}")`;
+        case InputOpcode.TABLE_CONTAINS_VALUE:
+            return `tableContains(${this.referenceVariable(node.table)}.value, ${this.descendInput(node.item)}, ${this.descendInput(node.row)}, ${this.descendInput(node.column)})`;
+        case InputOpcode.TABLE_AS_ARRAY:
+            return `tableAsArray(${this.referenceVariable(node.table)}.value)`;
 
         case InputOpcode.JSON_NEW_OBJECT:
             return 'new Object()';
@@ -754,6 +766,64 @@ class JSGenerator {
         case StackOpcode.EVENT_BROADCAST_AND_WAIT:
             this.source += `yield* waitThreads(startHats("event_whenbroadcastreceived", { BROADCAST_OPTION: ${this.descendInput(node.broadcast)} }));\n`;
             this.yielded();
+            break;
+
+        case StackOpcode.TABLE_ADD: {
+            const table = this.referenceVariable(node.table);
+            const dimension = node.dimension;
+            if (dimension === 'column') {
+                this.source += `tableAddColumn(${table});\n`;
+            } else {
+                this.source += `tableAddRow(${table});\n`;
+            }
+            break;
+        }
+        case StackOpcode.TABLE_INSERT: {
+            const table = this.referenceVariable(node.table);
+            const dimension = node.dimension;
+            const index = this.descendInput(node.index);
+            if (dimension === 'column') {
+                this.source += `tableInsertColumn(${table}, ${index});\n`;
+            } else {
+                this.source += `tableInsertRow(${table}, ${index});\n`;
+            }
+            break;
+        }
+        case StackOpcode.TABLE_SET_CELL: {
+            const table = this.referenceVariable(node.table);
+            this.source += `tableSetCell(${table}, ${this.descendInput(node.row)}, ${this.descendInput(node.COLUMN)}, ${this.descendInput(node.item)});\n`;
+            break;
+        }
+        case StackOpcode.TABLE_DELETE_CELL: {
+            const table = this.referenceVariable(node.table);
+            this.source += `tableDeleteCell(${table}, ${this.descendInput(node.row)}, ${this.descendInput(node.COLUMN)});\n`;
+            break;
+        }
+        case StackOpcode.TABLE_DELETE: {
+            const table = this.referenceVariable(node.table);
+            const dimension = node.dimension;
+            const index = this.descendInput(node.index);
+            if (dimension === 'column') {
+                this.source += `tableDeleteColumn(${table}, ${index});\n`;
+            } else {
+                this.source += `tableDeleteRow(${table}, ${index});\n`;
+            }
+            break;
+        }
+        case StackOpcode.TABLE_DELETE_ALL:
+            this.source += `${this.referenceVariable(node.table)}.value = [];\n`;
+            this.source += `${this.referenceVariable(node.table)}._monitorUpToDate = false;\n`;
+            break;
+        case StackOpcode.TABLE_SET: {
+            const table = this.referenceVariable(node.table);
+            this.source += `tableSet(${table}, ${this.descendInput(node.arr)});\n`;
+            break;
+        }
+        case StackOpcode.TABLE_SHOW:
+            this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.table.id)}", element: "checkbox", value: true }, runtime);\n`;
+            break;
+        case StackOpcode.TABLE_HIDE:
+            this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.table.id)}", element: "checkbox", value: false }, runtime);\n`;
             break;
 
         case StackOpcode.LIST_ADD: {
