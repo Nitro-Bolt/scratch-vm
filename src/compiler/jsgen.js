@@ -18,7 +18,6 @@ const {
     IntermediateScript,
     IntermediateRepresentation
 } = require('./intermediate');
-const {Stack} = require('immutable');
 /* eslint-enable no-unused-vars */
 
 /**
@@ -266,12 +265,6 @@ class JSGenerator {
             return `${this.descendInput(node.string)}`;
         case InputOpcode.JSON_TO_STRING:
             return `toString(${this.descendInput(node.object)})`;
-        case InputOpcode.JSON_KEYS:
-            return `Object.keys(${this.descendInput(node.object)})`;
-        case InputOpcode.JSON_VALUES:
-            return `Object.values(${this.descendInput(node.object)})`;
-        case InputOpcode.JSON_ENTRIES:
-            return `Object.entries(${this.descendInput(node.object)})`;
         case InputOpcode.JSON_GET_PROPERTIES: {
             const property = node.property; 
             const obj = this.descendInput(node.object);

@@ -18,9 +18,6 @@ class Scratch3JSONBlocks {
             json_new_object: this.newObject,
             json_to_object: this.toObject_,
             json_to_string: this.toString_,
-            json_keys: this.keys,
-            json_values: this.values,
-            json_entries: this.entries,
             json_get_properties: this.getProperties,
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
@@ -55,21 +52,6 @@ class Scratch3JSONBlocks {
     toString_(args) {
         args.OBJ = Cast.toObject(args.OBJ);
         return Cast.toString(args.OBJ);
-    }
-
-    keys(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Object.keys(args.OBJ);
-    }
-
-    values(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Object.values(args.OBJ);
-    }
-
-    entries(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Object.entries(args.OBJ);
     }
 
     getProperties (args) {
