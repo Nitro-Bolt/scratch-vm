@@ -1,6 +1,7 @@
 // @ts-check
 
 const {StackOpcode, InputOpcode, InputType} = require('./enums.js');
+const Cast = require('../util/cast');
 const log = require('../util/log');
 
 // These imports are used by jsdoc comments but eslint doesn't know that
@@ -735,6 +736,63 @@ class IROptimizer {
         }
 
         switch (input.opcode) {
+        case InputOpcode.OP_ADD: {
+            const left = input.inputs.left;
+            const right = input.inputs.right;
+            if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
+                const result = Cast.toNumber(left.inputs.value) + Cast.toNumber(right.inputs.value);
+                
+                return new IntermediateInput(
+                    InputOpcode.CONSTANT, 
+                    IntermediateInput.getNumberInputType(result), 
+                    { value: result }
+                );
+            }
+            break;
+        }
+
+        case InputOpcode.OP_SUBTRACT: {
+            const left = input.inputs.left;
+            const right = input.inputs.right;
+            if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
+                const result = Cast.toNumber(left.inputs.value) - Cast.toNumber(right.inputs.value);
+                return new IntermediateInput(
+                    InputOpcode.CONSTANT, 
+                    IntermediateInput.getNumberInputType(result), 
+                    { value: result }
+                );
+            }
+            break;
+        }
+
+        case InputOpcode.OP_MULTIPLY: {
+            const left = input.inputs.left;
+            const right = input.inputs.right;
+            if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
+                const result = Cast.toNumber(left.inputs.value) * Cast.toNumber(right.inputs.value);
+                return new IntermediateInput(
+                    InputOpcode.CONSTANT, 
+                    IntermediateInput.getNumberInputType(result), 
+                    { value: result }
+                );
+            }
+            break;
+        }
+
+        case InputOpcode.OP_DIVIDE: {
+            const left = input.inputs.left;
+            const right = input.inputs.right;
+            if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
+                const result = Cast.toNumber(left.inputs.value) / Cast.toNumber(right.inputs.value);
+                return new IntermediateInput(
+                    InputOpcode.CONSTANT, 
+                    IntermediateInput.getNumberInputType(result), 
+                    { value: result }
+                );
+            }
+            break;
+        }
+
         case InputOpcode.CAST_OBJECT: {
             const targetType = input.inputs.target.type;
             if ((targetType & InputType.OBJECT) === targetType) {
