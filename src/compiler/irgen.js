@@ -355,7 +355,7 @@ class ScriptTreeGenerator {
 
         case 'json_new_object':
             return new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT);
-        case 'json_get_properties':
+        case 'json_get_properties': {
             const property = block.fields.PROPERTY.value.toLowerCase();
             return new IntermediateInput(InputOpcode.JSON_GET_PROPERTIES, InputType.ARRAY, {
                 property,
