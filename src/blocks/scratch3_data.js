@@ -294,16 +294,16 @@ class Scratch3DataBlocks {
                 }
             }
         } else if (args.DIMENSION === 'row') {
-            const columnCount = table.value.length > 0 && Array.isArray(table.value[0])
-                ? table.value[0].length
-                : 1;
+            const columnCount = table.value.length > 0 && Array.isArray(table.value[0]) ?
+                table.value[0].length :
+                1;
             const newRow = Array(columnCount).fill('');
             table.value.push(newRow);
         }
         table._monitorUpToDate = false;
     }
 
-    insertDimensionToTable(args, util) {
+    insertDimensionToTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         let index;
@@ -335,7 +335,7 @@ class Scratch3DataBlocks {
         table._monitorUpToDate = false;
     }
 
-    setCellInTable(args, util) {
+    setCellInTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         const rowIndex = Cast.toTableRowIndex(args.ROW, table.value, false);
@@ -349,7 +349,7 @@ class Scratch3DataBlocks {
         }
     }
 
-    deleteCellInTable(args, util) {
+    deleteCellInTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         const rowIndex = Cast.toTableRowIndex(args.ROW, table.value, false);
@@ -363,7 +363,7 @@ class Scratch3DataBlocks {
         }
     }
 
-    deleteDimensionInTable(args, util) {
+    deleteDimensionInTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         let index;
@@ -387,14 +387,14 @@ class Scratch3DataBlocks {
         table._monitorUpToDate = false;
     }
 
-    deleteAllOfTable(args, util) {
+    deleteAllOfTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         table.value = [];
         table._monitorUpToDate = false;
     }
 
-    itemInCellOfTable(args, util) {
+    itemInCellOfTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         const rowIndex = Cast.toTableRowIndex(args.ROW, table.value, false);
@@ -408,7 +408,7 @@ class Scratch3DataBlocks {
         return '';
     }
 
-    itemsOfDimensionOfTable(args, util) {
+    itemsOfDimensionOfTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         if (args.DIMENSION === 'column') {
@@ -423,19 +423,18 @@ class Scratch3DataBlocks {
                 }
             }
             return column;
-        } else {
-            const rowIndex = Cast.toTableRowIndex(args.INDEX, table.value, false);
-            if (rowIndex === Cast.LIST_INVALID) {
-                return [];
-            }
-            if (table.value[rowIndex - 1] && Array.isArray(table.value[rowIndex - 1])) {
-                return table.value[rowIndex - 1].slice();
-            }
+        }
+        const rowIndex = Cast.toTableRowIndex(args.INDEX, table.value, false);
+        if (rowIndex === Cast.LIST_INVALID) {
             return [];
         }
+        if (table.value[rowIndex - 1] && Array.isArray(table.value[rowIndex - 1])) {
+            return table.value[rowIndex - 1].slice();
+        }
+        return [];
     }
 
-    lengthOfDimensionOfTable(args, util) {
+    lengthOfDimensionOfTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         if (args.DIMENSION === 'column') {
@@ -444,29 +443,27 @@ class Scratch3DataBlocks {
                 return 0;
             }
             return table.value.length;
-        } else {
-            const rowIndex = Cast.toTableRowIndex(args.INDEX, table.value, false);
-            if (rowIndex === Cast.LIST_INVALID) {
-                return 0;
-            }
-            if (table.value[rowIndex - 1] && Array.isArray(table.value[rowIndex - 1])) {
-                return table.value[rowIndex - 1].length;
-            }
+        }
+        const rowIndex = Cast.toTableRowIndex(args.INDEX, table.value, false);
+        if (rowIndex === Cast.LIST_INVALID) {
             return 0;
         }
+        if (table.value[rowIndex - 1] && Array.isArray(table.value[rowIndex - 1])) {
+            return table.value[rowIndex - 1].length;
+        }
+        return 0;
     }
 
-    dimensionCountOfTable(args, util) {
+    dimensionCountOfTable (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         if (args.DIMENSION === 'column') {
             return Cast.getTableColumnCount(table.value);
-        } else {
-            return Cast.getTableRowCount(table.value);
         }
+        return Cast.getTableRowCount(table.value);
     }
 
-    tableContainsItemInCell(args, util) {
+    tableContainsItemInCell (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         const item = args.ITEM;
@@ -482,7 +479,7 @@ class Scratch3DataBlocks {
         return false;
     }
 
-    tableAsArray(args, util) {
+    tableAsArray (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         return table.value.map(row => {
@@ -493,7 +490,7 @@ class Scratch3DataBlocks {
         });
     }
 
-    setTableUsingArray(args, util) {
+    setTableUsingArray (args, util) {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         const arr = Cast.toArray(args.ARR);
@@ -506,11 +503,11 @@ class Scratch3DataBlocks {
         table._monitorUpToDate = false;
     }
 
-    showTable(args) {
+    showTable (args) {
         this.changeMonitorVisibility(args.TABLE.id, true);
     }
 
-    hideTable(args) {
+    hideTable (args) {
         this.changeMonitorVisibility(args.TABLE.id, false);
     }
 }

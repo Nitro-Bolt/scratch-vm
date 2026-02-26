@@ -364,15 +364,15 @@ class Target extends EventEmitter {
 
                     let name;
                     switch (variable.type) {
-                        case Variable.TABLE_TYPE:
-                            name = 'TABLE';
-                            break;
-                        case Variable.LIST_TYPE:
-                            name = 'LIST';
-                            break;
-                        default:
-                            name = 'VARIABLE';
-                            break;
+                    case Variable.TABLE_TYPE:
+                        name = 'TABLE';
+                        break;
+                    case Variable.LIST_TYPE:
+                        name = 'LIST';
+                        break;
+                    default:
+                        name = 'VARIABLE';
+                        break;
                     }
                     const blocks = this.runtime.monitorBlocks;
                     blocks.changeBlock({

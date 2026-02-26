@@ -784,15 +784,15 @@ class Blocks {
                 // Tries to show the monitor for specified block. If it doesn't exist, add the monitor.
                 let mode;
                 switch (block.opcode) {
-                    case 'data_tablecontents':
-                        mode = 'table';
-                        break;
-                    case 'data_listcontents':
-                        mode = 'list';
-                        break;
-                    default:
-                        mode = 'default';
-                        break;
+                case 'data_tablecontents':
+                    mode = 'table';
+                    break;
+                case 'data_listcontents':
+                    mode = 'list';
+                    break;
+                default:
+                    mode = 'default';
+                    break;
                 }
                 if (!this.runtime.requestShowMonitor(block.id)) {
                     this.runtime.requestAddMonitor(new MonitorRecord({
