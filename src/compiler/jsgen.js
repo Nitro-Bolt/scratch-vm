@@ -271,6 +271,8 @@ class JSGenerator {
             return `tableContains(${this.referenceVariable(node.table)}.value, ${this.descendInput(node.item)}, ${this.descendInput(node.row)}, ${this.descendInput(node.column)})`;
         case InputOpcode.TABLE_AS_ARRAY:
             return `tableAsArray(${this.referenceVariable(node.table)}.value)`;
+        case InputOpcode.TABLE_CONTENTS:
+            return `tableContents(${this.referenceVariable(node.table)}.value)`;
 
         case InputOpcode.JSON_NEW_OBJECT:
             return 'new Object()';
@@ -279,7 +281,7 @@ class JSGenerator {
         case InputOpcode.JSON_TO_STRING:
             return `toString(${this.descendInput(node.object)})`;
         case InputOpcode.JSON_GET_PROPERTIES: {
-            const property = node.property; 
+            const property = node.property;
             const obj = this.descendInput(node.object);
             if (property === 'keys') {
                 return `Object.keys(${obj})`;

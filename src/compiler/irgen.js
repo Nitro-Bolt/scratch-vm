@@ -348,6 +348,10 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.TABLE_AS_ARRAY, InputType.ARRAY, {
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
             });
+        case 'data_tablecontents':
+            return new IntermediateInput(InputOpcode.TABLE_CONTENTS, InputType.STRING, {
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
 
         case 'json_new_object':
             return new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT);

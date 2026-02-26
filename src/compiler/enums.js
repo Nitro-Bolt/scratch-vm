@@ -251,6 +251,7 @@ const InputOpcode = {
     TABLE_DIMENSION_COUNT: 'table.dimensionCount',
     TABLE_CONTAINS_VALUE: 'table.containsValue',
     TABLE_AS_ARRAY: 'table.asArray',
+    TABLE_CONTENTS: 'table.contents',
 
     MOTION_X_GET: 'motion.x',
     MOTION_Y_GET: 'motion.y',

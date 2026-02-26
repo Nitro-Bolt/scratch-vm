@@ -954,6 +954,20 @@ runtimeFunctions.tableSet = `const tableSet = (table, arr) => {
 }`;
 
 /**
+ * Get the stringified form of a table.
+ * @param {Array} table The table value array.
+ * @returns {string} Stringified form of the table.
+ */
+runtimeFunctions.tableContents = `const tableContents = table => {
+    return table.map(row => {
+        if (Array.isArray(row)) {
+            return row.map(cell => toString(cell)).join(' ');
+        }
+        return toString(row);
+    }).join('\\n');
+}`;
+
+/**
  * Convert a color to an RGB list
  * @param {*} color The color value to convert
  * @return {Array.<number>} [r,g,b], values between 0-255.
