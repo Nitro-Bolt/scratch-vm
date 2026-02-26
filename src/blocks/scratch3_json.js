@@ -16,8 +16,6 @@ class Scratch3JSONBlocks {
     getPrimitives() {
         return {
             json_new_object: this.newObject,
-            json_to_object: this.toObject_,
-            json_to_string: this.toString_,
             json_get_properties: this.getProperties,
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
@@ -25,7 +23,6 @@ class Scratch3JSONBlocks {
             json_merge_object: this.mergeObject,
             json_has_key: this.hasKey,
             json_new_array: this.newArray,
-            json_to_array: this.toArray_,
             json_value_of_index: this.valueOfIndex,
             json_index_of_value: this.indexOfValue,
             json_add_item: this.addItem,
@@ -42,16 +39,6 @@ class Scratch3JSONBlocks {
 
     newObject() {
         return new Object();
-    }
-
-    toObject_(args) {
-        args.STR = Cast.toString(args.STR);
-        return Cast.toObject(args.STR);
-    }
-
-    toString_(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Cast.toString(args.OBJ);
     }
 
     getProperties (args) {
@@ -104,11 +91,6 @@ class Scratch3JSONBlocks {
 
     newArray() {
         return new Array();
-    }
-
-    toArray_(args) {
-        args.STR = Cast.toString(args.STR);
-        return Cast.toArray(args.STR);
     }
 
     valueOfIndex(args) {

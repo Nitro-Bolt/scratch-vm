@@ -303,8 +303,6 @@ const InputOpcode = {
     SENSING_USERNAME: 'sensing.username',
 
     JSON_NEW_OBJECT: 'json.newObject',
-    JSON_TO_OBJECT: 'json.toObject_',
-    JSON_TO_STRING: 'json.toString_',
     JSON_GET_PROPERTIES: 'json.getProperties',
     JSON_VALUE_OF_KEY: 'json.valueOfKey',
     JSON_SET_KEY: 'json.setKey',
@@ -312,7 +310,6 @@ const InputOpcode = {
     JSON_MERGE_OBJECT: 'json.mergeObject',
     JSON_HAS_KEY: 'json.hasKey',
     JSON_NEW_ARRAY: 'json.newArray',
-    JSON_TO_ARRAY: 'json.toArray_',
     JSON_VALUE_OF_INDEX: 'json.valueOfIndex',
     JSON_INDEX_OF_VALUE: 'json.indexOfValue',
     JSON_ADD_ITEM: 'json.addItem',

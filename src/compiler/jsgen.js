@@ -198,7 +198,7 @@ class JSGenerator {
         case InputOpcode.CAST_NUMBER_INDEX:
             return `(${this.descendInput(node.target.toType(InputType.NUMBER_OR_NAN))} | 0)`;
         case InputOpcode.CAST_STRING:
-            return `("" + ${this.descendInput(node.target)})`;
+            return `toString(${this.descendInput(node.target)})`;
         case InputOpcode.CAST_COLOR:
             return `colorToList(${this.descendInput(node.target)})`;
 
@@ -261,10 +261,6 @@ class JSGenerator {
 
         case InputOpcode.JSON_NEW_OBJECT:
             return 'new Object()';
-        case InputOpcode.JSON_TO_OBJECT:
-            return `${this.descendInput(node.string)}`;
-        case InputOpcode.JSON_TO_STRING:
-            return `toString(${this.descendInput(node.object)})`;
         case InputOpcode.JSON_GET_PROPERTIES: {
             const property = node.property; 
             const obj = this.descendInput(node.object);
@@ -289,8 +285,6 @@ class JSGenerator {
             return `${this.descendInput(node.object)}.hasOwnProperty(${this.descendInput(node.key)})`;
         case InputOpcode.JSON_NEW_ARRAY:
             return 'new Array()';
-        case InputOpcode.JSON_TO_ARRAY:
-            return `${this.descendInput(node.string)}`;
         case InputOpcode.JSON_VALUE_OF_INDEX:
             return `(${this.descendInput(node.array)}[${this.descendInput(node.index)}] ?? "")`;
         case InputOpcode.JSON_INDEX_OF_VALUE:

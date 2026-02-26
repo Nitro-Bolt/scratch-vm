@@ -310,14 +310,6 @@ class ScriptTreeGenerator {
 
         case 'json_new_object':
             return new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT);
-        case 'json_to_object':
-            return new IntermediateInput(InputOpcode.JSON_TO_OBJECT, InputType.OBJECT, {
-                string: this.descendInputOfBlock(block, 'STR').toType(InputType.OBJECT) // Directly changing the input to avoid conversion during runtime
-            });
-        case 'json_to_string':
-            return new IntermediateInput(InputOpcode.JSON_TO_STRING, InputType.STRING, {
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
-            });
         case 'json_get_properties':
             const property = block.fields.PROPERTY.value.toLowerCase();
             return new IntermediateInput(InputOpcode.JSON_GET_PROPERTIES, InputType.ARRAY, {
@@ -352,10 +344,6 @@ class ScriptTreeGenerator {
             });
         case 'json_new_array':
             return new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY);
-        case 'json_to_array':
-            return new IntermediateInput(InputOpcode.JSON_TO_ARRAY, InputType.ARRAY, {
-                string: this.descendInputOfBlock(block, 'STR').toType(InputType.ARRAY) // Directly changing the input to avoid conversion during runtime
-            });
         case 'json_value_of_index':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_INDEX, InputType.ANY, {
                 index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER),
@@ -508,6 +496,19 @@ class ScriptTreeGenerator {
             case 'e ^': return new IntermediateInput(InputOpcode.OP_POW_E, InputType.NUMBER, {value});
             case '10 ^': return new IntermediateInput(InputOpcode.OP_POW_10, InputType.NUMBER, {value});
             default: return this.createConstantInput(0);
+            }
+        }
+        case 'operator_cast': {
+            const type = block.fields.TYPE.value.toLowerCase();
+            const value = this.descendInputOfBlock(block, 'VALUE');
+        
+            switch (type) {
+            case 'string': return new IntermediateInput(InputOpcode.CAST_STRING, InputType.STRING, {target:value});
+            case 'number': return new IntermediateInput(InputOpcode.CAST_NUMBER, InputType.NUMBER, {target:value});
+            case 'boolean': return new IntermediateInput(InputOpcode.CAST_BOOLEAN, InputType.BOOLEAN, {target:value});
+            case 'object': return new IntermediateInput(InputOpcode.CAST_OBJECT, InputType.OBJECT, {target:value});
+            case 'array': return new IntermediateInput(InputOpcode.CAST_ARRAY, InputType.ARRAY, {target:value});
+            default: return value;
             }
         }
         case 'operator_mod':
