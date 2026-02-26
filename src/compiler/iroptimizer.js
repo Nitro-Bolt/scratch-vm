@@ -502,6 +502,24 @@ class IROptimizer {
 
             return resultType;
         }
+
+        case InputOpcode.OP_MOD:
+        case InputOpcode.OP_ABS:
+        case InputOpcode.OP_FLOOR:
+        case InputOpcode.OP_CEILING:
+        case InputOpcode.OP_SQRT:
+        case InputOpcode.OP_SIN:
+        case InputOpcode.OP_COS:
+        case InputOpcode.OP_TAN:
+        case InputOpcode.OP_ASIN:
+        case InputOpcode.OP_ACOS:
+        case InputOpcode.OP_ATAN:
+        case InputOpcode.OP_LOG_E:
+        case InputOpcode.OP_LOG_10:
+        case InputOpcode.OP_POW_E:
+        case InputOpcode.OP_POW_10:
+        case InputOpcode.OP_ROUND:
+            return InputType.NUMBER;
         }
         return inputBlock.type;
     }
@@ -736,12 +754,26 @@ class IROptimizer {
         }
 
         switch (input.opcode) {
-        case InputOpcode.OP_ADD: {
+        case InputOpcode.OP_ADD:
+        case InputOpcode.OP_SUBTRACT:
+        case InputOpcode.OP_MULTIPLY:
+        case InputOpcode.OP_DIVIDE:
+        case InputOpcode.OP_MOD: {
             const left = input.inputs.left;
             const right = input.inputs.right;
             if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
-                const result = Cast.toNumber(left.inputs.value) + Cast.toNumber(right.inputs.value);
-                
+                const l = Cast.toNumber(left.inputs.value);
+                const r = Cast.toNumber(right.inputs.value);
+
+                let result;
+                switch (input.opcode) {
+                    case InputOpcode.OP_ADD: result = l + r; break;
+                    case InputOpcode.OP_SUBTRACT: result = l - r; break;
+                    case InputOpcode.OP_MULTIPLY: result = l * r; break;
+                    case InputOpcode.OP_DIVIDE: result = l / r; break;
+                    case InputOpcode.OP_MOD: result = ((l % r) + r) % r; break;
+                }
+
                 return new IntermediateInput(
                     InputOpcode.CONSTANT, 
                     IntermediateInput.getNumberInputType(result), 
@@ -751,101 +783,113 @@ class IROptimizer {
             break;
         }
 
-        case InputOpcode.OP_SUBTRACT: {
+        case InputOpcode.OP_AND:
+        case InputOpcode.OP_OR: {
             const left = input.inputs.left;
             const right = input.inputs.right;
             if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
-                const result = Cast.toNumber(left.inputs.value) - Cast.toNumber(right.inputs.value);
+                const l = Cast.toBoolean(left.inputs.value);
+                const r = Cast.toBoolean(right.inputs.value);
                 return new IntermediateInput(
                     InputOpcode.CONSTANT, 
-                    IntermediateInput.getNumberInputType(result), 
+                    InputType.BOOLEAN, 
+                    { value: input.opcode === InputOpcode.OP_AND ? l && r : l || r }
+                );
+            }
+            break;
+        }
+
+        case InputOpcode.OP_NOT: {
+            const operand = input.inputs.operand;
+            if (operand && operand.opcode === InputOpcode.CONSTANT) {
+                return new IntermediateInput(
+                    InputOpcode.CONSTANT, 
+                    InputType.BOOLEAN, 
+                    { value: !Cast.toBoolean(operand.inputs.value) }
+                );
+            }
+            break;
+        }
+
+        case InputOpcode.OP_JOIN: {
+            const left = input.inputs.left;
+            const right = input.inputs.right;
+            if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
+                const result = Cast.toString(left.inputs.value) + Cast.toString(right.inputs.value);
+                return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING, { value: result });
+            }
+            break;
+        }
+
+        case InputOpcode.OP_ABS:
+        case InputOpcode.OP_FLOOR:
+        case InputOpcode.OP_CEILING:
+        case InputOpcode.OP_SQRT:
+        case InputOpcode.OP_SIN:
+        case InputOpcode.OP_COS:
+        case InputOpcode.OP_TAN:
+        case InputOpcode.OP_ASIN:
+        case InputOpcode.OP_ACOS:
+        case InputOpcode.OP_ATAN:
+        case InputOpcode.OP_LOG_E:
+        case InputOpcode.OP_LOG_10:
+        case InputOpcode.OP_POW_E:
+        case InputOpcode.OP_POW_10:
+        case InputOpcode.OP_ROUND: {
+            const num = input.inputs.num;
+            if (num && num.opcode === InputOpcode.CONSTANT) {
+                const n = Cast.toNumber(num.inputs.value);
+                let result;
+                switch (input.opcode) {
+                case InputOpcode.OP_ABS: result = Math.abs(n); break;
+                case InputOpcode.OP_FLOOR: result = Math.floor(n); break;
+                case InputOpcode.OP_CEILING: result = Math.ceil(n); break;
+                case InputOpcode.OP_SQRT: result = Math.sqrt(n); break;
+                case InputOpcode.OP_ROUND: result = Math.round(n); break;
+                case InputOpcode.OP_SIN: result = Math.sin(n * Math.PI / 180); break;
+                case InputOpcode.OP_COS: result = Math.cos(n * Math.PI / 180); break;
+                case InputOpcode.OP_TAN: result = Math.tan(n * Math.PI / 180); break;
+                case InputOpcode.OP_ASIN: result = Math.asin(n) * 180 / Math.PI; break;
+                case InputOpcode.OP_ACOS: result = Math.acos(n) * 180 / Math.PI; break;
+                case InputOpcode.OP_ATAN: result = Math.atan(n) * 180 / Math.PI; break;
+                case InputOpcode.OP_LOG_E: result = Math.log(n); break;
+                case InputOpcode.OP_LOG_10: result = Math.log10(n); break;
+                case InputOpcode.OP_POW_E: result = Math.exp(n); break;
+                case InputOpcode.OP_POW_10: result = Math.pow(10, n); break;
+                }
+                return new IntermediateInput(
+                    InputOpcode.CONSTANT,
+                    IntermediateInput.getNumberInputType(result),
                     { value: result }
                 );
             }
             break;
         }
 
-        case InputOpcode.OP_MULTIPLY: {
-            const left = input.inputs.left;
-            const right = input.inputs.right;
-            if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
-                const result = Cast.toNumber(left.inputs.value) * Cast.toNumber(right.inputs.value);
-                return new IntermediateInput(
-                    InputOpcode.CONSTANT, 
-                    IntermediateInput.getNumberInputType(result), 
-                    { value: result }
-                );
-            }
-            break;
-        }
-
-        case InputOpcode.OP_DIVIDE: {
-            const left = input.inputs.left;
-            const right = input.inputs.right;
-            if (left.opcode === InputOpcode.CONSTANT && right.opcode === InputOpcode.CONSTANT) {
-                const result = Cast.toNumber(left.inputs.value) / Cast.toNumber(right.inputs.value);
-                return new IntermediateInput(
-                    InputOpcode.CONSTANT, 
-                    IntermediateInput.getNumberInputType(result), 
-                    { value: result }
-                );
-            }
-            break;
-        }
-
-        case InputOpcode.CAST_OBJECT: {
-            const targetType = input.inputs.target.type;
-            if ((targetType & InputType.OBJECT) === targetType) {
-                return input.inputs.target;
-            }
-            return input;
-        }
-
+        case InputOpcode.CAST_BOOLEAN:
+        case InputOpcode.CAST_NUMBER:
+        case InputOpcode.CAST_NUMBER_INDEX:
+        case InputOpcode.CAST_NUMBER_OR_NAN:
+        case InputOpcode.CAST_STRING:
+        case InputOpcode.CAST_COLOR:
+        case InputOpcode.CAST_OBJECT:
         case InputOpcode.CAST_ARRAY: {
-            const targetType = input.inputs.target.type;
-            if ((targetType & InputType.ARRAY) === targetType) {
-                return input.inputs.target;
+            const target = input.inputs.target;
+            
+            let targetType;
+            switch (input.opcode) {
+            case InputOpcode.CAST_BOOLEAN: targetType = InputType.BOOLEAN; break;
+            case InputOpcode.CAST_NUMBER: targetType = InputType.NUMBER; break;
+            case InputOpcode.CAST_NUMBER_INDEX: targetType = InputType.NUMBER_INDEX; break;
+            case InputOpcode.CAST_NUMBER_OR_NAN: targetType = InputType.NUMBER_OR_NAN; break;
+            case InputOpcode.CAST_STRING: targetType = InputType.STRING; break;
+            case InputOpcode.CAST_COLOR: targetType = InputType.COLOR; break;
+            case InputOpcode.CAST_OBJECT: targetType = InputType.OBJECT; break;
+            case InputOpcode.CAST_ARRAY: targetType = InputType.ARRAY; break;
             }
-            return input;
-        }
 
-        case InputOpcode.CAST_BOOLEAN: {
-            const targetType = input.inputs.target.type;
-            if ((targetType & InputType.BOOLEAN) === targetType) {
-                return input.inputs.target;
-            }
-            return input;
-        }
-
-        case InputOpcode.CAST_NUMBER: {
-            const targetType = input.inputs.target.type;
-            if ((targetType & InputType.NUMBER) === targetType) {
-                return input.inputs.target;
-            }
-            return input;
-        }
-
-        case InputOpcode.CAST_NUMBER_INDEX: {
-            const targetType = input.inputs.target.type;
-            if ((targetType & InputType.NUMBER_INDEX) === targetType) {
-                return input.inputs.target;
-            }
-            return input;
-        }
-
-        case InputOpcode.CAST_NUMBER_OR_NAN: {
-            const targetType = input.inputs.target.type;
-            if ((targetType & InputType.NUMBER_OR_NAN) === targetType) {
-                return input.inputs.target;
-            }
-            return input;
-        }
-
-        case InputOpcode.CAST_STRING: {
-            const targetType = input.inputs.target.type;
-            if ((targetType & InputType.STRING) === targetType) {
-                return input.inputs.target;
-            }
+            if (target.opcode === InputOpcode.CONSTANT) return target.toType(targetType);
+            if ((target.type & targetType) === target.type) return target;
             return input;
         }
         }
