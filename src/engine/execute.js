@@ -315,6 +315,7 @@ class BlockCached {
             if (
                 fieldName === 'VARIABLE' ||
                 fieldName === 'LIST' ||
+                fieldName === 'TABLE' ||
                 fieldName === 'BROADCAST_OPTION'
             ) {
                 this._argValues[fieldName] = {

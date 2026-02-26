@@ -282,6 +282,51 @@ class Cast {
         }
         return index;
     }
+
+    /**
+     * Get the number of rows in a table.
+     * @param {Array} table The table value array.
+     * @return {number} Number of rows in the table.
+     */
+    static getTableRowCount (table) {
+        return Array.isArray(table) ? table.length : 0;
+    }
+
+    /**
+     * Get the number of columns in a table (from the first row).
+     * @param {Array} table The table value array.
+     * @return {number} Number of columns in the table.
+     */
+    static getTableColumnCount (table) {
+        if (!Array.isArray(table) || table.length === 0) {
+            return 0;
+        }
+        return Array.isArray(table[0]) ? table[0].length : 0;
+    }
+
+    /**
+     * Compute a 1-based row index into a table, based on a Scratch argument.
+     * @param {*} index Scratch arg, including 1-based numbers or special cases.
+     * @param {Array} table The table value array.
+     * @param {boolean} acceptAll Whether it should accept "all" or not.
+     * @return {(number|string)} 1-based index for table row, LIST_ALL, or LIST_INVALID.
+     */
+    static toTableRowIndex (index, table, acceptAll) {
+        const rowCount = Cast.getTableRowCount(table);
+        return Cast.toListIndex(index, rowCount, acceptAll);
+    }
+
+    /**
+     * Compute a 1-based column index into a table, based on a Scratch argument.
+     * @param {*} index Scratch arg, including 1-based numbers or special cases.
+     * @param {Array} table The table value array.
+     * @param {boolean} acceptAll Whether it should accept "all" or not.
+     * @return {(number|string)} 1-based index for table column, LIST_ALL, or LIST_INVALID.
+     */
+    static toTableColumnIndex (index, table, acceptAll) {
+        const columnCount = Cast.getTableColumnCount(table);
+        return Cast.toListIndex(index, columnCount, acceptAll);
+    }
 }
 
 module.exports = Cast;

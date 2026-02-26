@@ -82,6 +82,8 @@ const BROADCAST_PRIMITIVE = 11;
 const VAR_PRIMITIVE = 12;
 // data_listcontents
 const LIST_PRIMITIVE = 13;
+// data_tablecontents
+const TABLE_PRIMITIVE = 14;
 
 // Map block opcodes to the above primitives and the name of the field we can use
 // to find the value of the field
@@ -95,7 +97,8 @@ const primitiveOpcodeInfoMap = {
     text: [TEXT_PRIMITIVE, 'TEXT'],
     event_broadcast_menu: [BROADCAST_PRIMITIVE, 'BROADCAST_OPTION'],
     data_variable: [VAR_PRIMITIVE, 'VARIABLE'],
-    data_listcontents: [LIST_PRIMITIVE, 'LIST']
+    data_listcontents: [LIST_PRIMITIVE, 'LIST'],
+    data_tablecontents: [TABLE_PRIMITIVE, 'TABLE']
 };
 
 // We don't enforce this limit, but Scratch does, so we need to handle it for compatibility.
@@ -118,7 +121,11 @@ const serializePrimitiveBlock = function (block) {
         const primitiveDesc = [primitiveConstant, field.value];
         if (block.opcode === 'event_broadcast_menu') {
             primitiveDesc.push(field.id);
-        } else if (block.opcode === 'data_variable' || block.opcode === 'data_listcontents') {
+        } else if (
+            block.opcode === 'data_variable' ||
+            block.opcode === 'data_listcontents' ||
+            block.opcode === 'data_tablecontents'
+        ) {
             primitiveDesc.push(field.id);
             if (block.topLevel) {
                 primitiveDesc.push(block.x ? Math.round(block.x) : 0);
@@ -532,6 +539,7 @@ const serializeVariables = function (variables) {
     // keep track of a type for each
     obj.variables = Object.create(null);
     obj.lists = Object.create(null);
+    obj.tables = Object.create(null);
     obj.broadcasts = Object.create(null);
     for (const varId in variables) {
         const v = variables[varId];
@@ -541,6 +549,10 @@ const serializeVariables = function (variables) {
         }
         if (v.type === Variable.LIST_TYPE) {
             obj.lists[varId] = [v.name, makeSafeForJSON(v.value)];
+            continue;
+        }
+        if (v.type === Variable.TABLE_TYPE) {
+            obj.tables[varId] = [v.name, makeSafeForJSON(v.value)];
             continue;
         }
 
@@ -596,6 +608,7 @@ const serializeTarget = function (target, extensions) {
     const vars = serializeVariables(target.variables);
     obj.variables = vars.variables;
     obj.lists = vars.lists;
+    obj.tables = vars.tables;
     obj.broadcasts = vars.broadcasts;
     [obj.blocks, targetExtensions] = serializeBlocks(target.blocks);
     obj.comments = serializeComments(target.comments);
@@ -699,7 +712,7 @@ const serializeMonitors = function (monitors, runtime, extensions) {
                 y: monitorData.y - yOffset,
                 visible: monitorData.visible
             };
-            if (monitorData.mode !== 'list') {
+            if (monitorData.mode !== 'list' && monitorData.mode !== 'table') {
                 serializedMonitor.sliderMin = monitorData.sliderMin;
                 serializedMonitor.sliderMax = monitorData.sliderMax;
                 serializedMonitor.isDiscrete = monitorData.isDiscrete;
@@ -956,6 +969,23 @@ const deserializeInputDesc = function (inputDescOrId, parentId, isShadow, blocks
         }
         break;
     }
+    case TABLE_PRIMITIVE: {
+        primitiveObj.opcode = 'data_tablecontents';
+        primitiveObj.fields = {
+            TABLE: {
+                name: 'TABLE',
+                value: inputDescOrId[1],
+                id: inputDescOrId[2],
+                variableType: Variable.TABLE_TYPE
+            }
+        };
+        if (inputDescOrId.length > 3) {
+            primitiveObj.topLevel = true;
+            primitiveObj.x = inputDescOrId[3];
+            primitiveObj.y = inputDescOrId[4];
+        }
+        break;
+    }
     default: {
         log.error(`Found unknown primitive type during deserialization: ${JSON.stringify(inputDescOrId)}`);
         return null;
@@ -1030,6 +1060,8 @@ const deserializeFields = function (fields) {
             obj[fieldName].variableType = Variable.SCALAR_TYPE;
         } else if (fieldName === 'LIST') {
             obj[fieldName].variableType = Variable.LIST_TYPE;
+        } else if (fieldName === 'TABLE') {
+            obj[fieldName].variableType = Variable.TABLE_TYPE;
         }
     }
     return obj;
@@ -1248,6 +1280,19 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
             target.variables[newList.id] = newList;
         }
     }
+    if (Object.prototype.hasOwnProperty.call(object, 'tables')) {
+        for (const tableId in object.tables) {
+            const table = object.tables[tableId];
+            const newTable = new Variable(
+                tableId,
+                table[0],
+                Variable.TABLE_TYPE,
+                false
+            );
+            newTable.value = table[1];
+            target.variables[newTable.id] = newTable;
+        }
+    }
     if (Object.prototype.hasOwnProperty.call(object, 'broadcasts')) {
         for (const broadcastId in object.broadcasts) {
             const broadcast = object.broadcasts[broadcastId];
@@ -1368,6 +1413,16 @@ const deserializeMonitor = function (monitorData, runtime, targets, extensions) 
         ) {
             monitorData.params.LIST = listTarget.variables[monitorData.id].name;
         }
+    } else if (monitorData.opcode === 'data_tablecontents') {
+        const tableTarget = monitorData.targetId ?
+            targets.find(t => t.id === monitorData.targetId) :
+            targets.find(t => t.isStage);
+        if (
+            tableTarget &&
+            Object.prototype.hasOwnProperty.call(tableTarget.variables, monitorData.id)
+        ) {
+            monitorData.params.TABLE = tableTarget.variables[monitorData.id].name;
+        }
     }
 
     // Convert the serialized monitorData params into the block fields structure
@@ -1383,7 +1438,10 @@ const deserializeMonitor = function (monitorData, runtime, targets, extensions) 
     // Variables, lists, and non-sprite-specific monitors, including any extension
     // monitors should already have the correct monitor ID serialized in the monitorData,
     // find the correct id for all other monitors.
-    if (monitorData.opcode !== 'data_variable' && monitorData.opcode !== 'data_listcontents' &&
+    if (
+        monitorData.opcode !== 'data_variable' &&
+        monitorData.opcode !== 'data_listcontents' &&
+        monitorData.opcode !== 'data_tablecontents' &&
         monitorBlockInfo && monitorBlockInfo.isSpriteSpecific) {
         monitorData.id = monitorBlockInfo.getId(
             monitorData.targetId, fields);
@@ -1432,6 +1490,10 @@ const deserializeMonitor = function (monitorData, runtime, targets, extensions) 
             const field = monitorBlock.fields.LIST;
             field.id = monitorData.id;
             field.variableType = Variable.LIST_TYPE;
+        } else if (monitorData.opcode === 'data_tablecontents') {
+            const field = monitorBlock.fields.TABLE;
+            field.id = monitorData.id;
+            field.variableType = Variable.TABLE_TYPE;
         }
 
         runtime.monitorBlocks.createBlock(monitorBlock);
