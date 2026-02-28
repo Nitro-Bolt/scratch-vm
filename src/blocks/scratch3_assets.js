@@ -17,7 +17,10 @@ class Scratch3AssetBlocks {
     getPrimitives () {
         return {
             assets_menu: this.assetsMenu,
-            assets_test: this.test
+            assets_file_as_type: this.fileAsType,
+            assets_metadata: this.metadata,
+            assets_set: this.set,
+            assets_write: this.write
         };
     }
 
@@ -25,19 +28,65 @@ class Scratch3AssetBlocks {
         return args.ASSET_MENU;
     }
 
-    test (args, util) {
+    fileAsType (args, util) {
         const index = this._getAssetIndex(args.ASSET_MENU, util);
         if (index < 0) {
             return '';
         }
         const asset = util.target.sprite.assets[index];
-        if (asset.md5) {
-            return asset.md5;
+        if (args.TYPE === 'data: uri') {
+            return asset.asset.encodeDataURI();
+        } else if (args.TYPE === 'text') {
+            return new TextDecoder().decode(asset.asset.data);
+        } else {
+            return '';
         }
-        if (asset.asset) {
-            return `${asset.asset.assetId}.${asset.asset.dataFormat}`;
+    }
+
+    metadata (args, util) {
+        const index = this._getAssetIndex(args.ASSET_MENU, util);
+        if (index < 0) {
+            return '';
         }
-        return '';
+        const asset = util.target.sprite.assets[index];
+        switch (args.TYPE) {
+        case 'name': return asset.name;
+        case 'extension': return asset.dataFormat;
+        case 'content type': return asset.contentType;
+        case 'last modified': return new Date(asset.lastModified).toLocaleDateString();
+        case 'md5': return asset.assetId;
+        default: return '';
+        }
+    }
+
+    set (args, util) {
+        const index = this._getAssetIndex(args.ASSET_MENU, util);
+        if (index < 0) {
+            return '';
+        }
+        const value = Cast.toString(args.VALUE);
+        const asset = util.target.sprite.assets[index];
+        switch (args.TYPE) {
+        case 'name': asset.name = value; return;
+        case 'extension': asset.dataFormat = value; return;
+        case 'content type': asset.contentType = value; return;
+        }
+    }
+
+    write (args, util) {
+        const index = this._getAssetIndex(args.ASSET_MENU, util);
+        if (index < 0) {
+            return '';
+        }
+        const value = Cast.toString(args.VALUE);
+        const assetObject = util.target.sprite.assets[index].asset;
+        if (args.TYPE === 'data: uri') {
+            const base64 = value.split(',')[1];
+            const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+            assetObject.setData(arr, assetObject.dataFormat, true);
+        } else {
+            assetObject.encodeTextData(value, assetObject.dataFormat, true);
+        }
     }
 
     _getAssetIndex (assetName, util) {

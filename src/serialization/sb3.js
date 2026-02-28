@@ -45,6 +45,7 @@ const INPUT_DIFF_BLOCK_SHADOW = 3; // obscured shadow
 // Constants used during deserialization of an SB3 file
 const CORE_EXTENSIONS = [
     'argument',
+    'assets',
     'colour',
     'control',
     'data',

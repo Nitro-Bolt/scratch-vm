@@ -8,6 +8,9 @@
 // Please keep these lists alphabetical.
 
 const stacked = [
+    'assets_delete',
+    'assets_set',
+    'assets_write',
     'looks_changestretchby',
     'looks_hideallsprites',
     'looks_sayforsecs',
@@ -34,13 +37,14 @@ const stacked = [
 ];
 
 const inputs = [
+    'assets_file_as_type',
+    'assets_metadata',
     'motion_xscroll',
     'motion_yscroll',
     'sensing_loud',
     'sensing_loudness',
     'sensing_userid',
-    'sound_volume',
-    'assets_test'
+    'sound_volume'
 ];
 
 module.exports = {
