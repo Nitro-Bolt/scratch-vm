@@ -67,8 +67,8 @@ class Scratch3AssetBlocks {
         const value = Cast.toString(args.VALUE);
         const asset = util.target.sprite.assets[index];
         switch (args.TYPE) {
-        case 'name': asset.name = value; return;
-        case 'extension': asset.dataFormat = value; return;
+        case 'name': util.target.renameAsset(index, value, asset.dataFormat); return;
+        case 'extension': util.target.renameAsset(index, asset.name, value); return;
         case 'content type': asset.contentType = value; return;
         }
     }

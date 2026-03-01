@@ -592,14 +592,17 @@ class RenderedTarget extends Target {
      * Rename a asset, taking care to avoid duplicate names.
      * @param {int} assetIndex - the index of the asset to be renamed.
      * @param {string} newName - the desired new name of the asset (will be modified if already in use).
+     * @param {string} extension - the desired extension of the asset
      */
-    renameAsset (assetIndex, newName) {
+    renameAsset (assetIndex, newName, extension) {
         const usedNames = this.sprite.assets
             .filter((asset, index) => assetIndex !== index)
             .map(asset => asset.name);
         const oldName = this.sprite.assets[assetIndex].name;
         const newUnusedName = StringUtil.unusedName(newName, usedNames);
-        this.sprite.assets[assetIndex].name = newUnusedName;
+        const asset = this.sprite.assets[assetIndex];
+        asset.name = newUnusedName;
+        asset.dataFormat = extension;
         this.blocks.updateAssetName(oldName, newUnusedName, 'asset');
     }
 
