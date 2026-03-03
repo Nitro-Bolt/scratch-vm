@@ -23,6 +23,7 @@ const newBlockIds = require('./util/new-block-ids');
 
 const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
+const {loadAsset} = require('./import/load-asset.js');
 const {serializeSounds, serializeCostumes, serializeSpriteAssets} = require('./serialization/serialize-assets');
 require('canvas-toBlob');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
@@ -1154,10 +1155,9 @@ class VirtualMachine extends EventEmitter {
         const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
             this.editingTarget;
         if (target) {
-            return new Promise((resolve) => {
+            return loadAsset(assetObject, this.runtime).then(() => {
                 target.addAsset(assetObject);
                 this.emitTargetsUpdate();
-                resolve();
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -1727,6 +1727,24 @@ class VirtualMachine extends EventEmitter {
                 target.addSound(clone);
                 this.emitTargetsUpdate();
             }
+        });
+    }
+
+    /**
+     * Called when assets are dragged from editing target to another target.
+     * @param {!number} assetIndex Index of the asset of the editing target to share.
+     * @param {!string} targetId Id of target to add the asset.
+     * @return {Promise} Promise that resolves when the new asset has been loaded.
+     */
+    shareAssetToTarget (assetIndex, targetId) {
+        const originalAsset = this.editingTarget.getAssets()[assetIndex];
+        const clone = Object.assign({}, originalAsset);
+        const target = this.runtime.getTargetById(targetId);
+        return new Promise(resolve => {
+            if (target) {
+                target.addAsset(clone);
+            }
+            resolve();
         });
     }
 
