@@ -934,6 +934,9 @@ runtimeFunctions.tableDeleteColumn = `const tableDeleteColumn = (table, index) =
             table.value[i].splice(columnIndex, 1);
         }
     }
+    if (table.value.length > 0 && Array.isArray(table.value[0]) && table.value[0].length === 0) {
+        table.value = [];
+    }
     table._monitorUpToDate = false;
 }`;
 

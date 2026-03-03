@@ -381,6 +381,9 @@ class Scratch3DataBlocks {
                     table.value[i].splice(index - 1, 1);
                 }
             }
+            if (Cast.getTableColumnCount(table.value) === 0) {
+                table.value = [];
+            }
         } else if (args.DIMENSION === 'row') {
             table.value.splice(index - 1, 1);
         }
