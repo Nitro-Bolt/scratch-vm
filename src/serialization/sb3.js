@@ -498,7 +498,7 @@ const serializeAsset = function (asset) {
     obj.lastModified = asset.lastModified;
     obj.dataFormat = asset.dataFormat.toLowerCase();
     obj.assetId = asset.assetId;
-    obj.md5 = asset.md5;
+    obj.md5ext = asset.md5;
     obj.contentType = asset.asset.assetType.contentType;
     return obj;
 }
@@ -1176,7 +1176,7 @@ const parseScratchAssets = function (object, runtime, zip) {
             contentType: assetSource.contentType,
             name: assetSource.name,
             lastModified: assetSource.lastModified,
-            md5: assetSource.md5,
+            md5: assetSource.md5ext,
             data: null
         };
 
