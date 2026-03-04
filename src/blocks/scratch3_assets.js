@@ -82,8 +82,10 @@ class Scratch3AssetBlocks {
         const assetObject = util.target.sprite.assets[index].asset;
         if (args.TYPE === 'data: uri') {
             const base64 = value.split(',')[1];
-            const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-            assetObject.setData(arr, assetObject.dataFormat, true);
+            try {
+                const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                assetObject.setData(arr, assetObject.dataFormat, true);
+            } catch {}
         } else {
             assetObject.encodeTextData(value, assetObject.dataFormat, true);
         }
