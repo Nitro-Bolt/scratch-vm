@@ -64,12 +64,12 @@ class Scratch3AssetBlocks {
         if (index < 0) {
             return '';
         }
-        const value = Cast.toString(args.VALUE);
+        const value = Cast.toString(args.VALUE).trim();
         const asset = util.target.sprite.assets[index];
         switch (args.TYPE) {
-        case 'name': util.target.renameAsset(index, value, asset.dataFormat); return;
-        case 'extension': util.target.renameAsset(index, asset.name, value); return;
-        case 'content type': asset.contentType = value; return;
+        case 'name': util.target.renameAsset(index, value, asset.dataFormat); break;
+        case 'extension': util.target.renameAsset(index, asset.name, value || 'file'); break;
+        case 'content type': asset.contentType = value; break;
         }
     }
 
