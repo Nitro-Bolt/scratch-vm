@@ -79,16 +79,19 @@ class Scratch3AssetBlocks {
             return '';
         }
         const value = Cast.toString(args.VALUE);
-        const assetObject = util.target.sprite.assets[index].asset;
+        const assetObject = util.target.sprite.assets[index];
+        const asset = assetObject.asset;
         if (args.TYPE === 'data: uri') {
             const base64 = value.split(',')[1];
             try {
                 const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-                assetObject.setData(arr, assetObject.dataFormat, true);
+                asset.setData(arr, assetObject.dataFormat, true);
             } catch {}
         } else {
-            assetObject.encodeTextData(value, assetObject.dataFormat, true);
+            asset.encodeTextData(value, assetObject.dataFormat, true);
         }
+        assetObject.md5 = asset.assetId + '.' + assetObject.dataFormat;
+        assetObject.assetId = asset.assetId;
     }
 
     _getAssetIndex (assetName, util) {
