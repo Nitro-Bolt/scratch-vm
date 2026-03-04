@@ -84,6 +84,20 @@ runtimeFunctions.arrayDeleteAtIndex = `const arrayDeleteAtIndex = (array, index)
 }`;
 
 /**
+ * Slices an array (inclusive)
+ * @param {Array<*>} array The array
+ * @param {number} start The index to start from
+ * @param {number} end The index to end in
+ * @returns {Array<*>} Items from index start to index end
+ */
+runtimeFunctions.sliceArray = `const sliceArray = (array, start, end) => {
+    const _start = Math.max(0, start);
+    const _end = Math.min(array.length, end + 1);
+    if (_end <= _start) return [];
+    return array.slice(_start, _end);
+}`;
+
+/**
  * Determine whether the current tick is likely stuck.
  * This implements similar functionality to the warp timer found in Scratch.
  * @returns {boolean} true if the current tick is likely stuck.
@@ -670,6 +684,293 @@ runtimeFunctions.listContents = `const listContents = list => {
 }`;
 
 /**
+ * Get a cell value from a table.
+ * @param {Array} table The table value array.
+ * @param {*} row The row index (1-based).
+ * @param {*} column The column index (1-based).
+ * @returns {*} The cell value, or empty string if invalid.
+ */
+runtimeFunctions.tableGetCell = `const tableGetCell = (table, row, column) => {
+    const rowCount = table.length;
+    const rowIndex = listIndex(row, rowCount);
+    if (rowIndex === -1) return '';
+    const rowData = table[rowIndex];
+    if (!Array.isArray(rowData)) return '';
+    const columnIndex = listIndex(column, rowData.length);
+    if (columnIndex === -1) return '';
+    return rowData[columnIndex] || '';
+}`;
+
+/**
+ * Get a dimension (row or column) from a table.
+ * @param {Array} table The table value array.
+ * @param {string} dimension Either 'row' or 'column'.
+ * @param {*} index The index (1-based).
+ * @returns {Array} The dimension values, or empty array if invalid.
+ */
+runtimeFunctions.tableGetDimension = `const tableGetDimension = (table, dimension, index) => {
+    if (dimension === 'column') {
+        const columnCount = table.length > 0 && Array.isArray(table[0]) ? table[0].length : 0;
+        const columnIndex = listIndex(index, columnCount);
+        if (columnIndex === -1) return [];
+        const column = [];
+        for (let i = 0; i < table.length; i++) {
+            if (Array.isArray(table[i])) {
+                column.push(table[i][columnIndex] || '');
+            }
+        }
+        return column;
+    } else {
+        const rowIndex = listIndex(index, table.length);
+        if (rowIndex === -1) return [];
+        if (table[rowIndex] && Array.isArray(table[rowIndex])) {
+            return table[rowIndex].slice();
+        }
+        return [];
+    }
+}`;
+
+/**
+ * Get the length of a dimension in a table.
+ * @param {Array} table The table value array.
+ * @param {string} dimension Either 'row' or 'column'.
+ * @param {*} index The index (1-based).
+ * @returns {number} The length of the dimension.
+ */
+runtimeFunctions.tableDimensionLength = `const tableDimensionLength = (table, dimension, index) => {
+    if (dimension === 'column') {
+        const columnCount = table.length > 0 && Array.isArray(table[0]) ? table[0].length : 0;
+        const columnIndex = listIndex(index, columnCount);
+        if (columnIndex === -1) return 0;
+        return table.length;
+    } else {
+        const rowIndex = listIndex(index, table.length);
+        if (rowIndex === -1) return 0;
+        if (table[rowIndex] && Array.isArray(table[rowIndex])) {
+            return table[rowIndex].length;
+        }
+        return 0;
+    }
+}`;
+
+/**
+ * Get the count of a dimension in a table.
+ * @param {Array} table The table value array.
+ * @param {string} dimension Either 'row' or 'column'.
+ * @returns {number} The count of rows or columns.
+ */
+runtimeFunctions.tableDimensionCount = `const tableDimensionCount = (table, dimension) => {
+    if (dimension === 'column') {
+        if (!Array.isArray(table) || table.length === 0) return 0;
+        return Array.isArray(table[0]) ? table[0].length : 0;
+    } else {
+        return Array.isArray(table) ? table.length : 0;
+    }
+}`;
+
+/**
+ * Check if a table contains a value in a specific cell.
+ * @param {Array} table The table value array.
+ * @param {*} item The value to check.
+ * @param {*} row The row index (1-based).
+ * @param {*} column The column index (1-based).
+ * @returns {boolean} True if the cell contains the item.
+ */
+runtimeFunctions.tableContains = `const tableContains = (table, item, row, column) => {
+    const rowIndex = listIndex(row, table.length);
+    if (rowIndex === -1) return false;
+    const rowData = table[rowIndex];
+    if (!Array.isArray(rowData)) return false;
+    const columnIndex = listIndex(column, rowData.length);
+    if (columnIndex === -1) return false;
+    const cellValue = rowData[columnIndex];
+    return compareEqual(cellValue, item);
+}`;
+
+/**
+ * Get table as array (deep copy).
+ * @param {Array} table The table value array.
+ * @returns {Array} A copy of the table.
+ */
+runtimeFunctions.tableAsArray = `const tableAsArray = (table) => {
+    return table.map(row => {
+        if (Array.isArray(row)) {
+            return row.slice();
+        }
+        return row;
+    });
+}`;
+
+/**
+ * Set a cell value in a table.
+ * @param {import('../engine/variable')} table The table variable.
+ * @param {*} row The row index (1-based).
+ * @param {*} column The column index (1-based).
+ * @param {*} value The value to set.
+ */
+runtimeFunctions.tableSetCell = `const tableSetCell = (table, row, column, value) => {
+    const rowIndex = listIndex(row, table.value.length);
+    if (rowIndex === -1) return;
+    const rowData = table.value[rowIndex];
+    if (!Array.isArray(rowData)) return;
+    const columnIndex = listIndex(column, rowData.length);
+    if (columnIndex === -1) return;
+    table.value[rowIndex][columnIndex] = value;
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Delete (clear) a cell in a table.
+ * @param {import('../engine/variable')} table The table variable.
+ * @param {*} row The row index (1-based).
+ * @param {*} column The column index (1-based).
+ */
+runtimeFunctions.tableDeleteCell = `const tableDeleteCell = (table, row, column) => {
+    const rowIndex = listIndex(row, table.value.length);
+    if (rowIndex === -1) return;
+    const rowData = table.value[rowIndex];
+    if (!Array.isArray(rowData)) return;
+    const columnIndex = listIndex(column, rowData.length);
+    if (columnIndex === -1) return;
+    table.value[rowIndex][columnIndex] = '';
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Add a row to the end of a table.
+ * @param {import('../engine/variable')} table The table variable.
+ */
+runtimeFunctions.tableAddRow = `const tableAddRow = (table) => {
+    const columnCount = table.value.length > 0 && Array.isArray(table.value[0])
+        ? table.value[0].length
+        : 1;
+    const newRow = Array(columnCount).fill('');
+    table.value.push(newRow);
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Add a column to the end of a table.
+ * @param {import('../engine/variable')} table The table variable.
+ */
+runtimeFunctions.tableAddColumn = `const tableAddColumn = (table) => {
+    if (table.value.length === 0) {
+        table.value.push(['']);
+    } else {
+        for (let i = 0; i < table.value.length; i++) {
+            if (Array.isArray(table.value[i])) {
+                table.value[i].push('');
+            }
+        }
+    }
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Insert a row at a specific index in a table.
+ * @param {import('../engine/variable')} table The table variable.
+ * @param {*} index The index (1-based).
+ */
+runtimeFunctions.tableInsertRow = `const tableInsertRow = (table, index) => {
+    const rowCount = table.value.length;
+    const rowIndex = listIndex(index, rowCount + 1);
+    if (rowIndex === -1) return;
+    const columnCount = table.value.length > 0 && Array.isArray(table.value[0])
+        ? table.value[0].length
+        : 1;
+    const newRow = Array(columnCount).fill('');
+    table.value.splice(rowIndex, 0, newRow);
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Insert a column at a specific index in a table.
+ * @param {import('../engine/variable')} table The table variable.
+ * @param {*} index The index (1-based).
+ */
+runtimeFunctions.tableInsertColumn = `const tableInsertColumn = (table, index) => {
+    const columnCount = table.value.length > 0 && Array.isArray(table.value[0])
+        ? table.value[0].length
+        : 0;
+    const columnIndex = listIndex(index, columnCount + 1);
+    if (columnIndex === -1) return;
+    if (table.value.length === 0) {
+        table.value.push(['']);
+    } else {
+        for (let i = 0; i < table.value.length; i++) {
+            if (Array.isArray(table.value[i])) {
+                table.value[i].splice(columnIndex, 0, '');
+            }
+        }
+    }
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Delete a row from a table.
+ * @param {import('../engine/variable')} table The table variable.
+ * @param {*} index The index (1-based).
+ */
+runtimeFunctions.tableDeleteRow = `const tableDeleteRow = (table, index) => {
+    const rowIndex = listIndex(index, table.value.length);
+    if (rowIndex === -1) return;
+    table.value.splice(rowIndex, 1);
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Delete a column from a table.
+ * @param {import('../engine/variable')} table The table variable.
+ * @param {*} index The index (1-based).
+ */
+runtimeFunctions.tableDeleteColumn = `const tableDeleteColumn = (table, index) => {
+    const columnCount = table.value.length > 0 && Array.isArray(table.value[0])
+        ? table.value[0].length
+        : 0;
+    const columnIndex = listIndex(index, columnCount);
+    if (columnIndex === -1) return;
+    for (let i = 0; i < table.value.length; i++) {
+        if (Array.isArray(table.value[i])) {
+            table.value[i].splice(columnIndex, 1);
+        }
+    }
+    if (table.value.length > 0 && Array.isArray(table.value[0]) && table.value[0].length === 0) {
+        table.value = [];
+    }
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Set table contents from an array.
+ * @param {import('../engine/variable')} table The table variable.
+ * @param {*} arr The array to set.
+ */
+runtimeFunctions.tableSet = `const tableSet = (table, arr) => {
+    const arrayValue = toArray(arr);
+    table.value = arrayValue.map(item => {
+        if (Array.isArray(item)) {
+            return item.slice();
+        }
+        return [item];
+    });
+    table._monitorUpToDate = false;
+}`;
+
+/**
+ * Get the stringified form of a table.
+ * @param {Array} table The table value array.
+ * @returns {string} Stringified form of the table.
+ */
+runtimeFunctions.tableContents = `const tableContents = table => {
+    return table.map(row => {
+        if (Array.isArray(row)) {
+            return row.map(cell => toString(cell)).join(' ');
+        }
+        return toString(row);
+    }).join('\\n');
+}`;
+
+/**
  * Convert a color to an RGB list
  * @param {*} color The color value to convert
  * @return {Array.<number>} [r,g,b], values between 0-255.
@@ -740,9 +1041,16 @@ const restoreGlobalState = () => {
 
 const insertRuntime = source => {
     let result = baseRuntime;
-    for (const functionName of Object.keys(runtimeFunctions)) {
-        if (source.includes(functionName)) {
-            result += `${runtimeFunctions[functionName]};`;
+    const included = new Set();
+    const toCheck = [source];
+    while (toCheck.length > 0) {
+        const currentSource = toCheck.pop();
+        for (const functionName of Object.keys(runtimeFunctions)) {
+            if (!included.has(functionName) && currentSource.includes(functionName)) {
+                included.add(functionName);
+                result += `${runtimeFunctions[functionName]};`;
+                toCheck.push(runtimeFunctions[functionName]);
+            }
         }
     }
     result += `return ${source}`;

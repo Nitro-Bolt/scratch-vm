@@ -16,18 +16,13 @@ class Scratch3JSONBlocks {
     getPrimitives () {
         return {
             json_new_object: this.newObject,
-            json_to_object: this.toObject_,
-            json_to_string: this.toString_,
-            json_keys: this.keys,
-            json_values: this.values,
-            json_entries: this.entries,
+            json_get_properties: this.getProperties,
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
             json_delete_key: this.deleteKey,
             json_merge_object: this.mergeObject,
             json_has_key: this.hasKey,
             json_new_array: this.newArray,
-            json_to_array: this.toArray_,
             json_value_of_index: this.valueOfIndex,
             json_index_of_value: this.indexOfValue,
             json_add_item: this.addItem,
@@ -35,7 +30,10 @@ class Scratch3JSONBlocks {
             json_delete_index: this.deleteIndex,
             json_delete_all_occurrences: this.deleteAllOccurrences,
             json_merge_array: this.mergeArray,
-            json_has_item: this.hasItem
+            json_has_item: this.hasItem,
+            json_array_length: this.arrayLength,
+            json_slice_array: this.sliceArray,
+            json_reverse_array: this.reverseArray
         };
     }
 
@@ -43,29 +41,20 @@ class Scratch3JSONBlocks {
         return new Object();
     }
 
-    toObject_ (args) {
-        args.STR = Cast.toString(args.STR);
-        return Cast.toObject(args.STR);
-    }
+    getProperties (args) {
+        const obj = Cast.toObject(args.OBJ);
+        const property = args.PROPERTY;
 
-    toString_ (args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Cast.toString(args.OBJ);
-    }
-
-    keys (args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Object.keys(args.OBJ);
-    }
-
-    values (args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Object.values(args.OBJ);
-    }
-
-    entries (args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Object.entries(args.OBJ);
+        switch (property) {
+        case 'keys':
+            return Object.keys(obj);
+        case 'values':
+            return Object.values(obj);
+        case 'entries':
+            return Object.entries(obj);
+        default:
+            return [];
+        }
     }
 
     valueOfKey (args) {
@@ -102,11 +91,6 @@ class Scratch3JSONBlocks {
 
     newArray () {
         return new Array();
-    }
-
-    toArray_ (args) {
-        args.STR = Cast.toString(args.STR);
-        return Cast.toArray(args.STR);
     }
 
     valueOfIndex (args) {
@@ -161,6 +145,29 @@ class Scratch3JSONBlocks {
     hasItem (args) {
         args.ARR = Cast.toArray(args.ARR);
         return args.ARR.includes(args.ITEM);
+    }
+
+    arrayLength (args) {
+        args.ARR = Cast.toArray(args.ARR);
+        return args.ARR.length;
+    }
+
+    sliceArray (args) {
+        args.ARR = Cast.toArray(args.ARR);
+        args.START = Cast.toNumber(args.START);
+        args.END = Cast.toNumber(args.END);
+
+        const start = Math.max(0, args.START);
+        const end = Math.min(args.ARR.length, args.END + 1);
+
+        if (end <= start) return [];
+
+        return args.ARR.slice(start, end);
+    }
+
+    reverseArray (args) {
+        args.ARR = Cast.toArray(args.ARR);
+        return [...args.ARR].reverse();
     }
 }
 

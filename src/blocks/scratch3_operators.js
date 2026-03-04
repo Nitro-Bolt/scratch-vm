@@ -34,6 +34,7 @@ class Scratch3OperatorsBlocks {
             operator_mod: this.mod,
             operator_round: this.round,
             operator_mathop: this.mathop,
+            operator_cast: this.cast,
             checkbox: this.checkbox
         };
     }
@@ -156,6 +157,19 @@ class Scratch3OperatorsBlocks {
         case '10 ^': return Math.pow(10, n);
         }
         return 0;
+    }
+
+    cast (args) {
+        const type = Cast.toString(args.TYPE).toLowerCase();
+        const value = args.VALUE;
+        switch (type) {
+        case 'string': return Cast.toString(value);
+        case 'number': return Cast.toNumber(value);
+        case 'boolean': return Cast.toBoolean(value);
+        case 'object': return Cast.toObject(value);
+        case 'array': return Cast.toArray(value);
+        }
+        return value;
     }
 }
 
