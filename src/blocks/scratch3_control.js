@@ -38,7 +38,9 @@ class Scratch3ControlBlocks {
             control_get_counter: this.getCounter,
             control_incr_counter: this.incrCounter,
             control_clear_counter: this.clearCounter,
-            control_all_at_once: this.allAtOnce
+            control_all_at_once: this.allAtOnce,
+            control_foreach_in_range: this.forEachInRange,
+            control_foreach_in_range_item: this.forEachInRangeItem,
         };
     }
 
@@ -200,6 +202,36 @@ class Scratch3ControlBlocks {
         // "run without screen refresh" custom blocks do now, but this was
         // removed before the release of 2.0.)
         util.startBranch(1, false);
+    }
+
+    forEachInRangeItem(args, util) {
+        return util.thread.stackFrames[0].forEachInRangeItem ?? 0;
+    }
+    
+    forEachInRange(args, util) {
+        const { stackFrame, thread } = util;
+    
+        if (stackFrame.index === undefined) {
+            const from = Math.round(Cast.toNumber(args.FROM));
+            const to = Math.round(Cast.toNumber(args.TO));
+            Object.assign(stackFrame, {
+                from, to,
+                step: from <= to ? 1 : -1,
+                index: from
+            });
+        }
+    
+        const { index, to, step } = stackFrame;
+        const done = step > 0 ? index > to : index < to;
+    
+        if (done) {
+            thread.stackFrames[0].forEachInRangeItem = null;
+            return;
+        }
+    
+        thread.stackFrames[0].forEachInRangeItem = index;
+        stackFrame.index += step;
+        util.startBranch(1, true);
     }
 }
 

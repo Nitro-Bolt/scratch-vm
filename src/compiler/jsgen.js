@@ -322,13 +322,15 @@ class JSGenerator {
             return `sliceArray(${this.descendInput(node.array)}, ${this.descendInput(node.start)}, ${this.descendInput(node.end)})`;
         case InputOpcode.JSON_REVERSE_ARRAY:
             return `${this.descendInput(node.array)}.slice(0).reverse()`;
-            case 'JSON_MAP_VALUE':
-            if (!this.mapVarsStack || this.mapVarsStack.length === 0) return '""';
-            return this.mapVarsStack[this.mapVarsStack.length - 1].value;
-        case 'JSON_MAP_INDEX':
-            if (!this.mapVarsStack || this.mapVarsStack.length === 0) return '0';
-            return this.mapVarsStack[this.mapVarsStack.length - 1].index;
-        case 'JSON_MAP': {
+        case InputOpcode.JSON_MAP_VALUE: {
+            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_MAP_INDEX: {
+            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
+            return vars?.index ?? '0';
+        }
+        case InputOpcode.JSON_MAP: {
             const valVar = this.localVariables.next();
             const indVar = this.localVariables.next();
             const loopInd = this.localVariables.next();
@@ -346,11 +348,19 @@ class JSGenerator {
                 const _res = [];
                 for (let ${loopInd} = 0; ${loopInd} < _arr.length; ${loopInd}++) {
                     const ${valVar} = _arr[${loopInd}];
-                    const ${indVar} = ${loopInd} + 1;
+                    const ${indVar} = ${loopInd};
                     _res.push(${method});
                 }
                 return _res;
             })())`;
+        }
+        case InputOpcode.JSON_FOREACH_VALUE: {
+            const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_FOREACH_INDEX: {
+            const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
+            return vars?.index ?? '0';
         }
 
         case InputOpcode.LOOKS_SIZE_GET:
@@ -598,6 +608,10 @@ class JSGenerator {
 
         case InputOpcode.CONTROL_COUNTER:
             return 'runtime.ext_scratch3_control._counter';
+        case InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM: {
+            const vars = this.forEachInRangeStack?.[this.forEachInRangeStack.length - 1];
+            return vars ?? '0';
+        }
 
         case InputOpcode.TW_KEY_LAST_PRESSED:
             return 'runtime.ioDevices.keyboard.getLastKeyPressed()';
@@ -783,6 +797,28 @@ class JSGenerator {
         case StackOpcode.CONTORL_INCR_COUNTER:
             this.source += 'runtime.ext_scratch3_control._counter++;\n';
             break;
+        case StackOpcode.CONTROL_FOREACH_IN_RANGE: {
+            const itemVar = this.localVariables.next();
+            const fromVar = this.localVariables.next();
+            const toVar   = this.localVariables.next();
+        
+            if (!this.forEachInRangeStack) this.forEachInRangeStack = [];
+            this.forEachInRangeStack.push(itemVar);
+        
+            const from = this.descendInput(node.from);
+            const to   = this.descendInput(node.to);
+        
+            this.source += `const ${fromVar} = Math.round(${from});\n`;
+            this.source += `const ${toVar} = Math.round(${to});\n`;
+            this.source += `const ${itemVar}_step = ${fromVar} <= ${toVar} ? 1 : -1;\n`;
+            this.source += `for (let ${itemVar} = ${fromVar}; ${fromVar} <= ${toVar} ? ${itemVar} <= ${toVar} : ${itemVar} >= ${toVar}; ${itemVar} += ${itemVar}_step) {\n`;
+            if (node.do) this.descendStack(node.do, new Frame(true));
+            this.yieldLoop();
+            this.source += `}\n`;
+        
+            this.forEachInRangeStack.pop();
+            break;
+        }
 
         case StackOpcode.EVENT_BROADCAST:
             this.source += `startHats("event_whenbroadcastreceived", { BROADCAST_OPTION: ${this.descendInput(node.broadcast)} });\n`;
@@ -895,6 +931,29 @@ class JSGenerator {
         case StackOpcode.LIST_SHOW:
             this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.list.id)}", element: "checkbox", value: true }, runtime);\n`;
             break;
+
+        case StackOpcode.JSON_FOREACH: {
+            const valVar = this.localVariables.next();
+            const indVar = this.localVariables.next();
+            const loopInd = this.localVariables.next();
+            const arrVar = this.localVariables.next();
+        
+            if (!this.foreachVarsStack) this.foreachVarsStack = [];
+            this.foreachVarsStack.push({ value: valVar, index: indVar });
+        
+            const array = this.descendInput(node.array);
+        
+            this.source += `const ${arrVar} = ${array};\n`;
+            this.source += `for (let ${loopInd} = 0; ${loopInd} < ${arrVar}.length; ${loopInd}++) {\n`;
+            this.source += `const ${valVar} = ${arrVar}[${loopInd}];\n`;
+            this.source += `const ${indVar} = ${loopInd};\n`;
+            if (node.substack) this.descendStack(node.substack, new Frame(true));
+            this.yieldLoop();
+            this.source += `}\n`;
+        
+            this.foreachVarsStack.pop();
+            break;
+        }
 
         case StackOpcode.LOOKS_LAYER_BACKWARD:
             if (!this.target.isStage) {
