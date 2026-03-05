@@ -322,6 +322,36 @@ class JSGenerator {
             return `sliceArray(${this.descendInput(node.array)}, ${this.descendInput(node.start)}, ${this.descendInput(node.end)})`;
         case InputOpcode.JSON_REVERSE_ARRAY:
             return `${this.descendInput(node.array)}.slice(0).reverse()`;
+            case 'JSON_MAP_VALUE':
+            if (!this.mapVarsStack || this.mapVarsStack.length === 0) return '""';
+            return this.mapVarsStack[this.mapVarsStack.length - 1].value;
+        case 'JSON_MAP_INDEX':
+            if (!this.mapVarsStack || this.mapVarsStack.length === 0) return '0';
+            return this.mapVarsStack[this.mapVarsStack.length - 1].index;
+        case 'JSON_MAP': {
+            const valVar = this.localVariables.next();
+            const indVar = this.localVariables.next();
+            const loopInd = this.localVariables.next();
+
+            if (!this.mapVarsStack) this.mapVarsStack = [];
+            this.mapVarsStack.push({ value: valVar, index: indVar });
+
+            const array = this.descendInput(node.array);
+            const method = this.descendInput(node.method);
+
+            this.mapVarsStack.pop();
+
+            return `(yield* (function*() {
+                const _arr = ${array};
+                const _res = [];
+                for (let ${loopInd} = 0; ${loopInd} < _arr.length; ${loopInd}++) {
+                    const ${valVar} = _arr[${loopInd}];
+                    const ${indVar} = ${loopInd} + 1;
+                    _res.push(${method});
+                }
+                return _res;
+            })())`;
+        }
 
         case InputOpcode.LOOKS_SIZE_GET:
             return 'Math.round(target.size)';
@@ -466,6 +496,10 @@ class JSGenerator {
             return `tan(${this.descendInput(node.value)})`;
         case InputOpcode.OP_POW_10:
             return `(10 ** ${this.descendInput(node.value)})`;
+        case InputOpcode.OP_TYPEOF: {
+            const value = this.descendInput(node.target);
+            return `(Array.isArray(${value}) ? "array" : typeof ${value})`;
+        }
 
         case InputOpcode.PROCEDURE_CALL: {
             const procedureCode = node.code;

@@ -445,6 +445,15 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_REVERSE_ARRAY, InputType.ARRAY, {
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
+        case 'json_map_value':
+            return new IntermediateInput('JSON_MAP_VALUE', InputType.ANY);
+        case 'json_map_index':
+            return new IntermediateInput('JSON_MAP_INDEX', InputType.NUMBER);
+        case 'json_map':
+            return new IntermediateInput('JSON_MAP', InputType.ARRAY, {
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
+                method: this.descendInputOfBlock(block, 'METHOD')
+            });   
 
         case 'event_broadcast_menu': {
             const broadcastOption = block.fields.BROADCAST_OPTION;
@@ -556,6 +565,14 @@ class ScriptTreeGenerator {
             case 'array': return new IntermediateInput(InputOpcode.CAST_ARRAY, InputType.ARRAY, {target:value});
             default: return value;
             }
+        }
+        case 'operator_typeof': {
+            const value = this.descendInputOfBlock(block, 'VALUE');
+            return new IntermediateInput(
+                InputOpcode.OP_TYPEOF,
+                InputType.ANY,
+                { target: value }
+            );
         }
         case 'operator_mod':
             return new IntermediateInput(InputOpcode.OP_MOD, InputType.NUMBER_OR_NAN, {

@@ -33,7 +33,10 @@ class Scratch3JSONBlocks {
             json_has_item: this.hasItem,
             json_array_length: this.arrayLength,
             json_slice_array: this.sliceArray,
-            json_reverse_array: this.reverseArray
+            json_reverse_array: this.reverseArray,
+            json_map: this.map,
+            json_map_value: this.mapValue,
+            json_map_index: this.mapIndex,
         };
     }
 
@@ -168,6 +171,61 @@ class Scratch3JSONBlocks {
     reverseArray (args) {
         args.ARR = Cast.toArray(args.ARR);
         return [...args.ARR].reverse();
+    }
+
+    mapValue (args, util) {
+        const state = util.thread.stackFrames[0].jsonMapState;
+        return state ? state.value : '';
+    }
+
+    mapIndex (args, util) {
+        const state = util.thread.stackFrames[0].jsonMapState;
+        return state ? state.index : 0;
+    }
+
+    map (args, util) {
+        if (util.stackFrame.execute === undefined) {
+            const array = Cast.toArray(args.ARRAY);
+            if (array.length === 0) return [];
+
+            util.stackFrame.execute = true;
+            util.stackFrame.array = array;
+            util.stackFrame.mappedArray = [];
+            util.stackFrame.index = 0;
+
+            const thisBlockId = util.thread.peekStackFrame()?.op?.id || util.thread.peekStack();
+            const thisBlock = util.thread.blockContainer.getBlock(thisBlockId);
+            util.stackFrame.methodBlockId = thisBlock.inputs.METHOD?.block;
+
+            if (!util.stackFrame.methodBlockId) {
+                return array.map(() => '');
+            }
+
+            util.thread.stackFrames[0].jsonMapState = {
+                value: array[0],
+                index: 1
+            };
+
+            util.thread.pushStack(util.stackFrame.methodBlockId);
+            util.thread.status = 1; 
+            util.yield();
+        } else {
+            util.stackFrame.mappedArray.push(util.thread.justReported);
+            util.stackFrame.index++;
+
+            if (util.stackFrame.index >= util.stackFrame.array.length) {
+                util.thread.stackFrames[0].jsonMapState = null;
+                return util.stackFrame.mappedArray;
+            } else {
+                util.thread.stackFrames[0].jsonMapState = {
+                    value: util.stackFrame.array[util.stackFrame.index],
+                    index: util.stackFrame.index + 1
+                };
+                util.thread.pushStack(util.stackFrame.methodBlockId);
+                util.thread.status = 1; 
+                util.yield();
+            }
+        }
     }
 }
 

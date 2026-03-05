@@ -288,6 +288,7 @@ const InputOpcode = {
     OP_RANDOM: 'op.random',
     OP_ROUND: 'op.round',
     OP_SUBTRACT: 'op.subtract',
+    OP_TYPEOF: 'op.typeof',
 
     SENSING_ANSWER: 'sensing.answer',
     SENSING_COLOR_TOUCHING_COLOR: 'sensing.colorTouchingColor',
@@ -339,6 +340,9 @@ const InputOpcode = {
     JSON_ARRAY_LENGTH: 'json.arrayLength',
     JSON_SLICE_ARRAY: 'json.sliceArray',
     JSON_REVERSE_ARRAY: 'json.reverseArray',
+    JSON_MAP: 'json.map',
+    JSON_MAP_VALUE: 'json.mapValue',
+    JSON_MAP_INDEX: 'json.mapIndex',
 
     COMMENTS_REPORTER: 'comments.reporter',
     COMMENTS_BOOLEAN: 'comments.boolean',

@@ -1488,10 +1488,12 @@ class Runtime extends EventEmitter {
         case BlockType.REPORTER:
             blockJSON.output = blockInfo.allowDropAnywhere ? null : 'String'; // TODO: distinguish number & string here?
             blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_ROUND;
+            blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.BOOLEAN:
             blockJSON.output = 'Boolean';
             blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_HEXAGONAL;
+            blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.HAT:
         case BlockType.EVENT:
@@ -1514,10 +1516,12 @@ class Runtime extends EventEmitter {
         case BlockType.OBJECT:
             blockJSON.output = 'Object';
             blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_OBJECT;
+            blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.ARRAY:
             blockJSON.output = 'Array';
             blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE;
+            blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         }
 
@@ -1760,6 +1764,11 @@ class Runtime extends EventEmitter {
                 valueName = placeholder;
                 shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
                 fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+
+                if (typeof argInfo.shadow === 'string') {
+                    shadowType = `${context.categoryInfo.id}_${argInfo.shadow}`;
+                    fieldName = null;
+                }
             }
 
             // <value> is the ScratchBlocks name for a block input.
