@@ -308,6 +308,11 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.LIST_CONTENTS, InputType.STRING, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
             });
+        case 'data_listasarray':
+            return new IntermediateInput(InputOpcode.LIST_ASARRAY, InputType.ARRAY, {
+                list: this.descendVariable(block, 'LIST', LIST_TYPE)
+            });
+
         case 'data_itemincelloftable':
             return new IntermediateInput(InputOpcode.TABLE_CELL_VALUE, InputType.ANY, {
                 column: this.descendInputOfBlock(block, 'COLUMN'),
@@ -445,6 +450,19 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_REVERSE_ARRAY, InputType.ARRAY, {
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
+        case 'json_map_value':
+            return new IntermediateInput(InputOpcode.JSON_MAP_VALUE, InputType.ANY);
+        case 'json_map_index':
+            return new IntermediateInput(InputOpcode.JSON_MAP_INDEX, InputType.NUMBER);
+        case 'json_map':
+            return new IntermediateInput(InputOpcode.JSON_MAP, InputType.ARRAY, {
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
+                method: this.descendInputOfBlock(block, 'METHOD')
+            });   
+        case 'json_foreach_value':
+            return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);
+        case 'json_foreach_index':
+            return new IntermediateInput(InputOpcode.JSON_FOREACH_INDEX, InputType.NUMBER);
 
         case 'event_broadcast_menu': {
             const broadcastOption = block.fields.BROADCAST_OPTION;
@@ -556,6 +574,14 @@ class ScriptTreeGenerator {
             case 'array': return new IntermediateInput(InputOpcode.CAST_ARRAY, InputType.ARRAY, {target:value});
             default: return value;
             }
+        }
+        case 'operator_typeof': {
+            const value = this.descendInputOfBlock(block, 'VALUE');
+            return new IntermediateInput(
+                InputOpcode.OP_TYPEOF,
+                InputType.ANY,
+                { target: value }
+            );
         }
         case 'operator_mod':
             return new IntermediateInput(InputOpcode.OP_MOD, InputType.NUMBER_OR_NAN, {
@@ -745,6 +771,8 @@ class ScriptTreeGenerator {
             // This menu is special compared to other menus -- it actually has an opcode function.
             return this.createConstantInput(block.fields.SOUND_MENU.value, true);
 
+        case 'control_foreach_in_range_item':
+            return new IntermediateInput(InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM, InputType.NUMBER);
         case 'control_get_counter':
             return new IntermediateInput(InputOpcode.CONTROL_COUNTER, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
 
@@ -907,6 +935,12 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.CONTROL_CLEAR_COUNTER);
         case 'control_incr_counter':
             return new IntermediateStackBlock(StackOpcode.CONTORL_INCR_COUNTER);
+        case 'control_foreach_in_range':
+            return new IntermediateStackBlock(StackOpcode.CONTROL_FOREACH_IN_RANGE, {
+                from: this.descendInputOfBlock(block, 'FROM').toType(InputType.NUMBER),
+                to: this.descendInputOfBlock(block, 'TO').toType(InputType.NUMBER),
+                do: this.descendSubstack(block, 'SUBSTACK'),
+            }, this.analyzeLoop());
 
         case 'data_addtotable': {
             const dimension = block.fields.DIMENSION.value;
@@ -1025,6 +1059,17 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.VAR_SHOW, {
                 variable: this.descendVariable(block, 'VARIABLE', SCALAR_TYPE)
             });
+        case 'data_setlistarray':
+            return new IntermediateStackBlock(StackOpcode.LIST_SETLISTARRAY, {
+                list: this.descendVariable(block, 'LIST', LIST_TYPE),
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY)
+            });
+
+        case 'json_foreach':
+            return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
+                substack: this.descendSubstack(block, 'SUBSTACK'),
+            }, this.analyzeLoop());
 
         case 'event_broadcast':
             return new IntermediateStackBlock(StackOpcode.EVENT_BROADCAST, {

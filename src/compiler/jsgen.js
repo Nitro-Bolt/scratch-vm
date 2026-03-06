@@ -258,6 +258,8 @@ class JSGenerator {
             return `listIndexOf(${this.referenceVariable(node.list)}, ${this.descendInput(node.item)})`;
         case InputOpcode.LIST_LENGTH:
             return `${this.referenceVariable(node.list)}.value.length`;
+        case InputOpcode.LIST_ASARRAY:
+            return `toArray(${this.referenceVariable(node.list)}.value)`;
 
         case InputOpcode.TABLE_CELL_VALUE:
             return `tableGetCell(${this.referenceVariable(node.table)}.value, ${this.descendInput(node.row)}, ${this.descendInput(node.column)})`;
@@ -861,6 +863,11 @@ class JSGenerator {
         case StackOpcode.LIST_SHOW:
             this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.list.id)}", element: "checkbox", value: true }, runtime);\n`;
             break;
+        case StackOpcode.LIST_SETLISTARRAY:
+            const list = this.referenceVariable(node.list);
+            const item = this.descendInput(node.array);
+            this.source += `${list}.value = toArray(${item});`;
+            break
 
         case StackOpcode.LOOKS_LAYER_BACKWARD:
             if (!this.target.isStage) {

@@ -148,6 +148,7 @@ const StackOpcode = {
     LIST_DELETE: 'list.delete',
     LIST_SHOW: 'list.show',
     LIST_HIDE: 'list.hide',
+    LIST_SETLISTARRAY: 'list.setListArray',
 
     VAR_SET: 'var.set',
     VAR_SHOW: 'var.show',
@@ -244,6 +245,7 @@ const InputOpcode = {
     LIST_CONTAINS: 'list.contains',
     LIST_INDEX_OF: 'list.indexOf',
     LIST_CONTENTS: 'list.contents',
+    LIST_ASARRAY: 'list.asArray',
 
     TABLE_CELL_VALUE: 'table.cellValue',
     TABLE_DIMENSION_VALUES: 'table.dimensionValues',
