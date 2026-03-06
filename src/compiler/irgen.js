@@ -1071,12 +1071,6 @@ class ScriptTreeGenerator {
                 substack: this.descendSubstack(block, 'SUBSTACK'),
             }, this.analyzeLoop());
 
-        case 'json_foreach':
-            return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {
-                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
-                substack: this.descendSubstack(block, 'SUBSTACK'),
-            }, this.analyzeLoop());
-
         case 'event_broadcast':
             return new IntermediateStackBlock(StackOpcode.EVENT_BROADCAST, {
                 broadcast: this.descendInputOfBlock(block, 'BROADCAST_INPUT').toType(InputType.STRING)
