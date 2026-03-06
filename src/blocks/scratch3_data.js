@@ -32,6 +32,8 @@ class Scratch3DataBlocks {
             data_listcontainsitem: this.listContainsItem,
             data_hidelist: this.hideList,
             data_showlist: this.showList,
+            data_listasarray: this.listAsArray,
+            data_setlistarray: this.setListArray,
             data_tablecontents: this.getTableContents,
             data_addtotable: this.addToTable,
             data_insertdimensiontotable: this.insertDimensionToTable,
@@ -47,7 +49,7 @@ class Scratch3DataBlocks {
             data_tableasarray: this.tableAsArray,
             data_settableusingarray: this.setTableUsingArray,
             data_showtable: this.showTable,
-            data_hidetable: this.hideTable
+            data_hidetable: this.hideTable,
         };
     }
 
@@ -249,6 +251,18 @@ class Scratch3DataBlocks {
             }
         }
         return false;
+    }
+
+    listAsArray (args, util) {
+        const list = util.target.lookupOrCreateList(
+            args.LIST.id, args.LIST.name);
+        return Cast.toArray(list.value);
+    }
+
+    setListArray (args, util) {
+        const list = util.target.lookupOrCreateList(
+            args.LIST.id, args.LIST.name);
+        list.value = Cast.toArray(args.array);
     }
 
     getTableContents (args, util) {
