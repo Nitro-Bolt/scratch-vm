@@ -205,7 +205,13 @@ class Scratch3ControlBlocks {
     }
 
     forEachInRangeItem(args, util) {
-        return util.thread.stackFrames[0].forEachInRangeItem ?? 0;
+        const frames = util.thread.stackFrames;
+        for (let i = frames.length - 1; i >= 0; i--) {
+            if (frames[i].forEachInRangeItem !== undefined) {
+                return frames[i].forEachInRangeItem ?? 0;
+            }
+        }
+        return 0;
     }
     
     forEachInRange(args, util) {
@@ -225,11 +231,11 @@ class Scratch3ControlBlocks {
         const done = step > 0 ? index > to : index < to;
     
         if (done) {
-            thread.stackFrames[0].forEachInRangeItem = null;
+            delete thread.stackFrames[thread.stackFrames.length - 1].forEachInRangeItem;
             return;
         }
     
-        thread.stackFrames[0].forEachInRangeItem = index;
+        thread.stackFrames[thread.stackFrames.length - 1].forEachInRangeItem = index;
         stackFrame.index += step;
         util.startBranch(1, true);
     }

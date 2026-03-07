@@ -800,24 +800,26 @@ class JSGenerator {
             this.source += 'runtime.ext_scratch3_control._counter++;\n';
             break;
         case StackOpcode.CONTROL_FOREACH_IN_RANGE: {
-            const itemVar = this.localVariables.next();
+            const loopVar = this.localVariables.next();
             const fromVar = this.localVariables.next();
-            const toVar   = this.localVariables.next();
-        
+            const toVar = this.localVariables.next();
+            const stepVar = this.localVariables.next();
+
             if (!this.forEachInRangeStack) this.forEachInRangeStack = [];
-            this.forEachInRangeStack.push(itemVar);
+            this.forEachInRangeStack.push(loopVar);
         
             const from = this.descendInput(node.from);
-            const to   = this.descendInput(node.to);
+            const to = this.descendInput(node.to);
         
             this.source += `const ${fromVar} = Math.round(${from});\n`;
             this.source += `const ${toVar} = Math.round(${to});\n`;
-            this.source += `const ${itemVar}_step = ${fromVar} <= ${toVar} ? 1 : -1;\n`;
-            this.source += `for (let ${itemVar} = ${fromVar}; ${fromVar} <= ${toVar} ? ${itemVar} <= ${toVar} : ${itemVar} >= ${toVar}; ${itemVar} += ${itemVar}_step) {\n`;
+            this.source += `const ${stepVar} = ${fromVar} <= ${toVar} ? 1 : -1;\n`;
+            this.source += `for (let ${loopVar} = ${fromVar}; ${fromVar} <= ${toVar} ? ${loopVar} <= ${toVar} : ${loopVar} >= ${toVar}; ${loopVar} += ${stepVar}) {\n`;
+
             if (node.do) this.descendStack(node.do, new Frame(true));
             this.yieldLoop();
             this.source += `}\n`;
-        
+
             this.forEachInRangeStack.pop();
             break;
         }
@@ -942,18 +944,13 @@ class JSGenerator {
         case StackOpcode.JSON_FOREACH: {
             const valVar = this.localVariables.next();
             const indVar = this.localVariables.next();
-            const loopInd = this.localVariables.next();
-            const arrVar = this.localVariables.next();
         
             if (!this.foreachVarsStack) this.foreachVarsStack = [];
             this.foreachVarsStack.push({ value: valVar, index: indVar });
         
             const array = this.descendInput(node.array);
         
-            this.source += `const ${arrVar} = ${array};\n`;
-            this.source += `for (let ${loopInd} = 0; ${loopInd} < ${arrVar}.length; ${loopInd}++) {\n`;
-            this.source += `const ${valVar} = ${arrVar}[${loopInd}];\n`;
-            this.source += `const ${indVar} = ${loopInd};\n`;
+            this.source += `for (const [${indVar}, ${valVar}] of [...${array}].entries()) {\n`;
             if (node.substack) this.descendStack(node.substack, new Frame(true));
             this.yieldLoop();
             this.source += `}\n`;
