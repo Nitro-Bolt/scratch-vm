@@ -1323,14 +1323,14 @@ class Runtime extends EventEmitter {
                 type: menuId,
                 inputsInline: true,
                 output: 'String',
-                colour: categoryInfo.color1,
-                colourSecondary: categoryInfo.color2,
-                colourTertiary: categoryInfo.color3,
+                colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
+                colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
+                colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
                 outputShape: menuInfo.acceptReporters ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
-                        type: 'field_dropdown',
+                        type: menuInfo.acceptText ? 'field_textdropdown' : 'field_dropdown',
                         name: menuName,
                         options: menuItems
                     }
@@ -1634,7 +1634,7 @@ class Runtime extends EventEmitter {
             xml: `<label text="${xmlEscape(blockInfo.text)}"></label>`
         };
     }
-    
+
     /**
      * Convert a button for scratch-blocks. A button has no opcode but specifies a callback name in the `func` field.
      * @param {ExtensionBlockMetadata} buttonInfo - the button to convert
@@ -1757,7 +1757,12 @@ class Runtime extends EventEmitter {
                     shadowType = this._makeExtensionMenuId(argInfo.menu, context.categoryInfo.id);
                     fieldName = argInfo.menu;
                 } else {
-                    argJSON.type = 'field_dropdown';
+                    if (menuInfo.acceptText) {
+                        argJSON.type = 'field_textdropdown';
+                        argJSON.text = defaultValue || '';
+                    } else {
+                        argJSON.type = 'field_dropdown';
+                    }
                     argJSON.options = this._convertMenuItems(menuInfo.items);
                     valueName = null;
                     shadowType = null;
