@@ -264,7 +264,6 @@ class Scratch3DataBlocks {
             args.LIST.id, args.LIST.name);
         list.value = Cast.toArray(args.ARRAY);
         list._monitorUpToDate = false;
-        return;
     }
 
     getTableContents (args, util) {
