@@ -262,7 +262,9 @@ class Scratch3DataBlocks {
     setListArray (args, util) {
         const list = util.target.lookupOrCreateList(
             args.LIST.id, args.LIST.name);
-        list.value = Cast.toArray(args.array);
+        list.value = Cast.toArray(args.ARRAY);
+        list._monitorUpToDate = false;
+        return;
     }
 
     getTableContents (args, util) {
