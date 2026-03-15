@@ -40,7 +40,7 @@ class Scratch3ControlBlocks {
             control_clear_counter: this.clearCounter,
             control_all_at_once: this.allAtOnce,
             control_foreach_in_range: this.forEachInRange,
-            control_foreach_in_range_item: this.forEachInRangeItem,
+            control_foreach_in_range_item: this.forEachInRangeItem
         };
     }
 
@@ -204,30 +204,31 @@ class Scratch3ControlBlocks {
         util.startBranch(1, false);
     }
 
-    forEachInRangeItem(args, util) {
+    forEachInRangeItem (args, util) {
         const frames = util.thread.stackFrames;
         for (let i = frames.length - 1; i >= 0; i--) {
-            if (frames[i].forEachInRangeItem !== undefined) {
+            if (typeof frames[i].forEachInRangeItem !== 'undefined') {
                 return frames[i].forEachInRangeItem ?? 0;
             }
         }
         return 0;
     }
     
-    forEachInRange(args, util) {
-        const { stackFrame, thread } = util;
+    forEachInRange (args, util) {
+        const {stackFrame, thread} = util;
     
-        if (stackFrame.index === undefined) {
+        if (typeof stackFrame.index === 'undefined') {
             const from = Math.round(Cast.toNumber(args.FROM));
             const to = Math.round(Cast.toNumber(args.TO));
             Object.assign(stackFrame, {
-                from, to,
+                from,
+                to,
                 step: from <= to ? 1 : -1,
                 index: from
             });
         }
     
-        const { index, to, step } = stackFrame;
+        const {index, to, step} = stackFrame;
         const done = step > 0 ? index > to : index < to;
     
         if (done) {

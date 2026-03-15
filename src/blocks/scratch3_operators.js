@@ -175,7 +175,7 @@ class Scratch3OperatorsBlocks {
 
     typeof (args) {
         const value = args.VALUE;
-        return (Array.isArray(value) ? "array" : typeof value);
+        return (Array.isArray(value) ? 'array' : typeof value);
     }
 }
 

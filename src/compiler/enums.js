@@ -149,9 +149,9 @@ const StackOpcode = {
     LIST_REPLACE: 'list.replace',
     LIST_DELETE_ALL: 'list.deleteAll',
     LIST_DELETE: 'list.delete',
+    LIST_SETLISTARRAY: 'list.setListArray',
     LIST_SHOW: 'list.show',
     LIST_HIDE: 'list.hide',
-    LIST_SETLISTARRAY: 'list.setListArray',
 
     VAR_SET: 'var.set',
     VAR_SHOW: 'var.show',

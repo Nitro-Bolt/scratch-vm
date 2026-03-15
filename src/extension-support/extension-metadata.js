@@ -23,7 +23,8 @@
  * @property {ReporterScope} [reporterScope] - if this block is a reporter, this is the scope/context for its value.
  * @property {Boolean} [isEdgeActivated] - sets whether a hat block is edge-activated.
  * @property {Boolean} [shouldRestartExistingThreads] - sets whether a hat/event block should restart existing threads.
- * @property {Boolean} [duplicateOnDrag] - sets whether a block can duplicate on drag, this will also hide it from pallete.
+ * @property {Boolean} [duplicateOnDrag] - sets whether a block can duplicate on drag,
+ * this will also hide it from pallete.
  * @property {int} [branchCount] - for flow control blocks, the number of branches/substacks for this block.
  * @property {Object.<ExtensionArgumentMetadata>} [arguments] - map of argument placeholder to metadata about each arg.
  */

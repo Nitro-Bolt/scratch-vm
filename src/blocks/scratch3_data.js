@@ -49,7 +49,7 @@ class Scratch3DataBlocks {
             data_tableasarray: this.tableAsArray,
             data_settableusingarray: this.setTableUsingArray,
             data_showtable: this.showTable,
-            data_hidetable: this.hideTable,
+            data_hidetable: this.hideTable
         };
     }
 

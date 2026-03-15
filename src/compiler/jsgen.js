@@ -338,7 +338,7 @@ class JSGenerator {
             const loopInd = this.localVariables.next();
 
             if (!this.mapVarsStack) this.mapVarsStack = [];
-            this.mapVarsStack.push({ value: valVar, index: indVar });
+            this.mapVarsStack.push({value: valVar, index: indVar});
 
             const array = this.descendInput(node.array);
             const method = this.descendInput(node.method);
@@ -935,18 +935,19 @@ class JSGenerator {
         case StackOpcode.LIST_SHOW:
             this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.list.id)}", element: "checkbox", value: true }, runtime);\n`;
             break;
-        case StackOpcode.LIST_SETLISTARRAY:
+        case StackOpcode.LIST_SETLISTARRAY: {
             const list = this.referenceVariable(node.list);
             const item = this.descendInput(node.array);
             this.source += `${list}.value = toArray(${item});`;
-            break
+            break;
+        }
 
         case StackOpcode.JSON_FOREACH: {
             const valVar = this.localVariables.next();
             const indVar = this.localVariables.next();
         
             if (!this.foreachVarsStack) this.foreachVarsStack = [];
-            this.foreachVarsStack.push({ value: valVar, index: indVar });
+            this.foreachVarsStack.push({value: valVar, index: indVar});
         
             const array = this.descendInput(node.array);
         

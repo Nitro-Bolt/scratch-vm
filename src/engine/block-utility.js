@@ -72,7 +72,7 @@ class BlockUtility {
      * @type {number}
      */
     get iterationNumber () {
-        if (this.stackFrame.index === undefined) this.stackFrame.index = 0;
+        if (typeof this.stackFrame.index !== 'undefined') this.stackFrame.index = 0;
         return this.stackFrame.index;
     }
 
@@ -218,7 +218,7 @@ class BlockUtility {
     setParam (name, value) {
         this.initParams();
         this.thread.peekStackFrame().params[name] = value;
-    };
+    }
 
     /**
      * Start all relevant hats.

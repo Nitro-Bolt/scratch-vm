@@ -1,7 +1,7 @@
 const Cast = require('../util/cast');
 
 class Scratch3JSONBlocks {
-    constructor(runtime) {
+    constructor (runtime) {
         /**
          * The runtime instantiating this block package.
          * @type {Runtime}
@@ -13,7 +13,7 @@ class Scratch3JSONBlocks {
      * Retrieve the block primitives implemented by this package.
      * @return {object.<string, Function>} Mapping of opcode to Function.
      */
-    getPrimitives() {
+    getPrimitives () {
         return {
             json_new_object: this.newObject,
             json_get_properties: this.getProperties,
@@ -36,84 +36,84 @@ class Scratch3JSONBlocks {
             json_reverse_array: this.reverseArray,
             json_foreach: this.forEach,
             json_foreach_value: this.forEachValue,
-            json_foreach_index: this.forEachIndex,
+            json_foreach_index: this.forEachIndex
         };
     }
 
-    newObject() {
+    newObject () {
         return new Object();
     }
 
-    getProperties(args) {
+    getProperties (args) {
         const obj = Cast.toObject(args.OBJ);
         const property = args.PROPERTY;
 
         switch (property) {
-            case 'keys':
-                return Object.keys(obj);
-            case 'values':
-                return Object.values(obj);
-            case 'entries':
-                return Object.entries(obj);
-            default:
-                return [];
+        case 'keys':
+            return Object.keys(obj);
+        case 'values':
+            return Object.values(obj);
+        case 'entries':
+            return Object.entries(obj);
+        default:
+            return [];
         }
     }
 
-    valueOfKey(args) {
+    valueOfKey (args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
         return args.OBJ[args.KEY] ?? '';
     }
 
-    setKey(args) {
+    setKey (args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
         args.OBJ[args.KEY] = args.VALUE;
         return args.OBJ;
     }
 
-    deleteKey(args) {
+    deleteKey (args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
         delete args.OBJ[args.KEY];
         return args.OBJ;
     }
 
-    mergeObject(args) {
+    mergeObject (args) {
         args.OBJ1 = Cast.toObject(args.OBJ1);
         args.OBJ2 = Cast.toObject(args.OBJ2);
         return Object.fromEntries(Object.entries(args.OBJ1).concat(Object.entries(args.OBJ2)));
     }
 
-    hasKey(args) {
+    hasKey (args) {
         args.OBJ = Cast.toObject(args.OBJ);
         args.KEY = Cast.toString(args.KEY);
         return Object.hasOwn(args.OBJ, args.KEY);
     }
 
-    newArray() {
+    newArray () {
         return new Array();
     }
 
-    valueOfIndex(args) {
+    valueOfIndex (args) {
         args.ARR = Cast.toArray(args.ARR);
         args.INDEX = Cast.toNumber(args.INDEX);
         return args.ARR[args.INDEX] ?? '';
     }
 
-    indexOfValue(args) {
+    indexOfValue (args) {
         args.ARR = Cast.toArray(args.ARR);
         return args.ARR.indexOf(args.VALUE) === -1 ? '' : args.ARR.indexOf(args.VALUE);
     }
 
-    addItem(args) {
+    addItem (args) {
         args.ARR = Cast.toArray(args.ARR);
         args.ARR.push(args.ITEM);
         return args.ARR;
     }
 
-    replaceIndex(args) {
+    replaceIndex (args) {
         args.ARR = Cast.toArray(args.ARR);
         args.INDEX = Cast.toNumber(args.INDEX);
         if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
@@ -123,7 +123,7 @@ class Scratch3JSONBlocks {
         return new Array();
     }
 
-    deleteIndex(args) {
+    deleteIndex (args) {
         args.ARR = Cast.toArray(args.ARR);
         args.INDEX = Cast.toNumber(args.INDEX);
         if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
@@ -133,29 +133,29 @@ class Scratch3JSONBlocks {
         return new Array();
     }
 
-    deleteAllOccurrences(args) {
+    deleteAllOccurrences (args) {
         args.ARR = Cast.toArray(args.ARR);
         args.ITEM = Cast.toString(args.ITEM);
         return args.ARR.filter(item => item !== args.ITEM);
     }
 
-    mergeArray(args) {
+    mergeArray (args) {
         args.ARR1 = Cast.toArray(args.ARR1);
         args.ARR2 = Cast.toArray(args.ARR2);
         return args.ARR1.concat(args.ARR2);
     }
 
-    hasItem(args) {
+    hasItem (args) {
         args.ARR = Cast.toArray(args.ARR);
         return args.ARR.includes(args.ITEM);
     }
 
-    arrayLength(args) {
+    arrayLength (args) {
         args.ARR = Cast.toArray(args.ARR);
         return args.ARR.length;
     }
 
-    sliceArray(args) {
+    sliceArray (args) {
         args.ARR = Cast.toArray(args.ARR);
         args.START = Cast.toNumber(args.START);
         args.END = Cast.toNumber(args.END);
@@ -168,17 +168,17 @@ class Scratch3JSONBlocks {
         return args.ARR.slice(start, end);
     }
 
-    reverseArray(args) {
+    reverseArray (args) {
         args.ARR = Cast.toArray(args.ARR);
         return [...args.ARR].reverse();
     }
 
-    _reporterYield(util) {
+    _reporterYield (util) {
         let thisBlock = util.thread.blockContainer?.getBlock(
             util.thread.peekStackFrame().op?.id ?? util.thread.peekStack()
         );
         if (!thisBlock) thisBlock = util.thread.stackFrames[0].myID;
-        if (!thisBlock) return true; 
+        if (!thisBlock) return true;
 
         util.thread.stackFrames[0].myID = thisBlock;
         util.thread.peekStackFrame().isLoop = true;
@@ -188,30 +188,30 @@ class Scratch3JSONBlocks {
         util.yield();
     }
 
-    forEachValue(args, util) {
+    forEachValue (args, util) {
         const frames = util.thread.stackFrames;
         for (let i = frames.length - 1; i >= 0; i--) {
-            if (frames[i].jsonForeachState !== undefined) {
+            if (typeof frames[i].jsonForeachState !== 'undefined') {
                 return frames[i].jsonForeachState?.value ?? '';
             }
         }
         return '';
     }
 
-    forEachIndex(args, util) {
+    forEachIndex (args, util) {
         const frames = util.thread.stackFrames;
         for (let i = frames.length - 1; i >= 0; i--) {
-            if (frames[i].jsonForeachState !== undefined) {
+            if (typeof frames[i].jsonForeachState !== 'undefined') {
                 return frames[i].jsonForeachState?.index ?? 0;
             }
         }
         return 0;
     }
 
-    forEach(args, util) {
-        const { stackFrame, thread } = util;
+    forEach (args, util) {
+        const {stackFrame, thread} = util;
 
-        if (stackFrame.index === undefined) {
+        if (typeof stackFrame.index === 'undefined') {
             const array = Cast.toArray(args.ARRAY);
             if (array.length === 0) return [];
             Object.assign(stackFrame, {
