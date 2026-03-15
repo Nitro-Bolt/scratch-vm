@@ -35,6 +35,7 @@ class Scratch3OperatorsBlocks {
             operator_round: this.round,
             operator_mathop: this.mathop,
             operator_cast: this.cast,
+            operator_typeof: this.typeof,
             checkbox: this.checkbox
         };
     }
@@ -170,6 +171,11 @@ class Scratch3OperatorsBlocks {
         case 'array': return Cast.toArray(value);
         }
         return value;
+    }
+
+    typeof (args) {
+        const value = args.VALUE;
+        return (Array.isArray(value) ? 'array' : typeof value);
     }
 }
 

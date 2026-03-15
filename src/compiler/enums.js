@@ -130,6 +130,7 @@ const StackOpcode = {
     CONTROL_WAIT_UNTIL: 'control.waitUntil',
     CONTROL_CLEAR_COUNTER: 'control.counterClear',
     CONTORL_INCR_COUNTER: 'control.counterIncr',
+    CONTROL_FOREACH_IN_RANGE: 'control.forEachInRange',
 
     TABLE_ADD: 'table.add',
     TABLE_INSERT: 'table.insert',
@@ -141,11 +142,14 @@ const StackOpcode = {
     TABLE_SHOW: 'table.show',
     TABLE_HIDE: 'table.hide',
 
+    JSON_FOREACH: 'json.forEach',
+
     LIST_ADD: 'list.add',
     LIST_INSERT: 'list.instert',
     LIST_REPLACE: 'list.replace',
     LIST_DELETE_ALL: 'list.deleteAll',
     LIST_DELETE: 'list.delete',
+    LIST_SETLISTARRAY: 'list.setListArray',
     LIST_SHOW: 'list.show',
     LIST_HIDE: 'list.hide',
     LIST_SETLISTARRAY: 'list.setListArray',
@@ -232,6 +236,8 @@ const InputOpcode = {
     COMPATIBILITY_LAYER: 'compat',
     OLD_COMPILER_COMPATIBILITY_LAYER: 'oldCompiler',
 
+    CONTROL_FOREACH_IN_RANGE_ITEM: 'control.forEachInRangeItem',
+
     LOOKS_BACKDROP_NUMBER: 'looks.backdropNumber',
     LOOKS_BACKDROP_NAME: 'looks.backdropName',
     LOOKS_COSTUME_NUMBER: 'looks.costumeNumber',
@@ -290,6 +296,7 @@ const InputOpcode = {
     OP_RANDOM: 'op.random',
     OP_ROUND: 'op.round',
     OP_SUBTRACT: 'op.subtract',
+    OP_TYPEOF: 'op.typeof',
 
     SENSING_ANSWER: 'sensing.answer',
     SENSING_COLOR_TOUCHING_COLOR: 'sensing.colorTouchingColor',
@@ -341,6 +348,11 @@ const InputOpcode = {
     JSON_ARRAY_LENGTH: 'json.arrayLength',
     JSON_SLICE_ARRAY: 'json.sliceArray',
     JSON_REVERSE_ARRAY: 'json.reverseArray',
+    JSON_MAP: 'json.map',
+    JSON_MAP_VALUE: 'json.mapValue',
+    JSON_MAP_INDEX: 'json.mapIndex',
+    JSON_FOREACH_VALUE: 'json.forEachValue',
+    JSON_FOREACH_INDEX: 'json.forEachIndex',
 
     COMMENTS_REPORTER: 'comments.reporter',
     COMMENTS_BOOLEAN: 'comments.boolean',

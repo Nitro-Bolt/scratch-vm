@@ -458,7 +458,7 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_MAP, InputType.ARRAY, {
                 array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
                 method: this.descendInputOfBlock(block, 'METHOD')
-            });   
+            });
         case 'json_foreach_value':
             return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);
         case 'json_foreach_index':
@@ -567,11 +567,11 @@ class ScriptTreeGenerator {
             const value = this.descendInputOfBlock(block, 'VALUE');
         
             switch (type) {
-            case 'string': return new IntermediateInput(InputOpcode.CAST_STRING, InputType.STRING, {target:value});
-            case 'number': return new IntermediateInput(InputOpcode.CAST_NUMBER, InputType.NUMBER, {target:value});
-            case 'boolean': return new IntermediateInput(InputOpcode.CAST_BOOLEAN, InputType.BOOLEAN, {target:value});
-            case 'object': return new IntermediateInput(InputOpcode.CAST_OBJECT, InputType.OBJECT, {target:value});
-            case 'array': return new IntermediateInput(InputOpcode.CAST_ARRAY, InputType.ARRAY, {target:value});
+            case 'string': return new IntermediateInput(InputOpcode.CAST_STRING, InputType.STRING, {target: value});
+            case 'number': return new IntermediateInput(InputOpcode.CAST_NUMBER, InputType.NUMBER, {target: value});
+            case 'boolean': return new IntermediateInput(InputOpcode.CAST_BOOLEAN, InputType.BOOLEAN, {target: value});
+            case 'object': return new IntermediateInput(InputOpcode.CAST_OBJECT, InputType.OBJECT, {target: value});
+            case 'array': return new IntermediateInput(InputOpcode.CAST_ARRAY, InputType.ARRAY, {target: value});
             default: return value;
             }
         }
@@ -580,7 +580,7 @@ class ScriptTreeGenerator {
             return new IntermediateInput(
                 InputOpcode.OP_TYPEOF,
                 InputType.ANY,
-                { target: value }
+                {target: value}
             );
         }
         case 'operator_mod':
@@ -939,7 +939,7 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.CONTROL_FOREACH_IN_RANGE, {
                 from: this.descendInputOfBlock(block, 'FROM').toType(InputType.NUMBER),
                 to: this.descendInputOfBlock(block, 'TO').toType(InputType.NUMBER),
-                do: this.descendSubstack(block, 'SUBSTACK'),
+                do: this.descendSubstack(block, 'SUBSTACK')
             }, this.analyzeLoop());
 
         case 'data_addtotable': {
@@ -1026,6 +1026,11 @@ class ScriptTreeGenerator {
                 index: index
             });
         }
+        case 'data_setlistarray':
+            return new IntermediateStackBlock(StackOpcode.LIST_SETLISTARRAY, {
+                list: this.descendVariable(block, 'LIST', LIST_TYPE),
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY)
+            });
         case 'data_hidelist':
             return new IntermediateStackBlock(StackOpcode.LIST_HIDE, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
@@ -1069,6 +1074,12 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {
                 array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
                 substack: this.descendSubstack(block, 'SUBSTACK'),
+            }, this.analyzeLoop());
+
+        case 'json_foreach':
+            return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
+                substack: this.descendSubstack(block, 'SUBSTACK')
             }, this.analyzeLoop());
 
         case 'event_broadcast':
