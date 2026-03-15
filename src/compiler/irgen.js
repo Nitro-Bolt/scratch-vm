@@ -1064,6 +1064,17 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.VAR_SHOW, {
                 variable: this.descendVariable(block, 'VARIABLE', SCALAR_TYPE)
             });
+        case 'data_setlistarray':
+            return new IntermediateStackBlock(StackOpcode.LIST_SETLISTARRAY, {
+                list: this.descendVariable(block, 'LIST', LIST_TYPE),
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY)
+            });
+
+        case 'json_foreach':
+            return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
+                substack: this.descendSubstack(block, 'SUBSTACK'),
+            }, this.analyzeLoop());
 
         case 'json_foreach':
             return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {

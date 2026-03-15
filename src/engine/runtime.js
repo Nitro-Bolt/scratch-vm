@@ -57,7 +57,7 @@ const MonitorRecord = require('./monitor-record.js');
 
 const defaultExtensionColors = ['#0FBD8C', '#0DA57A', '#0B8E69'];
 
-const COMMENT_CONFIG_MAGIC = ' // _nbconfig_';
+const COMMENT_CONFIG_MAGIC = ' // _twconfig_';
 
 /**
  * Information used for converting Scratch argument types into scratch-blocks data.
@@ -478,6 +478,13 @@ class Runtime extends EventEmitter {
         this.interpolationEnabled = false;
 
         this._defaultStoredSettings = this._generateAllProjectOptions();
+
+        /**
+         * Project options loaded from serialized project.json.
+         * If null, parseProjectOptions() falls back to legacy comment storage.
+         * @type {?object}
+         */
+        this._storedProjectOptions = null;
 
         /**
          * TW: We support a "packaged runtime" mode. This can be used when:
@@ -1316,14 +1323,14 @@ class Runtime extends EventEmitter {
                 type: menuId,
                 inputsInline: true,
                 output: 'String',
-                colour: categoryInfo.color1,
-                colourSecondary: categoryInfo.color2,
-                colourTertiary: categoryInfo.color3,
+                colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
+                colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
+                colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
                 outputShape: menuInfo.acceptReporters ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
-                        type: 'field_dropdown',
+                        type: menuInfo.acceptText ? 'field_textdropdown' : 'field_dropdown',
                         name: menuName,
                         options: menuItems
                     }
@@ -1631,7 +1638,7 @@ class Runtime extends EventEmitter {
             xml: `<label text="${xmlEscape(blockInfo.text)}"></label>`
         };
     }
-    
+
     /**
      * Convert a button for scratch-blocks. A button has no opcode but specifies a callback name in the `func` field.
      * @param {ExtensionBlockMetadata} buttonInfo - the button to convert
@@ -1754,7 +1761,12 @@ class Runtime extends EventEmitter {
                     shadowType = this._makeExtensionMenuId(argInfo.menu, context.categoryInfo.id);
                     fieldName = argInfo.menu;
                 } else {
-                    argJSON.type = 'field_dropdown';
+                    if (menuInfo.acceptText) {
+                        argJSON.type = 'field_textdropdown';
+                        argJSON.text = defaultValue || '';
+                    } else {
+                        argJSON.type = 'field_dropdown';
+                    }
                     argJSON.options = this._convertMenuItems(menuInfo.items);
                     valueName = null;
                     shadowType = null;
@@ -2946,24 +2958,29 @@ class Runtime extends EventEmitter {
     }
 
     parseProjectOptions () {
-        const comment = this.findProjectOptionsComment();
-        if (!comment) return;
-        const lineWithMagic = comment.text.split('\n').find(i => i.endsWith(COMMENT_CONFIG_MAGIC));
-        if (!lineWithMagic) {
-            log.warn('Config comment does not contain valid line');
-            return;
-        }
+        let parsed = this._storedProjectOptions;
+        this._storedProjectOptions = null;
 
-        const jsonText = lineWithMagic.substr(0, lineWithMagic.length - COMMENT_CONFIG_MAGIC.length);
-        let parsed;
-        try {
-            parsed = ExtendedJSON.parse(jsonText);
-            if (!parsed || typeof parsed !== 'object') {
-                throw new Error('Invalid object');
+        // Backwards compatibility: fall back to legacy comment-based storage.
+        if (!parsed) {
+            const comment = this.findProjectOptionsComment();
+            if (!comment) return;
+            const lineWithMagic = comment.text.split('\n').find(i => i.endsWith(COMMENT_CONFIG_MAGIC));
+            if (!lineWithMagic) {
+                log.warn('Config comment does not contain valid line');
+                return;
             }
-        } catch (e) {
-            log.warn('Config comment has invalid JSON', e);
-            return;
+
+            const jsonText = lineWithMagic.substr(0, lineWithMagic.length - COMMENT_CONFIG_MAGIC.length);
+            try {
+                parsed = ExtendedJSON.parse(jsonText);
+                if (!parsed || typeof parsed !== 'object') {
+                    throw new Error('Invalid object');
+                }
+            } catch (e) {
+                log.warn('Config comment has invalid JSON', e);
+                return;
+            }
         }
 
         if (typeof parsed.framerate === 'number') {
@@ -3022,17 +3039,8 @@ class Runtime extends EventEmitter {
     }
 
     storeProjectOptions () {
-        const options = this.generateDifferingProjectOptions();
-        // TODO: translate
-        const text = `Configuration for https://github.com/Nitro-Bolt/\nYou can move, resize, and minimize this comment, but don't edit it by hand. This comment can be deleted to remove the stored settings.\n${ExtendedJSON.stringify(options)}${COMMENT_CONFIG_MAGIC}`;
-        const existingComment = this.findProjectOptionsComment();
-        if (existingComment) {
-            existingComment.text = text;
-        } else {
-            const target = this.getTargetForStage();
-            // TODO: smarter position logic
-            target.createComment(uid(), null, text, 50, 50, 350, 170, false);
-        }
+        this._storedProjectOptions = this.generateDifferingProjectOptions();
+
         this.emitProjectChanged();
     }
 

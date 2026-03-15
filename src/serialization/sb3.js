@@ -16,6 +16,7 @@ const uid = require('../util/uid');
 const MathUtil = require('../util/math-util');
 const StringUtil = require('../util/string-util');
 const VariableUtil = require('../util/variable-util');
+const ExtendedJSON = require('@turbowarp/json');
 const compress = require('./tw-compress-sb3');
 
 const {loadCostume} = require('../import/load-costume.js');
@@ -795,6 +796,11 @@ const serialize = function (runtime, targetId, {allowOptimization = true} = {}) 
 
     if (fonts) {
         obj.customFonts = fonts;
+    }
+
+    const projectOptions = runtime.generateDifferingProjectOptions();
+    if (Object.keys(projectOptions).length > 0) {
+        obj.projectOptions = ExtendedJSON.stringify(projectOptions);
     }
 
     // Assemble metadata
@@ -1577,6 +1583,10 @@ const checkPlatformCompatibility = (json, runtime) => {
  */
 const deserialize = async function (json, runtime, zip, isSingleSprite) {
     await checkPlatformCompatibility(json, runtime);
+
+    if (!isSingleSprite) {
+        runtime._storedProjectOptions = json.projectOptions ? ExtendedJSON.parse(json.projectOptions) : null;
+    }
 
     const extensions = {
         extensionIDs: new Set(),
