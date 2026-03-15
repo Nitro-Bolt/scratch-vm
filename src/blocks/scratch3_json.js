@@ -56,7 +56,7 @@ class Scratch3JSONBlocks {
         case 'entries':
             return Object.entries(obj);
         default:
-            return [];
+            return new Array();
         }
     }
 
