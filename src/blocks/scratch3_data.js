@@ -30,10 +30,10 @@ class Scratch3DataBlocks {
             data_itemnumoflist: this.getItemNumOfList,
             data_lengthoflist: this.lengthOfList,
             data_listcontainsitem: this.listContainsItem,
-            data_hidelist: this.hideList,
-            data_showlist: this.showList,
             data_listasarray: this.listAsArray,
             data_setlistarray: this.setListArray,
+            data_hidelist: this.hideList,
+            data_showlist: this.showList,
             data_tablecontents: this.getTableContents,
             data_addtotable: this.addToTable,
             data_insertdimensiontotable: this.insertDimensionToTable,
@@ -98,6 +98,19 @@ class Scratch3DataBlocks {
 
     hideVariable (args) {
         this.changeMonitorVisibility(args.VARIABLE.id, false);
+    }
+
+    listAsArray (args, util) {
+        const list = util.target.lookupOrCreateList(
+            args.LIST.id, args.LIST.name);
+        return Cast.toArray(list.value);
+    }
+
+    setListArray (args, util) {
+        const list = util.target.lookupOrCreateList(
+            args.LIST.id, args.LIST.name);
+        list.value = Cast.toArray(args.ARRAY);
+        list._monitorUpToDate = false;
     }
 
     showList (args) {
@@ -251,19 +264,6 @@ class Scratch3DataBlocks {
             }
         }
         return false;
-    }
-
-    listAsArray (args, util) {
-        const list = util.target.lookupOrCreateList(
-            args.LIST.id, args.LIST.name);
-        return Cast.toArray(list.value);
-    }
-
-    setListArray (args, util) {
-        const list = util.target.lookupOrCreateList(
-            args.LIST.id, args.LIST.name);
-        list.value = Cast.toArray(args.ARRAY);
-        list._monitorUpToDate = false;
     }
 
     getTableContents (args, util) {

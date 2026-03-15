@@ -1026,6 +1026,11 @@ class ScriptTreeGenerator {
                 index: index
             });
         }
+        case 'data_setlistarray':
+            return new IntermediateStackBlock(StackOpcode.LIST_SETLISTARRAY, {
+                list: this.descendVariable(block, 'LIST', LIST_TYPE),
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY)
+            });
         case 'data_hidelist':
             return new IntermediateStackBlock(StackOpcode.LIST_HIDE, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
@@ -1058,11 +1063,6 @@ class ScriptTreeGenerator {
         case 'data_showvariable':
             return new IntermediateStackBlock(StackOpcode.VAR_SHOW, {
                 variable: this.descendVariable(block, 'VARIABLE', SCALAR_TYPE)
-            });
-        case 'data_setlistarray':
-            return new IntermediateStackBlock(StackOpcode.LIST_SETLISTARRAY, {
-                list: this.descendVariable(block, 'LIST', LIST_TYPE),
-                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY)
             });
 
         case 'json_foreach':
