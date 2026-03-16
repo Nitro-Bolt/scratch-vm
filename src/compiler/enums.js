@@ -208,6 +208,7 @@ const StackOpcode = {
     COMMENTS_COMMAND: 'comments.command',
     COMMENTS_LOOP: 'comments.loop',
 
+    PROCEDURE_SET_PARAM: 'procedures.setParam',
     PROCEDURE_RETURN: 'procedures.return',
     PROCEDURE_CALL: 'procedures.call'
 };

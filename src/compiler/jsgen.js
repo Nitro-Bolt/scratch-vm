@@ -1094,6 +1094,13 @@ class JSGenerator {
             this.source += `);\n`;
             break;
         }
+        case StackOpcode.PROCEDURE_SET_PARAM: {
+            const value = this.descendInput(node.value);
+            const i = node.param.inputs.index;
+            this.source += `p${i} = ${value};\n`;
+            break;
+        }
+
         case StackOpcode.PROCEDURE_RETURN:
             this.stopScriptAndReturn(this.descendInput(node.value));
             break;

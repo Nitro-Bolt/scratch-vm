@@ -1250,6 +1250,12 @@ class ScriptTreeGenerator {
             const procedure = this.getProcedureInfo(block);
             return new IntermediateStackBlock(procedure.opcode, procedure.inputs, procedure.yields);
         }
+        case 'procedures_set_param':
+            return new IntermediateStackBlock(StackOpcode.PROCEDURE_SET_PARAM, {
+                param: this.descendInputOfBlock(block, 'PARAM'),
+                value: this.descendInputOfBlock(block, 'VALUE')
+            });
+
         case 'procedures_return':
             return new IntermediateStackBlock(StackOpcode.PROCEDURE_RETURN, {
                 value: this.descendInputOfBlock(block, 'VALUE')
