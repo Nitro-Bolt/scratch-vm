@@ -348,9 +348,6 @@ const InputOpcode = {
     JSON_ARRAY_LENGTH: 'json.arrayLength',
     JSON_SLICE_ARRAY: 'json.sliceArray',
     JSON_REVERSE_ARRAY: 'json.reverseArray',
-    JSON_MAP: 'json.map',
-    JSON_MAP_VALUE: 'json.mapValue',
-    JSON_MAP_INDEX: 'json.mapIndex',
     JSON_FOREACH_VALUE: 'json.forEachValue',
     JSON_FOREACH_INDEX: 'json.forEachIndex',
 

@@ -324,38 +324,6 @@ class JSGenerator {
             return `sliceArray(${this.descendInput(node.array)}, ${this.descendInput(node.start)}, ${this.descendInput(node.end)})`;
         case InputOpcode.JSON_REVERSE_ARRAY:
             return `${this.descendInput(node.array)}.slice(0).reverse()`;
-        case InputOpcode.JSON_MAP_VALUE: {
-            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
-            return vars?.value ?? '""';
-        }
-        case InputOpcode.JSON_MAP_INDEX: {
-            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
-            return vars?.index ?? '0';
-        }
-        case InputOpcode.JSON_MAP: {
-            const valVar = this.localVariables.next();
-            const indVar = this.localVariables.next();
-            const loopInd = this.localVariables.next();
-
-            if (!this.mapVarsStack) this.mapVarsStack = [];
-            this.mapVarsStack.push({value: valVar, index: indVar});
-
-            const array = this.descendInput(node.array);
-            const method = this.descendInput(node.method);
-
-            this.mapVarsStack.pop();
-
-            return `(yield* (function*() {
-                const _arr = ${array};
-                const _res = [];
-                for (let ${loopInd} = 0; ${loopInd} < _arr.length; ${loopInd}++) {
-                    const ${valVar} = _arr[${loopInd}];
-                    const ${indVar} = ${loopInd};
-                    _res.push(${method});
-                }
-                return _res;
-            })())`;
-        }
         case InputOpcode.JSON_FOREACH_VALUE: {
             const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
             return vars?.value ?? '""';
@@ -800,6 +768,8 @@ class JSGenerator {
             this.source += 'runtime.ext_scratch3_control._counter++;\n';
             break;
         case StackOpcode.CONTROL_FOREACH_IN_RANGE: {
+            const from = this.descendInput(node.from);
+            const to = this.descendInput(node.to);
             const loopVar = this.localVariables.next();
             const fromVar = this.localVariables.next();
             const toVar = this.localVariables.next();
@@ -807,9 +777,6 @@ class JSGenerator {
 
             if (!this.forEachInRangeStack) this.forEachInRangeStack = [];
             this.forEachInRangeStack.push(loopVar);
-        
-            const from = this.descendInput(node.from);
-            const to = this.descendInput(node.to);
         
             this.source += `const ${fromVar} = Math.round(${from});\n`;
             this.source += `const ${toVar} = Math.round(${to});\n`;
@@ -943,13 +910,12 @@ class JSGenerator {
         }
 
         case StackOpcode.JSON_FOREACH: {
+            const array = this.descendInput(node.array);
             const valVar = this.localVariables.next();
             const indVar = this.localVariables.next();
         
             if (!this.foreachVarsStack) this.foreachVarsStack = [];
             this.foreachVarsStack.push({value: valVar, index: indVar});
-        
-            const array = this.descendInput(node.array);
         
             this.source += `for (const [${indVar}, ${valVar}] of [...${array}].entries()) {\n`;
             if (node.substack) this.descendStack(node.substack, new Frame(true));

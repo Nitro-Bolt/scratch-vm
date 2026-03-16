@@ -450,15 +450,6 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_REVERSE_ARRAY, InputType.ARRAY, {
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
-        case 'json_map_value':
-            return new IntermediateInput(InputOpcode.JSON_MAP_VALUE, InputType.ANY);
-        case 'json_map_index':
-            return new IntermediateInput(InputOpcode.JSON_MAP_INDEX, InputType.NUMBER);
-        case 'json_map':
-            return new IntermediateInput(InputOpcode.JSON_MAP, InputType.ARRAY, {
-                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
-                method: this.descendInputOfBlock(block, 'METHOD')
-            });
         case 'json_foreach_value':
             return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);
         case 'json_foreach_index':
