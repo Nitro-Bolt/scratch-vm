@@ -34,8 +34,6 @@ class Scratch3DataBlocks {
             data_setlistarray: this.setListArray,
             data_hidelist: this.hideList,
             data_showlist: this.showList,
-            data_listasarray: this.listAsArray,
-            data_setlistarray: this.setListArray,
             data_tablecontents: this.getTableContents,
             data_addtotable: this.addToTable,
             data_insertdimensiontotable: this.insertDimensionToTable,
