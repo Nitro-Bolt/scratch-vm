@@ -351,11 +351,6 @@ const InputOpcode = {
     JSON_FOREACH_VALUE: 'json.forEachValue',
     JSON_FOREACH_INDEX: 'json.forEachIndex',
 
-    COMMENTS_REPORTER: 'comments.reporter',
-    COMMENTS_BOOLEAN: 'comments.boolean',
-    COMMENTS_OBJECT: 'comments.object',
-    COMMENTS_ARRAY: 'comments.array',
-
     PROCEDURE_CALL: 'procedures.call',
     PROCEDURE_ARGUMENT: 'procedures.argument',
 
