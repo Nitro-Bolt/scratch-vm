@@ -98,8 +98,9 @@ class Scratch3JSONBlocks {
 
     valueOfIndex (args) {
         args.ARR = Cast.toArray(args.ARR);
-        args.INDEX = Cast.toNumber(args.INDEX);
-        return args.ARR[args.INDEX] ?? '';
+        const i = Cast.toArrayIndex(args.INDEX, args.ARR.length);
+        if (i === Cast.LIST_INVALID) return '';
+        return args.ARR[i] ?? '';
     }
 
     indexOfValue (args) {
@@ -114,23 +115,19 @@ class Scratch3JSONBlocks {
     }
 
     replaceIndex (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.INDEX = Cast.toNumber(args.INDEX);
-        if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
-            args.ARR[args.INDEX] = args.ITEM;
-            return args.ARR;
-        }
-        return new Array();
+        args.ARR = [...Cast.toArray(args.ARR)];
+        const i = Cast.toArrayIndex(args.INDEX, args.ARR.length);
+        if (i === Cast.LIST_INVALID) return args.ARR;
+        args.ARR[i] = args.ITEM;
+        return args.ARR;
     }
 
     deleteIndex (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.INDEX = Cast.toNumber(args.INDEX);
-        if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
-            args.ARR.splice(args.INDEX, 1);
-            return args.ARR;
-        }
-        return new Array();
+        args.ARR = [...Cast.toArray(args.ARR)];
+        const i = Cast.toArrayIndex(args.INDEX, args.ARR.length);
+        if (i === Cast.LIST_INVALID) return args.ARR;
+        args.ARR.splice(i, 1);
+        return args.ARR;
     }
 
     deleteAllOccurrences (args) {
@@ -156,36 +153,15 @@ class Scratch3JSONBlocks {
     }
 
     sliceArray (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.START = Cast.toNumber(args.START);
-        args.END = Cast.toNumber(args.END);
-
-        const start = Math.max(0, args.START);
-        const end = Math.min(args.ARR.length, args.END + 1);
-
-        if (end <= start) return [];
-
-        return args.ARR.slice(start, end);
+        args.ARR = [...Cast.toArray(args.ARR)];
+        const s = Cast.toArrayIndex(args.START, args.ARR.length);
+        const e = Cast.toArrayIndex(args.END, args.ARR.length);
+        if (s === Cast.LIST_INVALID || e === Cast.LIST_INVALID || e < s) return [];
+        return args.ARR.slice(s, e + 1);
     }
 
     reverseArray (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        return [...args.ARR].reverse();
-    }
-
-    _reporterYield (util) {
-        let thisBlock = util.thread.blockContainer?.getBlock(
-            util.thread.peekStackFrame().op?.id ?? util.thread.peekStack()
-        );
-        if (!thisBlock) thisBlock = util.thread.stackFrames[0].myID;
-        if (!thisBlock) return true;
-
-        util.thread.stackFrames[0].myID = thisBlock;
-        util.thread.peekStackFrame().isLoop = true;
-
-        const pushBlock = thisBlock.inputs?.METHOD?.block;
-        if (pushBlock) util.thread.pushStack(pushBlock);
-        util.yield();
+        return [...Cast.toArray(args.ARR)].reverse();
     }
 
     forEachValue (args, util) {

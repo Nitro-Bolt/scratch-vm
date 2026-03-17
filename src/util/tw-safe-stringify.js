@@ -1,9 +1,9 @@
 const circularReplacer = () => {
     const seen = new WeakSet();
     return (_, value) => {
-        if (typeof value === "object" && value !== null) {
+        if (typeof value === 'object' && value !== null) {
             if (seen.has(value)) {
-                return Array.isArray(value) ? "[...]" : "{...}";
+                return Array.isArray(value) ? '[...]' : '{...}';
             }
             seen.add(value);
         }
@@ -16,21 +16,21 @@ const circularReplacer = () => {
  * @param {unknown} input Any value
  * @returns {string} A stringified version of the input.
  */
-const safeStringify = (input) => {
+const safeStringify = input => {
     if (input !== null) {
         if (input instanceof Float32Array) {
             return JSON.stringify(
-                Array.from(input, (v) => (!isFinite(v) ? v.toString() : v)),
-                circularReplacer(),
+                Array.from(input, v => (!isFinite(v) ? v.toString() : v)),
+                circularReplacer()
             );
         }
-        if (typeof input === "object") {
+        if (typeof input === 'object') {
             return JSON.stringify(input, circularReplacer());
         }
     }
     // -0 stringifies as "0" by default.
     if (Object.is(input, -0)) {
-        return "-0";
+        return '-0';
     }
     return `${input}`;
 };

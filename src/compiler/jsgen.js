@@ -303,7 +303,7 @@ class JSGenerator {
         case InputOpcode.JSON_NEW_ARRAY:
             return 'new Array()';
         case InputOpcode.JSON_VALUE_OF_INDEX:
-            return `(${this.descendInput(node.array)}[${this.descendInput(node.index)}] ?? "")`;
+            return `arrayValueOfIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_INDEX_OF_VALUE:
             return `arrayIndexOf(${this.descendInput(node.array)}, ${this.descendInput(node.value)})`;
         case InputOpcode.JSON_ADD_ITEM:

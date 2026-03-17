@@ -397,7 +397,7 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY);
         case 'json_value_of_index':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_INDEX, InputType.ANY, {
-                index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER),
+                index: this.descendInputOfBlock(block, 'INDEX'),
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
         case 'json_index_of_value':
@@ -412,13 +412,13 @@ class ScriptTreeGenerator {
             });
         case 'json_replace_index':
             return new IntermediateInput(InputOpcode.JSON_REPLACE_INDEX, InputType.ARRAY, {
-                index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER),
+                index: this.descendInputOfBlock(block, 'INDEX'),
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY),
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
             });
         case 'json_delete_index':
             return new IntermediateInput(InputOpcode.JSON_DELETE_INDEX, InputType.ARRAY, {
-                index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER),
+                index: this.descendInputOfBlock(block, 'INDEX'),
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
         case 'json_delete_all_occurrences':
@@ -442,8 +442,8 @@ class ScriptTreeGenerator {
             });
         case 'json_slice_array':
             return new IntermediateInput(InputOpcode.JSON_SLICE_ARRAY, InputType.ARRAY, {
-                start: this.descendInputOfBlock(block, 'START').toType(InputType.NUMBER),
-                end: this.descendInputOfBlock(block, 'END').toType(InputType.NUMBER),
+                start: this.descendInputOfBlock(block, 'START'),
+                end: this.descendInputOfBlock(block, 'END'),
                 array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
             });
         case 'json_reverse_array':
@@ -1055,12 +1055,6 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.VAR_SHOW, {
                 variable: this.descendVariable(block, 'VARIABLE', SCALAR_TYPE)
             });
-
-        case 'json_foreach':
-            return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {
-                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
-                substack: this.descendSubstack(block, 'SUBSTACK'),
-            }, this.analyzeLoop());
 
         case 'json_foreach':
             return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {

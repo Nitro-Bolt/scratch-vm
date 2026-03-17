@@ -40,7 +40,7 @@ class Cast {
      * @param {*} value Value to cast to number.
      * @return {number} The Scratch-casted number value.
      */
-    static toNumber(value) {
+    static toNumber (value) {
         // If value is already a number we don't need to coerce it with
         // Number().
         if (typeof value === 'number') {
@@ -67,7 +67,7 @@ class Cast {
      * @param {*} value Value to cast to boolean.
      * @return {boolean} The Scratch-casted boolean value.
      */
-    static toBoolean(value) {
+    static toBoolean (value) {
         // Already a boolean?
         if (typeof value === 'boolean') {
             return value;
@@ -91,7 +91,7 @@ class Cast {
      * @param {*} value Value to cast to string.
      * @return {string} The Scratch-casted string value.
      */
-    static toString(value) {
+    static toString (value) {
         if (typeof value === 'undefined' || value === null) {
             return String();
         } else if (typeof value === 'object') {
@@ -110,7 +110,7 @@ class Cast {
      * @param {?boolean} nullSafe Is null allowed.
      * @return {object} The Scratch-casted object value.
      */
-    static toObject(value, nullSafe) {
+    static toObject (value, nullSafe) {
         if (typeof value === 'object') {
             if (value === null) {
                 if (nullSafe) return null;
@@ -131,7 +131,7 @@ class Cast {
      * @param {*} value Value to cast to array.
      * @return {array} The Scratch-casted array value.
      */
-    static toArray(value) {
+    static toArray (value) {
         if (Array.isArray(value)) return value;
         try {
             if (typeof value === 'string') {
@@ -148,7 +148,7 @@ class Cast {
      * @param {*} value Value to convert to RGB color array.
      * @return {Array.<number>} [r,g,b], values between 0-255.
      */
-    static toRgbColorList(value) {
+    static toRgbColorList (value) {
         const color = Cast.toRgbColorObject(value);
         return [color.r, color.g, color.b];
     }
@@ -158,13 +158,13 @@ class Cast {
      * @param {*} value Value to convert to RGB color object.
      * @return {RGBOject} [r,g,b], values between 0-255.
      */
-    static toRgbColorObject(value) {
+    static toRgbColorObject (value) {
         let color;
         if (typeof value === 'string' && value.substring(0, 1) === '#') {
             color = Color.hexToRgb(value);
 
             // If the color wasn't *actually* a hex color, cast to black
-            if (!color) color = { r: 0, g: 0, b: 0, a: 255 };
+            if (!color) color = {r: 0, g: 0, b: 0, a: 255};
         } else {
             color = Color.decimalToRgb(Cast.toNumber(value));
         }
@@ -176,7 +176,7 @@ class Cast {
      * @param {*} value Value to cast to Float32Array.
      * @return {Float32Array} The casted Float32Array value.
      */
-    static toFloat32Array(value) {
+    static toFloat32Array (value) {
         if (value instanceof Float32Array) return value;
         return new Float32Array(Cast.toArray(value));
     }
@@ -186,7 +186,7 @@ class Cast {
      * @param {*} val value to check.
      * @return {boolean} True if the argument is all white spaces or null / empty.
      */
-    static isWhiteSpace(val) {
+    static isWhiteSpace (val) {
         return val === null || (typeof val === 'string' && val.trim().length === 0);
     }
 
@@ -197,7 +197,7 @@ class Cast {
      * @param {*} v2 Second value to compare.
      * @returns {number} Negative number if v1 < v2; 0 if equal; positive otherwise.
      */
-    static compare(v1, v2) {
+    static compare (v1, v2) {
         let n1 = Number(v1);
         let n2 = Number(v2);
         if (n1 === 0 && isNotActuallyZero(v1)) {
@@ -233,7 +233,7 @@ class Cast {
      * @param {*} val Value to check.
      * @return {boolean} True if number looks like an integer.
      */
-    static isInt(val) {
+    static isInt (val) {
         // Values that are already numbers.
         if (typeof val === 'number') {
             if (isNaN(val)) { // NaN is considered an integer.
@@ -251,11 +251,11 @@ class Cast {
         return false;
     }
 
-    static get LIST_INVALID() {
+    static get LIST_INVALID () {
         return 'INVALID';
     }
 
-    static get LIST_ALL() {
+    static get LIST_ALL () {
         return 'ALL';
     }
 
@@ -269,7 +269,7 @@ class Cast {
      * @param {boolean} acceptAll Whether it should accept "all" or not.
      * @return {(number|string)} 1-based index for list, LIST_ALL, or LIST_INVALID.
      */
-    static toListIndex(index, length, acceptAll) {
+    static toListIndex (index, length, acceptAll) {
         if (typeof index !== 'number') {
             if (index === 'all') {
                 return acceptAll ? Cast.LIST_ALL : Cast.LIST_INVALID;
@@ -294,11 +294,39 @@ class Cast {
     }
 
     /**
+     * Compute a 0-based index into an array, based on a block argument.
+     * Returns Cast.LIST_INVALID if the index was invalid in any way.
+     * @param {*} index Arg, including 0-based numbers or special cases ("last", "random").
+     * @param {number} length Length of the array.
+     * @return {(number|string)} 0-based index for array, or LIST_INVALID.
+     */
+    static toArrayIndex (index, length) {
+        if (typeof index !== 'number') {
+            if (index === 'last') {
+                if (length > 0) {
+                    return length - 1;
+                }
+                return Cast.LIST_INVALID;
+            } else if (index === 'random') {
+                if (length > 0) {
+                    return Math.floor(Math.random() * length);
+                }
+                return Cast.LIST_INVALID;
+            }
+        }
+        index = Math.floor(Cast.toNumber(index));
+        if (index < 0 || index >= length) {
+            return Cast.LIST_INVALID;
+        }
+        return index;
+    }
+
+    /**
      * Get the number of rows in a table.
      * @param {Array} table The table value array.
      * @return {number} Number of rows in the table.
      */
-    static getTableRowCount(table) {
+    static getTableRowCount (table) {
         return Array.isArray(table) ? table.length : 0;
     }
 
@@ -307,7 +335,7 @@ class Cast {
      * @param {Array} table The table value array.
      * @return {number} Number of columns in the table.
      */
-    static getTableColumnCount(table) {
+    static getTableColumnCount (table) {
         if (!Array.isArray(table) || table.length === 0) {
             return 0;
         }
@@ -321,7 +349,7 @@ class Cast {
      * @param {boolean} acceptAll Whether it should accept "all" or not.
      * @return {(number|string)} 1-based index for table row, LIST_ALL, or LIST_INVALID.
      */
-    static toTableRowIndex(index, table, acceptAll) {
+    static toTableRowIndex (index, table, acceptAll) {
         const rowCount = Cast.getTableRowCount(table);
         return Cast.toListIndex(index, rowCount, acceptAll);
     }
@@ -333,7 +361,7 @@ class Cast {
      * @param {boolean} acceptAll Whether it should accept "all" or not.
      * @return {(number|string)} 1-based index for table column, LIST_ALL, or LIST_INVALID.
      */
-    static toTableColumnIndex(index, table, acceptAll) {
+    static toTableColumnIndex (index, table, acceptAll) {
         const columnCount = Cast.getTableColumnCount(table);
         return Cast.toListIndex(index, columnCount, acceptAll);
     }

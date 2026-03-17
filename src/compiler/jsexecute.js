@@ -40,6 +40,41 @@ runtimeFunctions.mergeObjects = `const mergeObjects = (a, b) => {
   return Object.fromEntries(Object.entries(a).concat(Object.entries(b)));
 };`;
 
+baseRuntime += `const arrayIndexSlow = (index, length) => {
+    if (index === 'last') {
+        return length - 1;
+    } else if (index === 'random') {
+        if (length > 0) {
+            return (Math.random() * length) | 0;
+        }
+        return -1;
+    }
+    index = (+index || 0) | 0;
+    if (index < 0 || index >= length) {
+        return -1;
+    }
+    return index;
+};
+const arrayIndex = (index, length) => {
+    if (typeof index !== 'number') {
+        return arrayIndexSlow(index, length);
+    }
+    index = index | 0;
+    return index < 0 || index >= length ? -1 : index;
+};`;
+
+/**
+ * Find the value of the item in the 0-indexed index in an array.
+ * @param {Array<*>} array The array.
+ * @param {*} index The index to search for
+ * @returns {*} The value of the item
+ */
+runtimeFunctions.arrayValueOfIndex = `const arrayValueOfIndex = (array, index) => {
+    const i = arrayIndex(index, array.length);
+    if (i === -1) return "";
+    return array[i] ?? "";
+}`;
+
 /**
  * Find the 0-indexed index of an item in an array.
  * @param {Array<*>} array The array.
@@ -60,12 +95,11 @@ runtimeFunctions.arrayIndexOf = `const arrayIndexOf = (array, item) => {
  * @returns {Array<*>} Updated array with the replaced item
  */
 runtimeFunctions.arrayReplaceAtIndex = `const arrayReplaceAtIndex = (array, index, item) => {
-    if (index >= 0 && index < array.length) {
-        const newArray = [...array];
-        newArray[index] = item;
-        return newArray;
-    }
-    return array;
+    const i = arrayIndex(index, array.length);
+    if (i === -1) return array;
+    const newArray = [...array];
+    newArray[i] = item;
+    return newArray;
 }`;
 
 /**
@@ -75,12 +109,11 @@ runtimeFunctions.arrayReplaceAtIndex = `const arrayReplaceAtIndex = (array, inde
  * @returns {Array<*>} Updated array after deleting the item
  */
 runtimeFunctions.arrayDeleteAtIndex = `const arrayDeleteAtIndex = (array, index) => {
-    if (index >= 0 && index < array.length) {
-        const newArray = [...array];
-        newArray.splice(index, 1);
-        return newArray;
-    }
-    return array;
+    const i = arrayIndex(index, array.length);
+    if (i === -1) return array;
+    const newArray = [...array];
+    newArray.splice(i, 1);
+    return newArray;
 }`;
 
 /**
@@ -91,10 +124,10 @@ runtimeFunctions.arrayDeleteAtIndex = `const arrayDeleteAtIndex = (array, index)
  * @returns {Array<*>} Items from index start to index end
  */
 runtimeFunctions.sliceArray = `const sliceArray = (array, start, end) => {
-    const _start = Math.max(0, start);
-    const _end = Math.min(array.length, end + 1);
-    if (_end <= _start) return [];
-    return array.slice(_start, _end);
+    const s = arrayIndex(start, array.length);
+    const e = arrayIndex(end, array.length);
+    if (s === -1 || e === -1 || e < s) return [];
+    return array.slice(s, e + 1);
 }`;
 
 /**
