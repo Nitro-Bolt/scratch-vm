@@ -589,15 +589,6 @@ class JSGenerator {
         case InputOpcode.VAR_GET:
             return `${this.referenceVariable(node.variable)}.value`;
 
-        case InputOpcode.COMMENTS_REPORTER:
-            return `${this.descendInput(node.value)}`;
-        case InputOpcode.COMMENTS_BOOLEAN:
-            return `${this.descendInput(node.value)}`;
-        case InputOpcode.COMMENTS_OBJECT:
-            return `${this.descendInput(node.value)}`;
-        case InputOpcode.COMMENTS_ARRAY:
-            return `${this.descendInput(node.value)}`;
-
         default:
             log.warn(`JS: Unknown input: ${block.opcode}`, node);
             throw new Error(`JS: Unknown input: ${block.opcode}`);
