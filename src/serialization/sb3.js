@@ -57,8 +57,7 @@ const CORE_EXTENSIONS = [
     'operator',
     'procedures',
     'sensing',
-    'sound',
-    'comments'
+    'sound'
 ];
 
 // Constants referring to 'primitive' blocks that are usually shadows,
