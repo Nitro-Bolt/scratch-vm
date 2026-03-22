@@ -312,7 +312,16 @@ class Thread {
      * @return {string} Block ID popped from the stack.
      */
     popStack () {
-        _StackFrame.release(this.stackFrames.pop());
+        const poppedFrame = this.stackFrames.pop();
+        if (poppedFrame && poppedFrame.restoreTarget) {
+            this.target = poppedFrame.restoreTarget;
+        }
+        if (poppedFrame && poppedFrame.restoreBlockContainer) {
+            this.blockContainer = poppedFrame.restoreBlockContainer;
+        } else if (poppedFrame && poppedFrame.restoreTarget) {
+            this.blockContainer = poppedFrame.restoreTarget.blocks;
+        }
+        _StackFrame.release(poppedFrame);
         return this.stack.pop();
     }
 
@@ -322,7 +331,7 @@ class Thread {
     stopThisScript () {
         let blockID = this.peekStack();
         while (blockID !== null) {
-            const block = this.target.blocks.getBlock(blockID);
+            const block = this.blockContainer.getBlock(blockID);
 
             // Reporter form of procedures_call
             if (this.peekStackFrame().waitingReporter) {
@@ -443,7 +452,7 @@ class Thread {
      * where execution proceeds from one block to the next.
      */
     goToNextBlock () {
-        const nextBlockId = this.target.blocks.getNextBlock(this.peekStack());
+        const nextBlockId = this.blockContainer.getNextBlock(this.peekStack());
         this.reuseStackForNextBlock(nextBlockId);
     }
 
@@ -457,7 +466,7 @@ class Thread {
         let callCount = 5; // Max number of enclosing procedure calls to examine.
         const sp = this.stackFrames.length - 1;
         for (let i = sp - 1; i >= 0; i--) {
-            const block = this.target.blocks.getBlock(this.stackFrames[i].op.id) ||
+            const block = this.blockContainer.getBlock(this.stackFrames[i].op.id) ||
                 this.target.runtime.flyoutBlocks.getBlock(this.stackFrames[i].op.id);
             if (block.opcode === 'procedures_call' &&
                 block.mutation.proccode === procedureCode) {
