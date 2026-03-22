@@ -303,7 +303,7 @@ class Sequencer {
             branchNum = 1;
         }
         const currentBlockId = thread.peekStack();
-        const branchId = thread.target.blocks.getBranch(
+        const branchId = thread.blockContainer.getBranch(
             currentBlockId,
             branchNum
         );
@@ -339,9 +339,7 @@ class Sequencer {
         thread.pushStack(definition);
         const procedureFrame = thread.peekStackFrame();
         if (definitionTarget && definitionTarget !== thread.target) {
-            procedureFrame.restoreTarget = thread.target;
             procedureFrame.restoreBlockContainer = thread.blockContainer;
-            thread.target = definitionTarget;
             thread.blockContainer = definitionTarget.blocks;
         }
         // In known warp-mode threads, only yield when time is up.
