@@ -107,11 +107,11 @@ class Scratch3ProcedureBlocks {
         const activeStackFrame = util.thread.stackFrames[0];
         if (!activeStackFrame || !activeStackFrame.params) return;
 
-        const currentBlock = util.target.blocks.getBlock(util.thread.peekStack());
+        const currentBlock = util.thread.blockContainer.getBlock(util.thread.peekStack());
         const paramInput = currentBlock && currentBlock.inputs && currentBlock.inputs.PARAM;
         if (!paramInput || !paramInput.block) return;
 
-        const paramReporterBlock = util.target.blocks.getBlock(paramInput.block);
+        const paramReporterBlock = util.thread.blockContainer.getBlock(paramInput.block);
         if (!paramReporterBlock) return;
 
         // Only allow argument reporter blocks
