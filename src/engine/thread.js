@@ -312,16 +312,7 @@ class Thread {
      * @return {string} Block ID popped from the stack.
      */
     popStack () {
-        const poppedFrame = this.stackFrames.pop();
-        if (poppedFrame && poppedFrame.restoreTarget) {
-            this.target = poppedFrame.restoreTarget;
-        }
-        if (poppedFrame && poppedFrame.restoreBlockContainer) {
-            this.blockContainer = poppedFrame.restoreBlockContainer;
-        } else if (poppedFrame && poppedFrame.restoreTarget) {
-            this.blockContainer = poppedFrame.restoreTarget.blocks;
-        }
-        _StackFrame.release(poppedFrame);
+        _StackFrame.release(this.stackFrames.pop());
         return this.stack.pop();
     }
 
@@ -331,7 +322,7 @@ class Thread {
     stopThisScript () {
         let blockID = this.peekStack();
         while (blockID !== null) {
-            const block = this.blockContainer.getBlock(blockID);
+            const block = this.target.blocks.getBlock(blockID);
 
             // Reporter form of procedures_call
             if (this.peekStackFrame().waitingReporter) {
@@ -445,31 +436,6 @@ class Thread {
         return this.peekStack() === this.topBlock;
     }
 
-    /**
-     * Resolve the next block id for a given block, including cross-container
-     * procedure execution where the active block container may differ from the
-     * owner of the block id.
-     * @param {?string} blockId The current block id.
-     * @return {?string} The next block id.
-     */
-    getNextBlockId (blockId) {
-        if (!blockId) {
-            return null;
-        }
-
-        let nextBlockId = this.blockContainer.getNextBlock(blockId);
-        if (nextBlockId !== null) {
-            return nextBlockId;
-        }
-
-        const ownerTarget = this.blockContainer.getTargetForBlock(blockId);
-        if (ownerTarget && ownerTarget.blocks && ownerTarget.blocks !== this.blockContainer) {
-            return ownerTarget.blocks.getNextBlock(blockId);
-        }
-
-        return null;
-    }
-
 
     /**
      * Switch the thread to the next block at the current level of the stack.
@@ -477,7 +443,7 @@ class Thread {
      * where execution proceeds from one block to the next.
      */
     goToNextBlock () {
-        const nextBlockId = this.getNextBlockId(this.peekStack());
+        const nextBlockId = this.target.blocks.getNextBlock(this.peekStack());
         this.reuseStackForNextBlock(nextBlockId);
     }
 
@@ -491,7 +457,7 @@ class Thread {
         let callCount = 5; // Max number of enclosing procedure calls to examine.
         const sp = this.stackFrames.length - 1;
         for (let i = sp - 1; i >= 0; i--) {
-            const block = this.blockContainer.getBlock(this.stackFrames[i].op.id) ||
+            const block = this.target.blocks.getBlock(this.stackFrames[i].op.id) ||
                 this.target.runtime.flyoutBlocks.getBlock(this.stackFrames[i].op.id);
             if (block.opcode === 'procedures_call' &&
                 block.mutation.proccode === procedureCode) {

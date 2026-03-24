@@ -303,7 +303,7 @@ class Sequencer {
             branchNum = 1;
         }
         const currentBlockId = thread.peekStack();
-        const branchId = thread.blockContainer.getBranch(
+        const branchId = thread.target.blocks.getBranch(
             currentBlockId,
             branchNum
         );
@@ -335,11 +335,6 @@ class Sequencer {
         // When that set of blocks finishes executing, it will be popped
         // from the stack by the sequencer, returning control to the caller.
         thread.pushStack(definition);
-        const procedureFrame = thread.peekStackFrame();
-        if (definitionTarget && definitionTarget !== thread.target) {
-            procedureFrame.restoreBlockContainer = thread.blockContainer;
-            thread.blockContainer = definitionTarget.blocks;
-        }
         // In known warp-mode threads, only yield when time is up.
         if (thread.peekStackFrame().warpMode &&
             thread.warpTimer.timeElapsed() > Sequencer.WARP_TIME) {

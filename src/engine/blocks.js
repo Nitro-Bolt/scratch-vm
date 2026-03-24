@@ -626,20 +626,6 @@ class Blocks {
     }
 
     /**
-     * Reset procedure-related caches for all target block containers.
-     * This keeps interpreter and compiler views consistent when a global
-     * procedure is edited from a different target/workspace.
-     */
-    resetProcedureCachesAcrossTargets () {
-        const targets = this.runtime.targets || [];
-        for (let i = 0; i < targets.length; i++) {
-            const target = targets[i];
-            if (!target || !target.blocks || target.blocks === this) continue;
-            target.blocks.resetCache();
-        }
-    }
-
-    /**
      * Emit a project changed event if this is a block container
      * that can affect the project state.
      */
@@ -669,11 +655,6 @@ class Blocks {
         }
 
         this.resetCache();
-        if (block.opcode === 'procedures_prototype' ||
-            block.opcode === 'procedures_definition' ||
-            block.opcode === 'procedures_call') {
-            this.resetProcedureCachesAcrossTargets();
-        }
 
         // A new block was actually added to the block container,
         // emit a project changed event
@@ -741,11 +722,6 @@ class Blocks {
             break;
         case 'mutation':
             block.mutation = mutationAdapter(args.value);
-            if (block.opcode === 'procedures_prototype' ||
-                block.opcode === 'procedures_definition' ||
-                block.opcode === 'procedures_call') {
-                this.resetProcedureCachesAcrossTargets();
-            }
             break;
         case 'shadow':
             block.shadow = args.value;
@@ -1015,11 +991,6 @@ class Blocks {
         delete this._blocks[blockId];
 
         this.resetCache();
-        if (block.opcode === 'procedures_prototype' ||
-            block.opcode === 'procedures_definition' ||
-            block.opcode === 'procedures_call') {
-            this.resetProcedureCachesAcrossTargets();
-        }
         this.emitProjectChanged();
     }
 
@@ -1396,64 +1367,6 @@ class Blocks {
         if (defineBlock.inputs && defineBlock.inputs.custom_block) {
             return this._blocks[defineBlock.inputs.custom_block.block];
         }
-    }
-
-    /**
-     * Find a global procedure definition across all targets.
-     * @param {!string} name Procedure code.
-     * @return {?{id: string, target: Target}} Definition info, if found.
-     * @private
-     */
-    _findGlobalProcedureDefinition (name) {
-        const targets = this.runtime.targets || [];
-        for (let i = 0; i < targets.length; i++) {
-            const target = targets[i];
-            if (!target || !target.isOriginal) continue;
-            const blocks = target.blocks;
-            if (!blocks || blocks === this) continue;
-            for (const id in blocks._blocks) {
-                if (!Object.prototype.hasOwnProperty.call(blocks._blocks, id)) continue;
-                const block = blocks._blocks[id];
-                if (block.opcode !== 'procedures_definition') continue;
-                const internal = blocks._getCustomBlockInternal(block);
-                if (!internal || !internal.mutation) continue;
-                if (internal.mutation.proccode !== name) continue;
-
-                const globalFlag = internal.mutation.global;
-                const isGlobal = globalFlag === true || globalFlag === 'true';
-                if (!isGlobal) continue;
-
-                return {id, target};
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Find a global procedure prototype across all targets.
-     * @param {!string} name Procedure code.
-     * @return {?object} Prototype block, if found.
-     * @private
-     */
-    _findGlobalProcedurePrototype (name) {
-        const targets = this.runtime.targets || [];
-        for (let i = 0; i < targets.length; i++) {
-            const target = targets[i];
-            if (!target || !target.isOriginal) continue;
-            const blocks = target.blocks;
-            if (!blocks || blocks === this) continue;
-            for (const id in blocks._blocks) {
-                if (!Object.prototype.hasOwnProperty.call(blocks._blocks, id)) continue;
-                const block = blocks._blocks[id];
-                if (block.opcode !== 'procedures_prototype' || !block.mutation) continue;
-                if (block.mutation.proccode !== name) continue;
-                const globalFlag = block.mutation.global;
-                const isGlobal = globalFlag === true || globalFlag === 'true';
-                if (!isGlobal) continue;
-                return block;
-            }
-        }
-        return null;
     }
 
     /**
