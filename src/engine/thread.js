@@ -180,6 +180,12 @@ class Thread {
         this.isKilled = false;
 
         /**
+         * Whether the thread is paused in the middle of execution.
+         * @type {boolean}
+         */
+        this.isPaused = false;
+
+        /**
          * Target of this thread.
          * @type {?Target}
          */

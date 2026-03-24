@@ -339,6 +339,12 @@ class Runtime extends EventEmitter {
         this.turboMode = false;
 
         /**
+         * Whether the project is paused.
+         * @type {boolean}
+         */
+        this.paused = false;
+
+        /**
          * tw: Responsible for managing the VM's many timers.
          */
         this.frameLoop = new FrameLoop(this);
@@ -705,6 +711,20 @@ class Runtime extends EventEmitter {
      */
     static get PROJECT_START () {
         return 'PROJECT_START';
+    }
+
+    /**
+     * Event name when the project is paused.
+     */
+    static get PROJECT_PAUSE () {
+        return 'PROJECT_PAUSE';
+    }
+
+    /**
+     * Event name when the project is resumed.
+     */
+    static get PROJECT_RESUME () {
+        return 'PROJECT_RESUME';
     }
 
     /**
@@ -2562,6 +2582,29 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Pause all existing threads.
+     */
+    pause () {
+        this.emit(Runtime.PROJECT_PAUSE);
+        for (const thread of this.threads) {
+            thread.isPaused = true;
+        }
+        this.paused = true;
+    }
+
+    /**
+     * Resume all currently paused threads.
+     */
+    resume () {
+        this.emit(Runtime.PROJECT_RESUME);
+        for (const thread of this.threads) {
+            if (!thread.isPaused) continue;
+            thread.isPaused = false;
+        }
+        this.paused = false;
+    }
+
+    /**
      * Stop "everything."
      */
     stopAll () {
@@ -2616,8 +2659,9 @@ class Runtime extends EventEmitter {
     /**
      * Repeatedly run `sequencer.stepThreads` and filter out
      * inactive threads after each iteration.
+     * @param {boolean | undefined} stepPausedThreads Whether to step paused threads.
      */
-    _step () {
+    _step (stepPausedThreads) {
         // RUNTIME_STEP_START runs before BEFORE_EXECUTE
         // this runs before any processing of this new step
         this.frameLoop._stepCounter++;
@@ -2655,7 +2699,7 @@ class Runtime extends EventEmitter {
             this.profiler.start(stepThreadsProfilerId);
         }
         this.emit(Runtime.BEFORE_EXECUTE);
-        const doneThreads = this.sequencer.stepThreads();
+        const doneThreads = this.sequencer.stepThreads(stepPausedThreads);
         if (this.profiler !== null) {
             this.profiler.stop();
         }

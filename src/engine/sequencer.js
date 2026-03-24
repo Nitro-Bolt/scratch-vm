@@ -66,9 +66,10 @@ class Sequencer {
 
     /**
      * Step through all threads in `this.runtime.threads`, running them in order.
+     * @param {boolean | undefined} stepPausedThreads Whether to step paused threads.
      * @return {Array.<!Thread>} List of inactive threads after stepping.
      */
-    stepThreads () {
+    stepThreads (stepPausedThreads) {
         // Work time is 75% of the thread stepping interval.
         const WORK_TIME = 0.75 * this.runtime.currentStepTime;
         // For compatibility with Scatch 2, update the millisecond clock
@@ -108,6 +109,10 @@ class Sequencer {
                     activeThread.status === Thread.STATUS_DONE) {
                     // Finished with this thread.
                     stoppedThread = true;
+                    continue;
+                }
+                if (activeThread.isPaused && !stepPausedThreads) {
+                    // Thread is paused and we shouldn't step it.
                     continue;
                 }
                 if (activeThread.status === Thread.STATUS_YIELD_TICK &&
