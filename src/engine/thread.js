@@ -70,18 +70,6 @@ class _StackFrame {
          * @type {object}
          */
         this.op = null;
-
-        /**
-         * Optional target to restore when this frame exits.
-         * @type {?Target}
-         */
-        this.restoreTarget = null;
-
-        /**
-         * Optional block container to restore when this frame exits.
-         * @type {?Blocks}
-         */
-        this.restoreBlockContainer = null;
     }
 
     /**
@@ -99,8 +87,6 @@ class _StackFrame {
         this.params = null;
         this.executionContext = null;
         this.op = null;
-        this.restoreTarget = null;
-        this.restoreBlockContainer = null;
 
         return this;
     }
@@ -320,12 +306,7 @@ class Thread {
      * @return {string} Block ID popped from the stack.
      */
     popStack () {
-        const poppedFrame = this.stackFrames.pop();
-        if (poppedFrame && poppedFrame.restoreTarget) {
-            this.target = poppedFrame.restoreTarget;
-            this.blockContainer = poppedFrame.restoreBlockContainer || poppedFrame.restoreTarget.blocks;
-        }
-        _StackFrame.release(poppedFrame);
+        _StackFrame.release(this.stackFrames.pop());
         return this.stack.pop();
     }
 
