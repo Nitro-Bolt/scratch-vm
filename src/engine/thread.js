@@ -453,31 +453,6 @@ class Thread {
         return this.peekStack() === this.topBlock;
     }
 
-    /**
-     * Resolve the next block id for a given block, including cross-container
-     * procedure execution where the active block container may differ from the
-     * owner of the block id.
-     * @param {?string} blockId The current block id.
-     * @return {?string} The next block id.
-     */
-    getNextBlockId (blockId) {
-        if (!blockId) {
-            return null;
-        }
-
-        let nextBlockId = this.blockContainer.getNextBlock(blockId);
-        if (nextBlockId !== null) {
-            return nextBlockId;
-        }
-
-        const ownerTarget = this.blockContainer.getTargetForBlock(blockId);
-        if (ownerTarget && ownerTarget.blocks && ownerTarget.blocks !== this.blockContainer) {
-            return ownerTarget.blocks.getNextBlock(blockId);
-        }
-
-        return null;
-    }
-
 
     /**
      * Switch the thread to the next block at the current level of the stack.
@@ -485,7 +460,7 @@ class Thread {
      * where execution proceeds from one block to the next.
      */
     goToNextBlock () {
-        const nextBlockId = this.getNextBlockId(this.peekStack());
+        const nextBlockId = this.blockContainer.getNextBlock(this.peekStack());
         this.reuseStackForNextBlock(nextBlockId);
     }
 
