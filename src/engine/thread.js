@@ -70,6 +70,18 @@ class _StackFrame {
          * @type {object}
          */
         this.op = null;
+
+        /**
+         * Previous execution target to restore when this frame unwinds.
+         * @type {?Target}
+         */
+        this.returnToTarget = null;
+
+        /**
+         * Previous block container to restore when this frame unwinds.
+         * @type {?Blocks}
+         */
+        this.returnToBlockContainer = null;
     }
 
     /**
@@ -87,6 +99,8 @@ class _StackFrame {
         this.params = null;
         this.executionContext = null;
         this.op = null;
+        this.returnToTarget = null;
+        this.returnToBlockContainer = null;
 
         return this;
     }
@@ -306,7 +320,12 @@ class Thread {
      * @return {string} Block ID popped from the stack.
      */
     popStack () {
-        _StackFrame.release(this.stackFrames.pop());
+        const frame = this.stackFrames.pop();
+        if (frame && frame.returnToTarget) {
+            this.target = frame.returnToTarget;
+            this.blockContainer = frame.returnToBlockContainer || this.target.blocks;
+        }
+        _StackFrame.release(frame);
         return this.stack.pop();
     }
 
@@ -316,7 +335,7 @@ class Thread {
     stopThisScript () {
         let blockID = this.peekStack();
         while (blockID !== null) {
-            const block = this.target.blocks.getBlock(blockID);
+            const block = this.blockContainer && this.blockContainer.getBlock(blockID);
 
             // Reporter form of procedures_call
             if (this.peekStackFrame().waitingReporter) {
@@ -437,7 +456,7 @@ class Thread {
      * where execution proceeds from one block to the next.
      */
     goToNextBlock () {
-        const nextBlockId = this.target.blocks.getNextBlock(this.peekStack());
+        const nextBlockId = this.blockContainer.getNextBlock(this.peekStack());
         this.reuseStackForNextBlock(nextBlockId);
     }
 
@@ -451,8 +470,13 @@ class Thread {
         let callCount = 5; // Max number of enclosing procedure calls to examine.
         const sp = this.stackFrames.length - 1;
         for (let i = sp - 1; i >= 0; i--) {
-            const block = this.target.blocks.getBlock(this.stackFrames[i].op.id) ||
-                this.target.runtime.flyoutBlocks.getBlock(this.stackFrames[i].op.id);
+            const frameOp = this.stackFrames[i].op;
+            const block = frameOp ||
+                (frameOp && this.blockContainer.getBlock(frameOp.id)) ||
+                (frameOp && this.target.runtime.flyoutBlocks.getBlock(frameOp.id));
+            if (!block) {
+                continue;
+            }
             if (block.opcode === 'procedures_call' &&
                 block.mutation.proccode === procedureCode) {
                 return true;

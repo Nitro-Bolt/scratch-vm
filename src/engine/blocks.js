@@ -272,14 +272,17 @@ class Blocks {
     }
 
     /**
-     * Get the procedure definition for a given name.
+     * Get the procedure definition for a given name and scope.
      * @param {?string} name Name of procedure to query.
+     * @param {boolean} requireGlobal If true, only match globally scoped procedures.
      * @return {?string} ID of procedure definition.
      */
-    getProcedureDefinition (name) {
-        const blockID = this._cache.procedureDefinitions[name];
-        if (typeof blockID !== 'undefined') {
-            return blockID;
+    getProcedureDefinitionWithScope (name, requireGlobal) {
+        if (!requireGlobal) {
+            const blockID = this._cache.procedureDefinitions[name];
+            if (typeof blockID !== 'undefined') {
+                return blockID;
+            }
         }
 
         for (const id in this._blocks) {
@@ -289,14 +292,31 @@ class Blocks {
                 // tw: make sure that populateProcedureCache is kept up to date with this method
                 const internal = this._getCustomBlockInternal(block);
                 if (internal && internal.mutation.proccode === name) {
-                    this._cache.procedureDefinitions[name] = id; // The outer define block id
+                    if (requireGlobal && !(internal.mutation.global === true || internal.mutation.global === 'true')) {
+                        continue;
+                    }
+                    if (!requireGlobal) {
+                        this._cache.procedureDefinitions[name] = id; // The outer define block id
+                    }
                     return id;
                 }
             }
         }
 
-        this._cache.procedureDefinitions[name] = null;
+        if (!requireGlobal) {
+            this._cache.procedureDefinitions[name] = null;
+        }
         return null;
+    }
+
+    /**
+     * Get the procedure definition for a given name and scope.
+     * @param {?string} name Name of procedure to query.
+     * @param {boolean=} requireGlobal If true, only match globally scoped procedures.
+     * @return {?string} ID of procedure definition.
+     */
+    getProcedureDefinition (name, requireGlobal) {
+        return this.getProcedureDefinitionWithScope(name, !!requireGlobal);
     }
 
     /**
@@ -304,8 +324,8 @@ class Blocks {
      * @param {?string} name Name of procedure to query.
      * @return {?Array.<string>} List of param names for a procedure.
      */
-    getProcedureParamNamesAndIds (name) {
-        return this.getProcedureParamNamesIdsAndDefaults(name).slice(0, 2);
+    getProcedureParamNamesAndIds (name, requireGlobal) {
+        return this.getProcedureParamNamesIdsAndDefaults(name, requireGlobal).slice(0, 2);
     }
 
     /**
@@ -313,10 +333,13 @@ class Blocks {
      * @param {?string} name Name of procedure to query.
      * @return {?Array.<string>} List of param names for a procedure.
      */
-    getProcedureParamNamesIdsAndDefaults (name) {
-        const cachedNames = this._cache.procedureParamNames[name];
-        if (typeof cachedNames !== 'undefined') {
-            return cachedNames;
+    getProcedureParamNamesIdsAndDefaults (name, requireGlobal) {
+        const mustBeGlobal = !!requireGlobal;
+        if (!mustBeGlobal) {
+            const cachedNames = this._cache.procedureParamNames[name];
+            if (typeof cachedNames !== 'undefined') {
+                return cachedNames;
+            }
         }
 
         for (const id in this._blocks) {
@@ -324,23 +347,34 @@ class Blocks {
             const block = this._blocks[id];
             if (block.opcode === 'procedures_prototype' &&
                 block.mutation.proccode === name) {
+                if (mustBeGlobal && !(block.mutation.global === true || block.mutation.global === 'true')) {
+                    continue;
+                }
+
                 // tw: make sure that populateProcedureCache is kept up to date with this method
                 const names = JSON.parse(block.mutation.argumentnames);
                 const ids = JSON.parse(block.mutation.argumentids);
                 const defaults = JSON.parse(block.mutation.argumentdefaults);
 
-                this._cache.procedureParamNames[name] = [names, ids, defaults];
-                return this._cache.procedureParamNames[name];
+                if (!mustBeGlobal) {
+                    this._cache.procedureParamNames[name] = [names, ids, defaults];
+                    return this._cache.procedureParamNames[name];
+                }
+                return [names, ids, defaults];
             }
         }
 
-        const addonBlock = this.runtime.getAddonBlock(name);
-        if (addonBlock) {
-            this._cache.procedureParamNames[name] = addonBlock.namesIdsDefaults;
-            return addonBlock.namesIdsDefaults;
+        if (!mustBeGlobal) {
+            const addonBlock = this.runtime.getAddonBlock(name);
+            if (addonBlock) {
+                this._cache.procedureParamNames[name] = addonBlock.namesIdsDefaults;
+                return addonBlock.namesIdsDefaults;
+            }
         }
 
-        this._cache.procedureParamNames[name] = null;
+        if (!mustBeGlobal) {
+            this._cache.procedureParamNames[name] = null;
+        }
         return null;
     }
 
