@@ -3197,12 +3197,14 @@ class Runtime extends EventEmitter {
      * @param {Target} target The target that the block was run in.
      * @param {string} blockId ID for the block.
      * @param {string} value Value to show associated with the block.
+     * @param {boolean?} error Is the thing being reported an error?
      */
-    visualReport (target, blockId, value) {
+    visualReport (target, blockId, value, error = false) {
         if (target === this.getEditingTarget()) {
             this.emit(Runtime.VISUAL_REPORT, {
                 id: blockId,
-                value: safeStringify(value)
+                value: safeStringify(value),
+                error
             });
         }
     }
