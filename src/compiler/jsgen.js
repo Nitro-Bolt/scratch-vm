@@ -1379,9 +1379,15 @@ class JSGenerator {
             script += args.join(',');
         }
         script += ') {\n';
+        script += 'try {\n';
 
         script += this.source;
 
+        script += '} catch (error) {\n';
+        script += 'console.warn(this.toString(), error);\n';
+        script += `runtime.visualReport(target, "${sanitize(this.script.bottomBlockId)}", String(error), true);\n`;
+        script += 'retire();\n';
+        script += '};\n';
         script += '}; })';
 
         return script;
