@@ -430,6 +430,22 @@ class Thread {
         return this.peekStack() === this.topBlock;
     }
 
+    /**
+     * Get the bottom (last) block id in this thread's stack.
+     * @returns {?string} The bottom block id, or null if not found.
+     */
+    getBottomBlockId() {
+        if (!this.topBlock || !this.target || !this.target.blocks) return null;
+        let blockId = this.topBlock;
+        let nextBlock;
+        while (blockId) {
+            const blockObj = this.target.blocks.getBlock(blockId);
+            nextBlock = blockObj && blockObj.next;
+            if (!nextBlock) break;
+            blockId = nextBlock;
+        }
+        return blockId;
+    }
 
     /**
      * Switch the thread to the next block at the current level of the stack.
