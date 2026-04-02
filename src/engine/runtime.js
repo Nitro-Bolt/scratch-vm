@@ -3397,6 +3397,71 @@ class Runtime extends EventEmitter {
         return this._editingTarget;
     }
 
+    /**
+     * Get mutation data for globally scoped procedure prototypes from all
+     * original targets except an optional excluded target.
+     * @param {?string} excludeTargetId Target ID to exclude from results.
+     * @returns {Array<object>} Procedure mutation data objects.
+     */
+    getGlobalProcedureMutationData (excludeTargetId) {
+        const byProcCode = Object.create(null);
+        const result = [];
+
+        for (const target of this.targets) {
+            if (!target || !target.isOriginal || !target.blocks) {
+                continue;
+            }
+            if (excludeTargetId && target.id === excludeTargetId) {
+                continue;
+            }
+
+            const blocks = target.blocks._blocks;
+            for (const blockId in blocks) {
+                if (!Object.prototype.hasOwnProperty.call(blocks, blockId)) continue;
+                const block = blocks[blockId];
+                if (!block || block.opcode !== 'procedures_prototype' || !block.mutation) {
+                    continue;
+                }
+                const mutation = block.mutation;
+                const isGlobal = mutation.global === true || mutation.global === 'true';
+                const procCode = mutation.proccode;
+                if (!isGlobal || !procCode || Object.prototype.hasOwnProperty.call(byProcCode, procCode)) {
+                    continue;
+                }
+                byProcCode[procCode] = true;
+                result.push(Object.assign({}, mutation));
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Synchronize a global procedure mutation across all original targets.
+     * @param {?string} sourceTargetId Target where the change originated.
+     * @param {!object} nextMutation Next mutation state.
+     * @param {?object} prevMutation Previous mutation state.
+     */
+    syncGlobalProcedureMutation (sourceTargetId, nextMutation, prevMutation) {
+        let didChange = false;
+        for (const target of this.targets) {
+            if (!target || !target.isOriginal || !target.blocks) {
+                continue;
+            }
+            if (sourceTargetId && target.id === sourceTargetId) {
+                continue;
+            }
+            if (target.blocks.syncGlobalProcedureMutation(nextMutation, prevMutation)) {
+                didChange = true;
+            }
+        }
+
+        if (didChange) {
+            this.requestBlocksUpdate();
+            this.emitProjectChanged();
+        }
+    }
+
     getAllVarNamesOfType (varType) {
         let varNames = [];
         for (const target of this.targets) {

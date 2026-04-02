@@ -754,9 +754,25 @@ class Blocks {
                 }
             }
             break;
-        case 'mutation':
+        case 'mutation': {
+            const oldMutation = block.mutation ? Object.assign({}, block.mutation) : null;
             block.mutation = mutationAdapter(args.value);
+            if (block.opcode === 'procedures_prototype') {
+                const isGlobal = block.mutation &&
+                    (block.mutation.global === true || block.mutation.global === 'true');
+                const wasGlobal = oldMutation &&
+                    (oldMutation.global === true || oldMutation.global === 'true');
+                if (isGlobal || wasGlobal) {
+                    const sourceTarget = this.runtime.getEditingTarget();
+                    this.runtime.syncGlobalProcedureMutation(
+                        sourceTarget && sourceTarget.id,
+                        block.mutation,
+                        oldMutation
+                    );
+                }
+            }
             break;
+        }
         case 'shadow':
             block.shadow = args.value;
             break;
@@ -851,6 +867,61 @@ class Blocks {
         this.emitProjectChanged();
 
         this.resetCache();
+    }
+
+    /**
+     * Apply a global procedure mutation to matching procedure blocks.
+     * @param {!object} nextMutation New mutation state.
+     * @param {?object} prevMutation Previous mutation state.
+     * @returns {boolean} True if any blocks were updated.
+     */
+    syncGlobalProcedureMutation (nextMutation, prevMutation) {
+        if (!nextMutation || !nextMutation.proccode) {
+            return false;
+        }
+
+        const oldProcCode = prevMutation && prevMutation.proccode;
+        const nextProcCode = nextMutation.proccode;
+        const mutationProcCodes = Object.create(null);
+        mutationProcCodes[nextProcCode] = true;
+        if (oldProcCode) {
+            mutationProcCodes[oldProcCode] = true;
+        }
+
+        let changed = false;
+        for (const id in this._blocks) {
+            if (!Object.prototype.hasOwnProperty.call(this._blocks, id)) continue;
+            const block = this._blocks[id];
+            if (!block || !block.mutation || !mutationProcCodes[block.mutation.proccode]) {
+                continue;
+            }
+
+            if (block.opcode === 'procedures_prototype') {
+                block.mutation.proccode = nextProcCode;
+                block.mutation.argumentids = nextMutation.argumentids;
+                block.mutation.argumentnames = nextMutation.argumentnames;
+                block.mutation.argumentdefaults = nextMutation.argumentdefaults;
+                block.mutation.warp = nextMutation.warp;
+                block.mutation.global = nextMutation.global;
+                block.mutation.colour = nextMutation.colour;
+                changed = true;
+                continue;
+            }
+
+            if (block.opcode === 'procedures_call') {
+                block.mutation.proccode = nextProcCode;
+                block.mutation.argumentids = nextMutation.argumentids;
+                block.mutation.warp = nextMutation.warp;
+                block.mutation.global = nextMutation.global;
+                block.mutation.colour = nextMutation.colour;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.resetCache();
+        }
+        return changed;
     }
 
     /**
