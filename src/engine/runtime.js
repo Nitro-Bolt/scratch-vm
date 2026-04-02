@@ -150,7 +150,8 @@ const ArgumentTypeMap = (() => {
     };
     map[ArgumentType.BROADCAST] = {
         fieldType: 'field_variable',
-        variableTypes: ['broadcast_msg']
+        variableTypes: ['broadcast_msg'],
+        allowEmpty: true
     };
     return map;
 })();
