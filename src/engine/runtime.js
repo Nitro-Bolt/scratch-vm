@@ -986,6 +986,13 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Event name when debugger logs are cleared.
+     */
+    static get DEBUGGER_CLEAR () {
+        return 'DEBUGGER_CLEAR';
+    }
+
+    /**
      * Event name when a log has been added.
      */
     static get DEBUGGER_LOG () {

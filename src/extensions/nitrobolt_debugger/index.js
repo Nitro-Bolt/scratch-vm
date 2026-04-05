@@ -33,7 +33,12 @@ class Scratch3DebuggerBlocks {
                     text: 'breakpoint'
                 },
                 {
-                    opcode: 'console',
+                    opcode: 'clear',
+                    blockType: BlockType.COMMAND,
+                    text: 'clear logs'
+                },
+                {
+                    opcode: 'log',
                     blockType: BlockType.COMMAND,
                     text: '[TYPE][MESSAGE]',
                     arguments: {
@@ -62,7 +67,11 @@ class Scratch3DebuggerBlocks {
         this.runtime.breakpoint();
     }
 
-    console (args, util) {
+    clear () {
+        this.runtime.emit('DEBUGGER_CLEAR');
+    }
+
+    log (args, util) {
         const message = Cast.toString(args.MESSAGE);
         this.runtime.emitDebuggerLog(args.TYPE, message, util.target);
     }
