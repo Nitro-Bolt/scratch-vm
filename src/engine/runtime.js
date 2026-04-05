@@ -47,7 +47,8 @@ const defaultBlockPackages = {
     scratch3_sensing: require('../blocks/scratch3_sensing'),
     scratch3_data: require('../blocks/scratch3_data'),
     scratch3_json: require('../blocks/scratch3_json'),
-    scratch3_procedures: require('../blocks/scratch3_procedures')
+    scratch3_procedures: require('../blocks/scratch3_procedures'),
+    scratch3_debugger: require('../blocks/scratch3_debugger.js')
 };
 
 const interpolate = require('./tw-interpolate');
@@ -716,15 +717,15 @@ class Runtime extends EventEmitter {
     /**
      * Event name when the project is paused.
      */
-    static get PROJECT_PAUSE () {
-        return 'PROJECT_PAUSE';
+    static get PROJECT_RUN_PAUSE () {
+        return 'PROJECT_RUN_PAUSE';
     }
 
     /**
      * Event name when the project is resumed.
      */
-    static get PROJECT_RESUME () {
-        return 'PROJECT_RESUME';
+    static get PROJECT_RUN_RESUME () {
+        return 'PROJECT_RUN_RESUME';
     }
 
     /**
@@ -976,6 +977,20 @@ class Runtime extends EventEmitter {
      */
     static get PLATFORM_MISMATCH () {
         return 'PLATFORM_MISMATCH';
+    }
+
+    /**
+     * Event name when a debugger breakpoint is activated.
+     */
+    static get DEBUGGER_BREAKPOINT () {
+        return 'DEBUGGER_BREAKPOINT';
+    }
+
+    /**
+     * Event name when a log has been added.
+     */
+    static get DEBUGGER_LOG () {
+        return 'DEBUGGER_LOG';
     }
 
     /**
@@ -2585,7 +2600,7 @@ class Runtime extends EventEmitter {
      * Pause all existing threads.
      */
     pause () {
-        this.emit(Runtime.PROJECT_PAUSE);
+        this.emit(Runtime.PROJECT_RUN_PAUSE);
         for (const thread of this.threads) {
             thread.isPaused = true;
         }
@@ -2596,7 +2611,7 @@ class Runtime extends EventEmitter {
      * Resume all currently paused threads.
      */
     resume () {
-        this.emit(Runtime.PROJECT_RESUME);
+        this.emit(Runtime.PROJECT_RUN_RESUME);
         for (const thread of this.threads) {
             if (!thread.isPaused) continue;
             thread.isPaused = false;
@@ -3553,6 +3568,24 @@ class Runtime extends EventEmitter {
         }
         this.frameLoop.stop();
         this.emit(Runtime.RUNTIME_STOPPED);
+    }
+
+    /**
+     * Pause's the runtime and open's the debugger.
+     */
+    breakpoint () {
+        this.pause();
+        this.emit(Runtime.DEBUGGER_BREAKPOINT);
+    }
+
+    /**
+     * Emit's a log to the debugger.
+     * @param {string} type The type of the log. Either "log", "warn", "error".
+     * @param {string} message The message of the log.
+     * @param {Target} optTarget The target that the log was sent in.
+     */
+    emitDebuggerLog (type, message, optTarget) {
+        this.emit(Runtime.DEBUGGER_LOG, type, message, optTarget);
     }
 
     /**
