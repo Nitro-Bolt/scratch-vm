@@ -67,14 +67,14 @@ class Scratch3JSONBlocks {
     }
 
     setKey (args) {
-        args.OBJ = Cast.toObject(args.OBJ);
+        args.OBJ = {...Cast.toObject(args.OBJ)};
         args.KEY = Cast.toString(args.KEY);
         args.OBJ[args.KEY] = args.VALUE;
         return args.OBJ;
     }
 
     deleteKey (args) {
-        args.OBJ = Cast.toObject(args.OBJ);
+        args.OBJ = {...Cast.toObject(args.OBJ)};
         args.KEY = Cast.toString(args.KEY);
         delete args.OBJ[args.KEY];
         return args.OBJ;
@@ -109,7 +109,7 @@ class Scratch3JSONBlocks {
     }
 
     addItem (args) {
-        args.ARR = Cast.toArray(args.ARR);
+        args.ARR = [...Cast.toArray(args.ARR)];
         args.ARR.push(args.ITEM);
         return args.ARR;
     }
