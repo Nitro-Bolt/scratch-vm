@@ -292,10 +292,14 @@ class JSGenerator {
         }
         case InputOpcode.JSON_VALUE_OF_KEY:
             return `(${this.descendInput(node.object)}[${this.descendInput(node.key)}] ?? "")`;
-        case InputOpcode.JSON_SET_KEY:
-            return `(object = Object.assign({}, ${this.descendInput(node.object)}), object[${this.descendInput(node.key)}] = ${this.descendInput(node.value)}, object)`;
-        case InputOpcode.JSON_DELETE_KEY:
-            return `(object = Object.assign({}, ${this.descendInput(node.object)}), delete object[${this.descendInput(node.key)}], object)`;
+        case InputOpcode.JSON_SET_KEY: {
+            const tmp = this.localVariables.next();
+            return `(${tmp} = Object.assign({}, ${this.descendInput(node.object)}), ${tmp}[${this.descendInput(node.key)}] = ${this.descendInput(node.value)}, ${tmp})`;
+        }
+        case InputOpcode.JSON_DELETE_KEY: {
+            const tmp = this.localVariables.next();
+            return `(${tmp} = Object.assign({}, ${this.descendInput(node.object)}), delete ${tmp}[${this.descendInput(node.key)}], ${tmp})`;
+        }
         case InputOpcode.JSON_MERGE_OBJECT:
             return `mergeObjects(${this.descendInput(node.object1)}, ${this.descendInput(node.object2)})`;
         case InputOpcode.JSON_HAS_KEY:
@@ -306,8 +310,10 @@ class JSGenerator {
             return `arrayValueOfIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_INDEX_OF_VALUE:
             return `arrayIndexOf(${this.descendInput(node.array)}, ${this.descendInput(node.value)})`;
-        case InputOpcode.JSON_ADD_ITEM:
-            return `(array = ${this.descendInput(node.array)}.slice(0), array.push(${this.descendInput(node.item)}), array)`;
+        case InputOpcode.JSON_ADD_ITEM: {
+            const tmp = this.localVariables.next();
+            return `(${tmp} = ${this.descendInput(node.array)}.slice(0), ${tmp}.push(${this.descendInput(node.item)}), ${tmp})`;
+        }
         case InputOpcode.JSON_REPLACE_INDEX:
             return `arrayReplaceAtIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)}, ${this.descendInput(node.item)})`;
         case InputOpcode.JSON_DELETE_INDEX:

@@ -191,7 +191,7 @@ class ScriptTreeGenerator {
     descendInputOfBlock (parentBlock, inputName, preserveStrings = false, fallback) {
         const input = parentBlock.inputs[inputName];
         if (!input) {
-            if (arguments.length > 3) {
+            if (fallback !== undefined) {
                 return fallback;
             }
             log.warn(`IR: ${parentBlock.opcode}: missing input ${inputName}`, parentBlock);
@@ -382,7 +382,7 @@ class ScriptTreeGenerator {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
                 object: this.descendInputOfBlock(block, 'OBJ', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
-                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.STRING)
+                value: this.descendInputOfBlock(block, 'VALUE')
             });
         case 'json_delete_key':
             return new IntermediateInput(InputOpcode.JSON_DELETE_KEY, InputType.OBJECT, {
@@ -419,7 +419,7 @@ class ScriptTreeGenerator {
             });
         case 'json_add_item':
             return new IntermediateInput(InputOpcode.JSON_ADD_ITEM, InputType.ARRAY, {
-                item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING),
+                item: this.descendInputOfBlock(block, 'ITEM'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
@@ -428,7 +428,7 @@ class ScriptTreeGenerator {
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
-                item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
+                item: this.descendInputOfBlock(block, 'ITEM')
             });
         case 'json_delete_index':
             return new IntermediateInput(InputOpcode.JSON_DELETE_INDEX, InputType.ARRAY, {
@@ -438,7 +438,7 @@ class ScriptTreeGenerator {
             });
         case 'json_delete_all_occurrences':
             return new IntermediateInput(InputOpcode.JSON_DELETE_ALL_OCCURRENCES, InputType.ARRAY, {
-                item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING),
+                item: this.descendInputOfBlock(block, 'ITEM'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
@@ -453,7 +453,7 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_HAS_ITEM, InputType.BOOLEAN, {
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
-                item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
+                item: this.descendInputOfBlock(block, 'ITEM')
             });
         case 'json_array_length':
             return new IntermediateInput(InputOpcode.JSON_ARRAY_LENGTH, InputType.NUMBER_WHOLE, {
