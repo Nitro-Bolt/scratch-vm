@@ -188,9 +188,12 @@ class ScriptTreeGenerator {
      * @private
      * @returns {IntermediateInput} Compiled input node for this input.
      */
-    descendInputOfBlock (parentBlock, inputName, preserveStrings = false) {
+    descendInputOfBlock (parentBlock, inputName, preserveStrings = false, fallback) {
         const input = parentBlock.inputs[inputName];
         if (!input) {
+            if (arguments.length > 3) {
+                return fallback;
+            }
             log.warn(`IR: ${parentBlock.opcode}: missing input ${inputName}`, parentBlock);
             return this.createConstantInput(0);
         }
@@ -364,33 +367,40 @@ class ScriptTreeGenerator {
             const property = block.fields.PROPERTY.value.toLowerCase();
             return new IntermediateInput(InputOpcode.JSON_GET_PROPERTIES, InputType.ARRAY, {
                 property,
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
         }
         case 'json_value_of_key':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_KEY, InputType.STRING, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
         case 'json_set_key':
             return new IntermediateInput(InputOpcode.JSON_SET_KEY, InputType.OBJECT, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT),
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
                 value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.STRING)
             });
         case 'json_delete_key':
             return new IntermediateInput(InputOpcode.JSON_DELETE_KEY, InputType.OBJECT, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
         case 'json_merge_object':
             return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT, InputType.OBJECT, {
-                object1: this.descendInputOfBlock(block, 'OBJ1').toType(InputType.OBJECT),
-                object2: this.descendInputOfBlock(block, 'OBJ2').toType(InputType.OBJECT)
+                object1: this.descendInputOfBlock(block, 'OBJ1', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
+                object2: this.descendInputOfBlock(block, 'OBJ2', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
         case 'json_has_key':
             return new IntermediateInput(InputOpcode.JSON_HAS_KEY, InputType.BOOLEAN, {
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT),
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING)
             });
         case 'json_new_array':
@@ -398,57 +408,69 @@ class ScriptTreeGenerator {
         case 'json_value_of_index':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_INDEX, InputType.ANY, {
                 index: this.descendInputOfBlock(block, 'INDEX'),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_index_of_value':
             return new IntermediateInput(InputOpcode.JSON_INDEX_OF_VALUE, InputType.NUMBER_WHOLE | InputType.STRING_NAN, {
                 value: this.descendInputOfBlock(block, 'VALUE'),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_add_item':
             return new IntermediateInput(InputOpcode.JSON_ADD_ITEM, InputType.ARRAY, {
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_replace_index':
             return new IntermediateInput(InputOpcode.JSON_REPLACE_INDEX, InputType.ARRAY, {
                 index: this.descendInputOfBlock(block, 'INDEX'),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY),
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
             });
         case 'json_delete_index':
             return new IntermediateInput(InputOpcode.JSON_DELETE_INDEX, InputType.ARRAY, {
                 index: this.descendInputOfBlock(block, 'INDEX'),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_delete_all_occurrences':
             return new IntermediateInput(InputOpcode.JSON_DELETE_ALL_OCCURRENCES, InputType.ARRAY, {
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_merge_array':
             return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY, InputType.ARRAY, {
-                array1: this.descendInputOfBlock(block, 'ARR1').toType(InputType.ARRAY),
-                array2: this.descendInputOfBlock(block, 'ARR2').toType(InputType.ARRAY)
+                array1: this.descendInputOfBlock(block, 'ARR1', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
+                array2: this.descendInputOfBlock(block, 'ARR2', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_has_item':
             return new IntermediateInput(InputOpcode.JSON_HAS_ITEM, InputType.BOOLEAN, {
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY),
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
             });
         case 'json_array_length':
             return new IntermediateInput(InputOpcode.JSON_ARRAY_LENGTH, InputType.NUMBER_WHOLE, {
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_slice_array':
             return new IntermediateInput(InputOpcode.JSON_SLICE_ARRAY, InputType.ARRAY, {
                 start: this.descendInputOfBlock(block, 'START'),
                 end: this.descendInputOfBlock(block, 'END'),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_reverse_array':
             return new IntermediateInput(InputOpcode.JSON_REVERSE_ARRAY, InputType.ARRAY, {
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_foreach_value':
             return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);

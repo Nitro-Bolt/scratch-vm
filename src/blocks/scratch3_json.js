@@ -61,35 +61,35 @@ class Scratch3JSONBlocks {
     }
 
     valueOfKey (args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        args.KEY = Cast.toString(args.KEY);
-        return args.OBJ[args.KEY] ?? '';
+        const obj = Cast.toObject(args.OBJ);
+        const key = Cast.toString(args.KEY);
+        return obj[key] ?? '';
     }
 
     setKey (args) {
-        args.OBJ = {...Cast.toObject(args.OBJ)};
-        args.KEY = Cast.toString(args.KEY);
-        args.OBJ[args.KEY] = args.VALUE;
-        return args.OBJ;
+        const obj = {...Cast.toObject(args.OBJ)};
+        const key = Cast.toString(args.KEY);
+        obj[key] = args.VALUE;
+        return obj;
     }
 
     deleteKey (args) {
-        args.OBJ = {...Cast.toObject(args.OBJ)};
-        args.KEY = Cast.toString(args.KEY);
-        delete args.OBJ[args.KEY];
-        return args.OBJ;
+        const obj = {...Cast.toObject(args.OBJ)};
+        const key = Cast.toString(args.KEY);
+        delete obj[key];
+        return obj;
     }
 
     mergeObject (args) {
-        args.OBJ1 = Cast.toObject(args.OBJ1);
-        args.OBJ2 = Cast.toObject(args.OBJ2);
-        return Object.fromEntries(Object.entries(args.OBJ1).concat(Object.entries(args.OBJ2)));
+        const obj1 = Cast.toObject(args.OBJ1);
+        const obj2 = Cast.toObject(args.OBJ2);
+        return Object.fromEntries(Object.entries(obj1).concat(Object.entries(obj2)));
     }
 
     hasKey (args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        args.KEY = Cast.toString(args.KEY);
-        return Object.hasOwn(args.OBJ, args.KEY);
+        const obj = Cast.toObject(args.OBJ);
+        const key = Cast.toString(args.KEY);
+        return Object.hasOwn(obj, key);
     }
 
     newArray () {
@@ -97,67 +97,67 @@ class Scratch3JSONBlocks {
     }
 
     valueOfIndex (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        const i = Cast.toArrayIndex(args.INDEX, args.ARR.length);
+        const arr = Cast.toArray(args.ARR);
+        const i = Cast.toArrayIndex(args.INDEX, arr.length);
         if (i === Cast.LIST_INVALID) return '';
-        return args.ARR[i] ?? '';
+        return arr[i] ?? '';
     }
 
     indexOfValue (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        return args.ARR.indexOf(args.VALUE) === -1 ? '' : args.ARR.indexOf(args.VALUE);
+        const arr = Cast.toArray(args.ARR);
+        return arr.indexOf(args.VALUE) === -1 ? '' : arr.indexOf(args.VALUE);
     }
 
     addItem (args) {
-        args.ARR = [...Cast.toArray(args.ARR)];
-        args.ARR.push(args.ITEM);
-        return args.ARR;
+        const arr = [...Cast.toArray(args.ARR)];
+        arr.push(args.ITEM);
+        return arr;
     }
 
     replaceIndex (args) {
-        args.ARR = [...Cast.toArray(args.ARR)];
-        const i = Cast.toArrayIndex(args.INDEX, args.ARR.length);
-        if (i === Cast.LIST_INVALID) return args.ARR;
-        args.ARR[i] = args.ITEM;
-        return args.ARR;
+        const arr = [...Cast.toArray(args.ARR)];
+        const i = Cast.toArrayIndex(args.INDEX, arr.length);
+        if (i === Cast.LIST_INVALID) return arr;
+        arr[i] = args.ITEM;
+        return arr;
     }
 
     deleteIndex (args) {
-        args.ARR = [...Cast.toArray(args.ARR)];
-        const i = Cast.toArrayIndex(args.INDEX, args.ARR.length);
-        if (i === Cast.LIST_INVALID) return args.ARR;
-        args.ARR.splice(i, 1);
-        return args.ARR;
+        const arr = [...Cast.toArray(args.ARR)];
+        const i = Cast.toArrayIndex(args.INDEX, arr.length);
+        if (i === Cast.LIST_INVALID) return arr;
+        arr.splice(i, 1);
+        return arr;
     }
 
     deleteAllOccurrences (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.ITEM = Cast.toString(args.ITEM);
-        return args.ARR.filter(item => item !== args.ITEM);
+        const arr = Cast.toArray(args.ARR);
+        const item = Cast.toString(args.ITEM);
+        return arr.filter(e => e !== item);
     }
 
     mergeArray (args) {
-        args.ARR1 = Cast.toArray(args.ARR1);
-        args.ARR2 = Cast.toArray(args.ARR2);
-        return args.ARR1.concat(args.ARR2);
+        const arr1 = Cast.toArray(args.ARR1);
+        const arr2 = Cast.toArray(args.ARR2);
+        return arr1.concat(arr2);
     }
 
     hasItem (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        return args.ARR.includes(args.ITEM);
+        const arr = Cast.toArray(args.ARR);
+        return arr.includes(args.ITEM);
     }
 
     arrayLength (args) {
-        args.ARR = Cast.toArray(args.ARR);
-        return args.ARR.length;
+        const arr = Cast.toArray(args.ARR);
+        return arr.length;
     }
 
     sliceArray (args) {
-        args.ARR = [...Cast.toArray(args.ARR)];
-        const s = Cast.toArrayIndex(args.START, args.ARR.length);
-        const e = Cast.toArrayIndex(args.END, args.ARR.length);
+        const arr = [...Cast.toArray(args.ARR)];
+        const s = Cast.toArrayIndex(args.START, arr.length);
+        const e = Cast.toArrayIndex(args.END, arr.length);
         if (s === Cast.LIST_INVALID || e === Cast.LIST_INVALID || e < s) return [];
-        return args.ARR.slice(s, e + 1);
+        return arr.slice(s, e + 1);
     }
 
     reverseArray (args) {
