@@ -61,7 +61,27 @@ const ArgumentType = {
     /**
      * Name of sound in the current target
      */
-    SOUND: 'sound'
+    SOUND: 'sound',
+
+    /**
+     * Name of scalar variable in the current scope
+     */
+    VARIABLE: 'variable',
+
+    /**
+     * Name of list variable in the current scope
+     */
+    LIST: 'list',
+
+    /**
+     * Name of table variable in the current scope
+     */
+    TABLE: 'table',
+
+    /**
+     * Name of broadcast message in the current scope
+     */
+    BROADCAST: 'broadcast'
 };
 
 module.exports = ArgumentType;

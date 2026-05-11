@@ -684,8 +684,11 @@ class Blocks {
 
             // Update block value
             if (!block.fields[args.name]) return;
-            if (args.name === 'VARIABLE' || args.name === 'LIST' ||
-                args.name === 'BROADCAST_OPTION') {
+            if (args.name === 'VARIABLE' ||
+                args.name === 'LIST' ||
+                args.name === 'TABLE' ||
+                args.name === 'BROADCAST_OPTION'
+            ) {
                 // Get variable name using the id in args.value.
                 const variable = this.runtime.getEditingTarget().lookupVariableById(args.value);
                 if (variable) {
@@ -728,7 +731,10 @@ class Blocks {
             // block but in the case of monitored reporters that have arguments,
             // map the old id to a new id, creating a new monitor block if necessary
             if (block.fields && Object.keys(block.fields).length > 0 &&
-                block.opcode !== 'data_variable' && block.opcode !== 'data_listcontents') {
+                block.opcode !== 'data_variable' &&
+                block.opcode !== 'data_listcontents' &&
+                block.opcode !== 'data_tablecontents'
+            ) {
 
                 // This block has an argument which needs to get separated out into
                 // multiple monitor blocks with ids based on the selected argument
@@ -756,6 +762,8 @@ class Blocks {
                 isSpriteLocalVariable = !(this.runtime.getTargetForStage().variables[block.fields.VARIABLE.id]);
             } else if (block.opcode === 'data_listcontents') {
                 isSpriteLocalVariable = !(this.runtime.getTargetForStage().variables[block.fields.LIST.id]);
+            } else if (block.opcode === 'data_tablecontents') {
+                isSpriteLocalVariable = !(this.runtime.getTargetForStage().variables[block.fields.TABLE.id]);
             }
 
             const isSpriteSpecific = isSpriteLocalVariable ||
@@ -774,6 +782,18 @@ class Blocks {
                 this.runtime.requestHideMonitor(block.id);
             } else if (!wasMonitored && block.isMonitored) {
                 // Tries to show the monitor for specified block. If it doesn't exist, add the monitor.
+                let mode;
+                switch (block.opcode) {
+                case 'data_tablecontents':
+                    mode = 'table';
+                    break;
+                case 'data_listcontents':
+                    mode = 'list';
+                    break;
+                default:
+                    mode = 'default';
+                    break;
+                }
                 if (!this.runtime.requestShowMonitor(block.id)) {
                     this.runtime.requestAddMonitor(new MonitorRecord({
                         id: block.id,
@@ -783,7 +803,7 @@ class Blocks {
                         params: this._getBlockParams(block),
                         // @todo(vm#565) for numerical values with decimals, some countries use comma
                         value: '',
-                        mode: block.opcode === 'data_listcontents' ? 'list' : 'default'
+                        mode
                     }));
                 }
             }
@@ -997,28 +1017,31 @@ class Blocks {
         const blocks = optBlocks ? optBlocks : this._blocks;
         const allReferences = Object.create(null);
         for (const blockId in blocks) {
-            let varOrListField = null;
+            let varTypeField = null;
             let varType = null;
             if (blocks[blockId].fields.VARIABLE) {
-                varOrListField = blocks[blockId].fields.VARIABLE;
+                varTypeField = blocks[blockId].fields.VARIABLE;
                 varType = Variable.SCALAR_TYPE;
             } else if (blocks[blockId].fields.LIST) {
-                varOrListField = blocks[blockId].fields.LIST;
+                varTypeField = blocks[blockId].fields.LIST;
                 varType = Variable.LIST_TYPE;
+            } else if (blocks[blockId].fields.TABLE) {
+                varTypeField = blocks[blockId].fields.TABLE;
+                varType = Variable.TABLE_TYPE;
             } else if (optIncludeBroadcast && blocks[blockId].fields.BROADCAST_OPTION) {
-                varOrListField = blocks[blockId].fields.BROADCAST_OPTION;
+                varTypeField = blocks[blockId].fields.BROADCAST_OPTION;
                 varType = Variable.BROADCAST_MESSAGE_TYPE;
             }
-            if (varOrListField) {
-                const currVarId = varOrListField.id;
+            if (varTypeField) {
+                const currVarId = varTypeField.id;
                 if (allReferences[currVarId]) {
                     allReferences[currVarId].push({
-                        referencingField: varOrListField,
+                        referencingField: varTypeField,
                         type: varType
                     });
                 } else {
                     allReferences[currVarId] = [{
-                        referencingField: varOrListField,
+                        referencingField: varTypeField,
                         type: varType
                     }];
                 }
@@ -1035,16 +1058,18 @@ class Blocks {
     updateBlocksAfterVarRename (varId, newName) {
         const blocks = this._blocks;
         for (const blockId in blocks) {
-            let varOrListField = null;
+            let varTypeField = null;
             if (blocks[blockId].fields.VARIABLE) {
-                varOrListField = blocks[blockId].fields.VARIABLE;
+                varTypeField = blocks[blockId].fields.VARIABLE;
             } else if (blocks[blockId].fields.LIST) {
-                varOrListField = blocks[blockId].fields.LIST;
+                varTypeField = blocks[blockId].fields.LIST;
+            } else if (blocks[blockId].fields.TABLE) {
+                varTypeField = blocks[blockId].fields.TABLE;
             }
-            if (varOrListField) {
-                const currFieldId = varOrListField.id;
+            if (varTypeField) {
+                const currFieldId = varTypeField.id;
                 if (varId === currFieldId) {
-                    varOrListField.value = newName;
+                    varTypeField.value = newName;
                 }
             }
         }

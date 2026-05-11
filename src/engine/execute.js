@@ -315,11 +315,13 @@ class BlockCached {
             if (
                 fieldName === 'VARIABLE' ||
                 fieldName === 'LIST' ||
+                fieldName === 'TABLE' ||
                 fieldName === 'BROADCAST_OPTION'
             ) {
+                const fieldValue = fields[fieldName].value;
                 this._argValues[fieldName] = {
-                    id: fields[fieldName].id,
-                    name: fields[fieldName].value
+                    id: fields[fieldName].id || null,
+                    name: fieldValue == null ? '' : fieldValue
                 };
             } else {
                 this._argValues[fieldName] = fields[fieldName].value;

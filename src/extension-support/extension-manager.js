@@ -39,8 +39,7 @@ const coreExtensions = [
     'operators',
     'data',
     'json',
-    'procedures',
-    'comments'
+    'procedures'
 ];
 
 /**

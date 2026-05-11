@@ -68,6 +68,19 @@ class BlockUtility {
     }
 
     /**
+     * Simplified name for stackFrame.index.
+     * @type {number}
+     */
+    get iterationNumber () {
+        if (typeof this.stackFrame.index !== 'undefined') this.stackFrame.index = 0;
+        return this.stackFrame.index;
+    }
+
+    set iterationNumber (value) {
+        this.stackFrame.index = value;
+    }
+
+    /**
      * Check the stack timer and return a boolean based on whether it has finished or not.
      * @return {boolean} - true if the stack timer has finished.
      */
@@ -195,6 +208,16 @@ class BlockUtility {
      */
     getParam (paramName) {
         return this.thread.getParam(paramName);
+    }
+
+    /**
+     * Set the value for a given parameter name.
+     * @param {string} name The procedure's parameter name.
+     * @param {*} vame The value to store in the parameter.
+     */
+    setParam (name, value) {
+        this.initParams();
+        this.thread.peekStackFrame().params[name] = value;
     }
 
     /**

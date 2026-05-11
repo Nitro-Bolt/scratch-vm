@@ -1,7 +1,7 @@
 const Cast = require('../util/cast');
 
 class Scratch3JSONBlocks {
-    constructor(runtime) {
+    constructor (runtime) {
         /**
          * The runtime instantiating this block package.
          * @type {Runtime}
@@ -13,11 +13,9 @@ class Scratch3JSONBlocks {
      * Retrieve the block primitives implemented by this package.
      * @return {object.<string, Function>} Mapping of opcode to Function.
      */
-    getPrimitives() {
+    getPrimitives () {
         return {
             json_new_object: this.newObject,
-            json_to_object: this.toObject_,
-            json_to_string: this.toString_,
             json_get_properties: this.getProperties,
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
@@ -25,7 +23,6 @@ class Scratch3JSONBlocks {
             json_merge_object: this.mergeObject,
             json_has_key: this.hasKey,
             json_new_array: this.newArray,
-            json_to_array: this.toArray_,
             json_value_of_index: this.valueOfIndex,
             json_index_of_value: this.indexOfValue,
             json_add_item: this.addItem,
@@ -37,21 +34,14 @@ class Scratch3JSONBlocks {
             json_array_length: this.arrayLength,
             json_slice_array: this.sliceArray,
             json_reverse_array: this.reverseArray,
+            json_foreach: this.forEach,
+            json_foreach_value: this.forEachValue,
+            json_foreach_index: this.forEachIndex
         };
     }
 
-    newObject() {
+    newObject () {
         return new Object();
-    }
-
-    toObject_(args) {
-        args.STR = Cast.toString(args.STR);
-        return Cast.toObject(args.STR);
-    }
-
-    toString_(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        return Cast.toString(args.OBJ);
     }
 
     getProperties (args) {
@@ -59,133 +49,164 @@ class Scratch3JSONBlocks {
         const property = args.PROPERTY;
 
         switch (property) {
-            case 'keys':
-                return Object.keys(obj);
-            case 'values':
-                return Object.values(obj);
-            case 'entries':
-                return Object.entries(obj);
-            default:
-                return [];
+        case 'keys':
+            return Object.keys(obj);
+        case 'values':
+            return Object.values(obj);
+        case 'entries':
+            return Object.entries(obj);
+        default:
+            return new Array();
         }
     }
 
-    valueOfKey(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        args.KEY = Cast.toString(args.KEY);
-        return args.OBJ[args.KEY] ?? '';
+    valueOfKey (args) {
+        const obj = Cast.toObject(args.OBJ);
+        const key = Cast.toString(args.KEY);
+        return obj[key] ?? '';
     }
 
-    setKey(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        args.KEY = Cast.toString(args.KEY);
-        args.OBJ[args.KEY] = args.VALUE;
-        return args.OBJ;
+    setKey (args) {
+        const obj = {...Cast.toObject(args.OBJ)};
+        const key = Cast.toString(args.KEY);
+        obj[key] = args.VALUE;
+        return obj;
     }
 
-    deleteKey(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        args.KEY = Cast.toString(args.KEY);
-        delete args.OBJ[args.KEY];
-        return args.OBJ;
+    deleteKey (args) {
+        const obj = {...Cast.toObject(args.OBJ)};
+        const key = Cast.toString(args.KEY);
+        delete obj[key];
+        return obj;
     }
 
-    mergeObject(args) {
-        args.OBJ1 = Cast.toObject(args.OBJ1);
-        args.OBJ2 = Cast.toObject(args.OBJ2);
-        return Object.fromEntries(Object.entries(args.OBJ1).concat(Object.entries(args.OBJ2)));
+    mergeObject (args) {
+        const obj1 = Cast.toObject(args.OBJ1);
+        const obj2 = Cast.toObject(args.OBJ2);
+        return Object.fromEntries(Object.entries(obj1).concat(Object.entries(obj2)));
     }
 
-    hasKey(args) {
-        args.OBJ = Cast.toObject(args.OBJ);
-        args.KEY = Cast.toString(args.KEY);
-        return Object.hasOwn(args.OBJ, args.KEY);
+    hasKey (args) {
+        const obj = Cast.toObject(args.OBJ);
+        const key = Cast.toString(args.KEY);
+        return Object.hasOwn(obj, key);
     }
 
-    newArray() {
+    newArray () {
         return new Array();
     }
 
-    toArray_(args) {
-        args.STR = Cast.toString(args.STR);
-        return Cast.toArray(args.STR);
+    valueOfIndex (args) {
+        const arr = Cast.toArray(args.ARR);
+        const i = Cast.toArrayIndex(args.INDEX, arr.length);
+        if (i === Cast.LIST_INVALID) return '';
+        return arr[i] ?? '';
     }
 
-    valueOfIndex(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.INDEX = Cast.toNumber(args.INDEX);
-        return args.ARR[args.INDEX] ?? '';
+    indexOfValue (args) {
+        const arr = Cast.toArray(args.ARR);
+        return arr.indexOf(args.VALUE) === -1 ? '' : arr.indexOf(args.VALUE);
     }
 
-    indexOfValue(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        return args.ARR.indexOf(args.VALUE) === -1 ? '' : args.ARR.indexOf(args.VALUE);
+    addItem (args) {
+        const arr = [...Cast.toArray(args.ARR)];
+        arr.push(args.ITEM);
+        return arr;
     }
 
-    addItem(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.ARR.push(args.ITEM);
-        return args.ARR;
+    replaceIndex (args) {
+        const arr = [...Cast.toArray(args.ARR)];
+        const i = Cast.toArrayIndex(args.INDEX, arr.length);
+        if (i === Cast.LIST_INVALID) return arr;
+        arr[i] = args.ITEM;
+        return arr;
     }
 
-    replaceIndex(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.INDEX = Cast.toNumber(args.INDEX);
-        if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
-            args.ARR[args.INDEX] = args.ITEM;
-            return args.ARR;
+    deleteIndex (args) {
+        const arr = [...Cast.toArray(args.ARR)];
+        const i = Cast.toArrayIndex(args.INDEX, arr.length);
+        if (i === Cast.LIST_INVALID) return arr;
+        arr.splice(i, 1);
+        return arr;
+    }
+
+    deleteAllOccurrences (args) {
+        const arr = Cast.toArray(args.ARR);
+        const item = Cast.toString(args.ITEM);
+        return arr.filter(e => e !== item);
+    }
+
+    mergeArray (args) {
+        const arr1 = Cast.toArray(args.ARR1);
+        const arr2 = Cast.toArray(args.ARR2);
+        return arr1.concat(arr2);
+    }
+
+    hasItem (args) {
+        const arr = Cast.toArray(args.ARR);
+        return arr.includes(args.ITEM);
+    }
+
+    arrayLength (args) {
+        const arr = Cast.toArray(args.ARR);
+        return arr.length;
+    }
+
+    sliceArray (args) {
+        const arr = [...Cast.toArray(args.ARR)];
+        const s = Cast.toArrayIndex(args.START, arr.length);
+        const e = Cast.toArrayIndex(args.END, arr.length);
+        if (s === Cast.LIST_INVALID || e === Cast.LIST_INVALID || e < s) return [];
+        return arr.slice(s, e + 1);
+    }
+
+    reverseArray (args) {
+        return [...Cast.toArray(args.ARR)].reverse();
+    }
+
+    forEachValue (args, util) {
+        const frames = util.thread.stackFrames;
+        for (let i = frames.length - 1; i >= 0; i--) {
+            if (typeof frames[i].jsonForeachState !== 'undefined') {
+                return frames[i].jsonForeachState?.value ?? '';
+            }
         }
-        return new Array();
+        return '';
     }
 
-    deleteIndex(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.INDEX = Cast.toNumber(args.INDEX);
-        if (args.INDEX >= 0 && args.INDEX < args.ARR.length) {
-            args.ARR.splice(args.INDEX, 1);
-            return args.ARR;
+    forEachIndex (args, util) {
+        const frames = util.thread.stackFrames;
+        for (let i = frames.length - 1; i >= 0; i--) {
+            if (typeof frames[i].jsonForeachState !== 'undefined') {
+                return frames[i].jsonForeachState?.index ?? 0;
+            }
         }
-        return new Array();
+        return 0;
     }
 
-    deleteAllOccurrences(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.ITEM = Cast.toString(args.ITEM);
-        return args.ARR.filter(item => item !== args.ITEM);
-    }
+    forEach (args, util) {
+        const {stackFrame, thread} = util;
 
-    mergeArray(args) {
-        args.ARR1 = Cast.toArray(args.ARR1);
-        args.ARR2 = Cast.toArray(args.ARR2);
-        return args.ARR1.concat(args.ARR2);
-    }
+        if (typeof stackFrame.index === 'undefined') {
+            const array = Cast.toArray(args.ARRAY);
+            if (array.length === 0) return [];
+            Object.assign(stackFrame, {
+                index: 0,
+                array: [...array]
+            });
+        }
 
-    hasItem(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        return args.ARR.includes(args.ITEM);
-    }
+        if (stackFrame.index >= stackFrame.array.length) {
+            delete thread.stackFrames[thread.stackFrames.length - 1].jsonForeachState;
+            return;
+        }
 
-    arrayLength(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        return args.ARR.length;
-    }
-
-    sliceArray(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        args.START = Cast.toNumber(args.START);
-        args.END = Cast.toNumber(args.END);
-
-        const start = Math.max(0, args.START);
-        const end = Math.min(args.ARR.length, args.END + 1);
-
-        if (end <= start) return [];
-
-        return args.ARR.slice(start, end);
-    }
-
-    reverseArray(args) {
-        args.ARR = Cast.toArray(args.ARR);
-        return [...args.ARR].reverse();
+        thread.stackFrames[thread.stackFrames.length - 1].jsonForeachState = {
+            value: stackFrame.array[stackFrame.index],
+            index: stackFrame.index
+        };
+        stackFrame.index++;
+        util.startBranch(1, true);
     }
 }
 

@@ -130,12 +130,26 @@ const StackOpcode = {
     CONTROL_WAIT_UNTIL: 'control.waitUntil',
     CONTROL_CLEAR_COUNTER: 'control.counterClear',
     CONTORL_INCR_COUNTER: 'control.counterIncr',
+    CONTROL_FOREACH_IN_RANGE: 'control.forEachInRange',
+
+    TABLE_ADD: 'table.add',
+    TABLE_INSERT: 'table.insert',
+    TABLE_SET_CELL: 'table.setCell',
+    TABLE_DELETE_CELL: 'table.deleteCell',
+    TABLE_DELETE: 'table.delete',
+    TABLE_DELETE_ALL: 'table.deleteAll',
+    TABLE_SET: 'table.set',
+    TABLE_SHOW: 'table.show',
+    TABLE_HIDE: 'table.hide',
+
+    JSON_FOREACH: 'json.forEach',
 
     LIST_ADD: 'list.add',
     LIST_INSERT: 'list.instert',
     LIST_REPLACE: 'list.replace',
     LIST_DELETE_ALL: 'list.deleteAll',
     LIST_DELETE: 'list.delete',
+    LIST_SETLISTARRAY: 'list.setListArray',
     LIST_SHOW: 'list.show',
     LIST_HIDE: 'list.hide',
 
@@ -194,6 +208,7 @@ const StackOpcode = {
     COMMENTS_COMMAND: 'comments.command',
     COMMENTS_LOOP: 'comments.loop',
 
+    PROCEDURE_SET_PARAM: 'procedures.setParam',
     PROCEDURE_RETURN: 'procedures.return',
     PROCEDURE_CALL: 'procedures.call'
 };
@@ -221,6 +236,8 @@ const InputOpcode = {
     COMPATIBILITY_LAYER: 'compat',
     OLD_COMPILER_COMPATIBILITY_LAYER: 'oldCompiler',
 
+    CONTROL_FOREACH_IN_RANGE_ITEM: 'control.forEachInRangeItem',
+
     LOOKS_BACKDROP_NUMBER: 'looks.backdropNumber',
     LOOKS_BACKDROP_NAME: 'looks.backdropName',
     LOOKS_COSTUME_NUMBER: 'looks.costumeNumber',
@@ -234,6 +251,15 @@ const InputOpcode = {
     LIST_CONTAINS: 'list.contains',
     LIST_INDEX_OF: 'list.indexOf',
     LIST_CONTENTS: 'list.contents',
+    LIST_ASARRAY: 'list.asArray',
+
+    TABLE_CELL_VALUE: 'table.cellValue',
+    TABLE_DIMENSION_VALUES: 'table.dimensionValues',
+    TABLE_DIMENSION_LENGTH: 'table.dimensionLength',
+    TABLE_DIMENSION_COUNT: 'table.dimensionCount',
+    TABLE_CONTAINS_VALUE: 'table.containsValue',
+    TABLE_AS_ARRAY: 'table.asArray',
+    TABLE_CONTENTS: 'table.contents',
 
     MOTION_X_GET: 'motion.x',
     MOTION_Y_GET: 'motion.y',
@@ -270,6 +296,7 @@ const InputOpcode = {
     OP_RANDOM: 'op.random',
     OP_ROUND: 'op.round',
     OP_SUBTRACT: 'op.subtract',
+    OP_TYPEOF: 'op.typeof',
 
     SENSING_ANSWER: 'sensing.answer',
     SENSING_COLOR_TOUCHING_COLOR: 'sensing.colorTouchingColor',
@@ -303,8 +330,6 @@ const InputOpcode = {
     SENSING_USERNAME: 'sensing.username',
 
     JSON_NEW_OBJECT: 'json.newObject',
-    JSON_TO_OBJECT: 'json.toObject_',
-    JSON_TO_STRING: 'json.toString_',
     JSON_GET_PROPERTIES: 'json.getProperties',
     JSON_VALUE_OF_KEY: 'json.valueOfKey',
     JSON_SET_KEY: 'json.setKey',
@@ -312,7 +337,6 @@ const InputOpcode = {
     JSON_MERGE_OBJECT: 'json.mergeObject',
     JSON_HAS_KEY: 'json.hasKey',
     JSON_NEW_ARRAY: 'json.newArray',
-    JSON_TO_ARRAY: 'json.toArray_',
     JSON_VALUE_OF_INDEX: 'json.valueOfIndex',
     JSON_INDEX_OF_VALUE: 'json.indexOfValue',
     JSON_ADD_ITEM: 'json.addItem',
@@ -324,11 +348,8 @@ const InputOpcode = {
     JSON_ARRAY_LENGTH: 'json.arrayLength',
     JSON_SLICE_ARRAY: 'json.sliceArray',
     JSON_REVERSE_ARRAY: 'json.reverseArray',
-
-    COMMENTS_REPORTER: 'comments.reporter',
-    COMMENTS_BOOLEAN: 'comments.boolean',
-    COMMENTS_OBJECT: 'comments.object',
-    COMMENTS_ARRAY: 'comments.array',
+    JSON_FOREACH_VALUE: 'json.forEachValue',
+    JSON_FOREACH_INDEX: 'json.forEachIndex',
 
     PROCEDURE_CALL: 'procedures.call',
     PROCEDURE_ARGUMENT: 'procedures.argument',

@@ -198,7 +198,7 @@ class JSGenerator {
         case InputOpcode.CAST_NUMBER_INDEX:
             return `(${this.descendInput(node.target.toType(InputType.NUMBER_OR_NAN))} | 0)`;
         case InputOpcode.CAST_STRING:
-            return `("" + ${this.descendInput(node.target)})`;
+            return `toString(${this.descendInput(node.target)})`;
         case InputOpcode.CAST_COLOR:
             return `colorToList(${this.descendInput(node.target)})`;
 
@@ -258,15 +258,28 @@ class JSGenerator {
             return `listIndexOf(${this.referenceVariable(node.list)}, ${this.descendInput(node.item)})`;
         case InputOpcode.LIST_LENGTH:
             return `${this.referenceVariable(node.list)}.value.length`;
+        case InputOpcode.LIST_ASARRAY:
+            return `toArray(${this.referenceVariable(node.list)}.value)`;
+
+        case InputOpcode.TABLE_CELL_VALUE:
+            return `tableGetCell(${this.referenceVariable(node.table)}.value, ${this.descendInput(node.row)}, ${this.descendInput(node.column)})`;
+        case InputOpcode.TABLE_DIMENSION_VALUES:
+            return `tableGetDimension(${this.referenceVariable(node.table)}.value, "${sanitize(node.dimension)}", ${this.descendInput(node.index)})`;
+        case InputOpcode.TABLE_DIMENSION_LENGTH:
+            return `tableDimensionLength(${this.referenceVariable(node.table)}.value, "${sanitize(node.dimension)}", ${this.descendInput(node.index)})`;
+        case InputOpcode.TABLE_DIMENSION_COUNT:
+            return `tableDimensionCount(${this.referenceVariable(node.table)}.value, "${sanitize(node.dimension)}")`;
+        case InputOpcode.TABLE_CONTAINS_VALUE:
+            return `tableContains(${this.referenceVariable(node.table)}.value, ${this.descendInput(node.item)}, ${this.descendInput(node.row)}, ${this.descendInput(node.column)})`;
+        case InputOpcode.TABLE_AS_ARRAY:
+            return `tableAsArray(${this.referenceVariable(node.table)}.value)`;
+        case InputOpcode.TABLE_CONTENTS:
+            return `tableContents(${this.referenceVariable(node.table)}.value)`;
 
         case InputOpcode.JSON_NEW_OBJECT:
             return 'new Object()';
-        case InputOpcode.JSON_TO_OBJECT:
-            return `${this.descendInput(node.string)}`;
-        case InputOpcode.JSON_TO_STRING:
-            return `toString(${this.descendInput(node.object)})`;
         case InputOpcode.JSON_GET_PROPERTIES: {
-            const property = node.property; 
+            const property = node.property;
             const obj = this.descendInput(node.object);
             if (property === 'keys') {
                 return `Object.keys(${obj})`;
@@ -289,10 +302,8 @@ class JSGenerator {
             return `${this.descendInput(node.object)}.hasOwnProperty(${this.descendInput(node.key)})`;
         case InputOpcode.JSON_NEW_ARRAY:
             return 'new Array()';
-        case InputOpcode.JSON_TO_ARRAY:
-            return `${this.descendInput(node.string)}`;
         case InputOpcode.JSON_VALUE_OF_INDEX:
-            return `(${this.descendInput(node.array)}[${this.descendInput(node.index)}] ?? "")`;
+            return `arrayValueOfIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_INDEX_OF_VALUE:
             return `arrayIndexOf(${this.descendInput(node.array)}, ${this.descendInput(node.value)})`;
         case InputOpcode.JSON_ADD_ITEM:
@@ -313,6 +324,14 @@ class JSGenerator {
             return `sliceArray(${this.descendInput(node.array)}, ${this.descendInput(node.start)}, ${this.descendInput(node.end)})`;
         case InputOpcode.JSON_REVERSE_ARRAY:
             return `${this.descendInput(node.array)}.slice(0).reverse()`;
+        case InputOpcode.JSON_FOREACH_VALUE: {
+            const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_FOREACH_INDEX: {
+            const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
+            return vars?.index ?? '0';
+        }
 
         case InputOpcode.LOOKS_SIZE_GET:
             return 'Math.round(target.size)';
@@ -457,6 +476,10 @@ class JSGenerator {
             return `tan(${this.descendInput(node.value)})`;
         case InputOpcode.OP_POW_10:
             return `(10 ** ${this.descendInput(node.value)})`;
+        case InputOpcode.OP_TYPEOF: {
+            const value = this.descendInput(node.target);
+            return `(Array.isArray(${value}) ? "array" : typeof ${value})`;
+        }
 
         case InputOpcode.PROCEDURE_CALL: {
             const procedureCode = node.code;
@@ -555,21 +578,16 @@ class JSGenerator {
 
         case InputOpcode.CONTROL_COUNTER:
             return 'runtime.ext_scratch3_control._counter';
+        case InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM: {
+            const vars = this.forEachInRangeStack?.[this.forEachInRangeStack.length - 1];
+            return vars ?? '0';
+        }
 
         case InputOpcode.TW_KEY_LAST_PRESSED:
             return 'runtime.ioDevices.keyboard.getLastKeyPressed()';
 
         case InputOpcode.VAR_GET:
             return `${this.referenceVariable(node.variable)}.value`;
-
-        case InputOpcode.COMMENTS_REPORTER:
-            return `${this.descendInput(node.value)}`;
-        case InputOpcode.COMMENTS_BOOLEAN:
-            return `${this.descendInput(node.value)}`;
-        case InputOpcode.COMMENTS_OBJECT:
-            return `${this.descendInput(node.value)}`;
-        case InputOpcode.COMMENTS_ARRAY:
-            return `${this.descendInput(node.value)}`;
 
         default:
             log.warn(`JS: Unknown input: ${block.opcode}`, node);
@@ -740,6 +758,29 @@ class JSGenerator {
         case StackOpcode.CONTORL_INCR_COUNTER:
             this.source += 'runtime.ext_scratch3_control._counter++;\n';
             break;
+        case StackOpcode.CONTROL_FOREACH_IN_RANGE: {
+            const from = this.descendInput(node.from);
+            const to = this.descendInput(node.to);
+            const loopVar = this.localVariables.next();
+            const fromVar = this.localVariables.next();
+            const toVar = this.localVariables.next();
+            const stepVar = this.localVariables.next();
+
+            if (!this.forEachInRangeStack) this.forEachInRangeStack = [];
+            this.forEachInRangeStack.push(loopVar);
+        
+            this.source += `const ${fromVar} = Math.round(${from});\n`;
+            this.source += `const ${toVar} = Math.round(${to});\n`;
+            this.source += `const ${stepVar} = ${fromVar} <= ${toVar} ? 1 : -1;\n`;
+            this.source += `for (let ${loopVar} = ${fromVar}; ${fromVar} <= ${toVar} ? ${loopVar} <= ${toVar} : ${loopVar} >= ${toVar}; ${loopVar} += ${stepVar}) {\n`;
+
+            if (node.do) this.descendStack(node.do, new Frame(true));
+            this.yieldLoop();
+            this.source += `}\n`;
+
+            this.forEachInRangeStack.pop();
+            break;
+        }
 
         case StackOpcode.EVENT_BROADCAST:
             this.source += `startHats("event_whenbroadcastreceived", { BROADCAST_OPTION: ${this.descendInput(node.broadcast)} });\n`;
@@ -747,6 +788,64 @@ class JSGenerator {
         case StackOpcode.EVENT_BROADCAST_AND_WAIT:
             this.source += `yield* waitThreads(startHats("event_whenbroadcastreceived", { BROADCAST_OPTION: ${this.descendInput(node.broadcast)} }));\n`;
             this.yielded();
+            break;
+
+        case StackOpcode.TABLE_ADD: {
+            const table = this.referenceVariable(node.table);
+            const dimension = node.dimension;
+            if (dimension === 'column') {
+                this.source += `tableAddColumn(${table});\n`;
+            } else {
+                this.source += `tableAddRow(${table});\n`;
+            }
+            break;
+        }
+        case StackOpcode.TABLE_INSERT: {
+            const table = this.referenceVariable(node.table);
+            const dimension = node.dimension;
+            const index = this.descendInput(node.index);
+            if (dimension === 'column') {
+                this.source += `tableInsertColumn(${table}, ${index});\n`;
+            } else {
+                this.source += `tableInsertRow(${table}, ${index});\n`;
+            }
+            break;
+        }
+        case StackOpcode.TABLE_SET_CELL: {
+            const table = this.referenceVariable(node.table);
+            this.source += `tableSetCell(${table}, ${this.descendInput(node.row)}, ${this.descendInput(node.COLUMN)}, ${this.descendInput(node.item)});\n`;
+            break;
+        }
+        case StackOpcode.TABLE_DELETE_CELL: {
+            const table = this.referenceVariable(node.table);
+            this.source += `tableDeleteCell(${table}, ${this.descendInput(node.row)}, ${this.descendInput(node.COLUMN)});\n`;
+            break;
+        }
+        case StackOpcode.TABLE_DELETE: {
+            const table = this.referenceVariable(node.table);
+            const dimension = node.dimension;
+            const index = this.descendInput(node.index);
+            if (dimension === 'column') {
+                this.source += `tableDeleteColumn(${table}, ${index});\n`;
+            } else {
+                this.source += `tableDeleteRow(${table}, ${index});\n`;
+            }
+            break;
+        }
+        case StackOpcode.TABLE_DELETE_ALL:
+            this.source += `${this.referenceVariable(node.table)}.value = [];\n`;
+            this.source += `${this.referenceVariable(node.table)}._monitorUpToDate = false;\n`;
+            break;
+        case StackOpcode.TABLE_SET: {
+            const table = this.referenceVariable(node.table);
+            this.source += `tableSet(${table}, ${this.descendInput(node.arr)});\n`;
+            break;
+        }
+        case StackOpcode.TABLE_SHOW:
+            this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.table.id)}", element: "checkbox", value: true }, runtime);\n`;
+            break;
+        case StackOpcode.TABLE_HIDE:
+            this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.table.id)}", element: "checkbox", value: false }, runtime);\n`;
             break;
 
         case StackOpcode.LIST_ADD: {
@@ -794,6 +893,29 @@ class JSGenerator {
         case StackOpcode.LIST_SHOW:
             this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.list.id)}", element: "checkbox", value: true }, runtime);\n`;
             break;
+        case StackOpcode.LIST_SETLISTARRAY: {
+            const list = this.referenceVariable(node.list);
+            const item = this.descendInput(node.array);
+            this.source += `${list}.value = toArray(${item});`;
+            break;
+        }
+
+        case StackOpcode.JSON_FOREACH: {
+            const array = this.descendInput(node.array);
+            const valVar = this.localVariables.next();
+            const indVar = this.localVariables.next();
+        
+            if (!this.foreachVarsStack) this.foreachVarsStack = [];
+            this.foreachVarsStack.push({value: valVar, index: indVar});
+        
+            this.source += `for (const [${indVar}, ${valVar}] of [...${array}].entries()) {\n`;
+            if (node.substack) this.descendStack(node.substack, new Frame(true));
+            this.yieldLoop();
+            this.source += `}\n`;
+        
+            this.foreachVarsStack.pop();
+            break;
+        }
 
         case StackOpcode.LOOKS_LAYER_BACKWARD:
             if (!this.target.isStage) {
@@ -963,6 +1085,13 @@ class JSGenerator {
             this.source += `);\n`;
             break;
         }
+        case StackOpcode.PROCEDURE_SET_PARAM: {
+            const value = this.descendInput(node.value);
+            const i = node.param.inputs.index;
+            this.source += `p${i} = ${value};\n`;
+            break;
+        }
+
         case StackOpcode.PROCEDURE_RETURN:
             this.stopScriptAndReturn(this.descendInput(node.value));
             break;
@@ -1250,9 +1379,15 @@ class JSGenerator {
             script += args.join(',');
         }
         script += ') {\n';
+        script += 'try {\n';
 
         script += this.source;
 
+        script += '} catch (error) {\n';
+        script += 'console.warn(this.toString(), error);\n';
+        script += `runtime.visualReport(target, "${sanitize(this.script.bottomBlockId)}", String(error), true);\n`;
+        script += 'retire();\n';
+        script += '};\n';
         script += '}; })';
 
         return script;

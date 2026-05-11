@@ -24,6 +24,7 @@ const oldCompilerCompatiblity = require('./old-compiler-compatibility.js');
 
 const SCALAR_TYPE = '';
 const LIST_TYPE = 'list';
+const TABLE_TYPE = 'table';
 
 /**
  * @typedef DescendedVariable
@@ -187,9 +188,12 @@ class ScriptTreeGenerator {
      * @private
      * @returns {IntermediateInput} Compiled input node for this input.
      */
-    descendInputOfBlock (parentBlock, inputName, preserveStrings = false) {
+    descendInputOfBlock (parentBlock, inputName, preserveStrings = false, fallback) {
         const input = parentBlock.inputs[inputName];
         if (!input) {
+            if (arguments.length > 3) {
+                return fallback;
+            }
             log.warn(`IR: ${parentBlock.opcode}: missing input ${inputName}`, parentBlock);
             return this.createConstantInput(0);
         }
@@ -307,110 +311,171 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.LIST_CONTENTS, InputType.STRING, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
             });
+        case 'data_listasarray':
+            return new IntermediateInput(InputOpcode.LIST_ASARRAY, InputType.ARRAY, {
+                list: this.descendVariable(block, 'LIST', LIST_TYPE)
+            });
+
+        case 'data_itemincelloftable':
+            return new IntermediateInput(InputOpcode.TABLE_CELL_VALUE, InputType.ANY, {
+                column: this.descendInputOfBlock(block, 'COLUMN'),
+                row: this.descendInputOfBlock(block, 'ROW'),
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        case 'data_itemsofdimensionoftable': {
+            const dimension = block.fields.DIMENSION.value.toLowerCase();
+            return new IntermediateInput(InputOpcode.TABLE_DIMENSION_VALUES, InputType.ARRAY, {
+                dimension,
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        }
+        case 'data_lengthofdimensionoftable': {
+            const dimension = block.fields.DIMENSION.value.toLowerCase();
+            return new IntermediateInput(InputOpcode.TABLE_DIMENSION_LENGTH, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {
+                dimension,
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        }
+        case 'data_dimensioncountoftable': {
+            const dimension = block.fields.DIMENSION.value.toLowerCase();
+            return new IntermediateInput(InputOpcode.TABLE_DIMENSION_COUNT, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {
+                dimension,
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        }
+        case 'data_tablecontainsitemincell':
+            return new IntermediateInput(InputOpcode.TABLE_CONTAINS_VALUE, InputType.BOOLEAN, {
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE),
+                item: this.descendInputOfBlock(block, 'ITEM'),
+                column: this.descendInputOfBlock(block, 'COLUMN'),
+                row: this.descendInputOfBlock(block, 'ROW')
+            });
+        case 'data_tableasarray':
+            return new IntermediateInput(InputOpcode.TABLE_AS_ARRAY, InputType.ARRAY, {
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        case 'data_tablecontents':
+            return new IntermediateInput(InputOpcode.TABLE_CONTENTS, InputType.STRING, {
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
 
         case 'json_new_object':
             return new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT);
-        case 'json_to_object':
-            return new IntermediateInput(InputOpcode.JSON_TO_OBJECT, InputType.OBJECT, {
-                string: this.descendInputOfBlock(block, 'STR').toType(InputType.OBJECT) // Directly changing the input to avoid conversion during runtime
-            });
-        case 'json_to_string':
-            return new IntermediateInput(InputOpcode.JSON_TO_STRING, InputType.STRING, {
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
-            });
-        case 'json_get_properties':
+        case 'json_get_properties': {
             const property = block.fields.PROPERTY.value.toLowerCase();
             return new IntermediateInput(InputOpcode.JSON_GET_PROPERTIES, InputType.ARRAY, {
                 property,
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
+        }
         case 'json_value_of_key':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_KEY, InputType.STRING, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
         case 'json_set_key':
             return new IntermediateInput(InputOpcode.JSON_SET_KEY, InputType.OBJECT, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT),
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
                 value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.STRING)
             });
         case 'json_delete_key':
             return new IntermediateInput(InputOpcode.JSON_DELETE_KEY, InputType.OBJECT, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT)
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
         case 'json_merge_object':
             return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT, InputType.OBJECT, {
-                object1: this.descendInputOfBlock(block, 'OBJ1').toType(InputType.OBJECT),
-                object2: this.descendInputOfBlock(block, 'OBJ2').toType(InputType.OBJECT)
+                object1: this.descendInputOfBlock(block, 'OBJ1', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
+                object2: this.descendInputOfBlock(block, 'OBJ2', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
         case 'json_has_key':
             return new IntermediateInput(InputOpcode.JSON_HAS_KEY, InputType.BOOLEAN, {
-                object: this.descendInputOfBlock(block, 'OBJ').toType(InputType.OBJECT),
+                object: this.descendInputOfBlock(block, 'OBJ', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING)
             });
         case 'json_new_array':
             return new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY);
-        case 'json_to_array':
-            return new IntermediateInput(InputOpcode.JSON_TO_ARRAY, InputType.ARRAY, {
-                string: this.descendInputOfBlock(block, 'STR').toType(InputType.ARRAY) // Directly changing the input to avoid conversion during runtime
-            });
         case 'json_value_of_index':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_INDEX, InputType.ANY, {
-                index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_index_of_value':
             return new IntermediateInput(InputOpcode.JSON_INDEX_OF_VALUE, InputType.NUMBER_WHOLE | InputType.STRING_NAN, {
                 value: this.descendInputOfBlock(block, 'VALUE'),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_add_item':
             return new IntermediateInput(InputOpcode.JSON_ADD_ITEM, InputType.ARRAY, {
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_replace_index':
             return new IntermediateInput(InputOpcode.JSON_REPLACE_INDEX, InputType.ARRAY, {
-                index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY),
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
             });
         case 'json_delete_index':
             return new IntermediateInput(InputOpcode.JSON_DELETE_INDEX, InputType.ARRAY, {
-                index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_delete_all_occurrences':
             return new IntermediateInput(InputOpcode.JSON_DELETE_ALL_OCCURRENCES, InputType.ARRAY, {
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_merge_array':
             return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY, InputType.ARRAY, {
-                array1: this.descendInputOfBlock(block, 'ARR1').toType(InputType.ARRAY),
-                array2: this.descendInputOfBlock(block, 'ARR2').toType(InputType.ARRAY)
+                array1: this.descendInputOfBlock(block, 'ARR1', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
+                array2: this.descendInputOfBlock(block, 'ARR2', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_has_item':
             return new IntermediateInput(InputOpcode.JSON_HAS_ITEM, InputType.BOOLEAN, {
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY),
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
                 item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
             });
         case 'json_array_length':
             return new IntermediateInput(InputOpcode.JSON_ARRAY_LENGTH, InputType.NUMBER_WHOLE, {
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_slice_array':
             return new IntermediateInput(InputOpcode.JSON_SLICE_ARRAY, InputType.ARRAY, {
-                start: this.descendInputOfBlock(block, 'START').toType(InputType.NUMBER),
-                end: this.descendInputOfBlock(block, 'END').toType(InputType.NUMBER),
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                start: this.descendInputOfBlock(block, 'START'),
+                end: this.descendInputOfBlock(block, 'END'),
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_reverse_array':
             return new IntermediateInput(InputOpcode.JSON_REVERSE_ARRAY, InputType.ARRAY, {
-                array: this.descendInputOfBlock(block, 'ARR').toType(InputType.ARRAY)
+                array: this.descendInputOfBlock(block, 'ARR', false,
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
+        case 'json_foreach_value':
+            return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);
+        case 'json_foreach_index':
+            return new IntermediateInput(InputOpcode.JSON_FOREACH_INDEX, InputType.NUMBER);
 
         case 'event_broadcast_menu': {
             const broadcastOption = block.fields.BROADCAST_OPTION;
@@ -509,6 +574,27 @@ class ScriptTreeGenerator {
             case '10 ^': return new IntermediateInput(InputOpcode.OP_POW_10, InputType.NUMBER, {value});
             default: return this.createConstantInput(0);
             }
+        }
+        case 'operator_cast': {
+            const type = block.fields.TYPE.value.toLowerCase();
+            const value = this.descendInputOfBlock(block, 'VALUE');
+        
+            switch (type) {
+            case 'string': return new IntermediateInput(InputOpcode.CAST_STRING, InputType.STRING, {target: value});
+            case 'number': return new IntermediateInput(InputOpcode.CAST_NUMBER, InputType.NUMBER, {target: value});
+            case 'boolean': return new IntermediateInput(InputOpcode.CAST_BOOLEAN, InputType.BOOLEAN, {target: value});
+            case 'object': return new IntermediateInput(InputOpcode.CAST_OBJECT, InputType.OBJECT, {target: value});
+            case 'array': return new IntermediateInput(InputOpcode.CAST_ARRAY, InputType.ARRAY, {target: value});
+            default: return value;
+            }
+        }
+        case 'operator_typeof': {
+            const value = this.descendInputOfBlock(block, 'VALUE');
+            return new IntermediateInput(
+                InputOpcode.OP_TYPEOF,
+                InputType.ANY,
+                {target: value}
+            );
         }
         case 'operator_mod':
             return new IntermediateInput(InputOpcode.OP_MOD, InputType.NUMBER_OR_NAN, {
@@ -698,29 +784,10 @@ class ScriptTreeGenerator {
             // This menu is special compared to other menus -- it actually has an opcode function.
             return this.createConstantInput(block.fields.SOUND_MENU.value, true);
 
+        case 'control_foreach_in_range_item':
+            return new IntermediateInput(InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM, InputType.NUMBER);
         case 'control_get_counter':
             return new IntermediateInput(InputOpcode.CONTROL_COUNTER, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
-
-        case 'comments_reporter':
-            return new IntermediateInput(InputOpcode.COMMENTS_REPORTER, InputType.ANY, {
-                value: this.descendInputOfBlock(block, 'VALUE'),
-                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING)
-            });
-        case 'comments_boolean':
-            return new IntermediateInput(InputOpcode.COMMENTS_BOOLEAN, InputType.BOOLEAN, {
-                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.BOOLEAN),
-                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING)
-            });
-        case 'comments_object':
-            return new IntermediateInput(InputOpcode.COMMENTS_OBJECT, InputType.OBJECT, {
-                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.OBJECT),
-                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING)
-            });
-        case 'comments_array':
-            return new IntermediateInput(InputOpcode.COMMENTS_ARRAY, InputType.ARRAY, {
-                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.ARRAY),
-                comment: this.descendInputOfBlock(block, 'COMMENT').toType(InputType.STRING)
-            });
 
         case 'tw_getLastKeyPressed':
             return new IntermediateInput(InputOpcode.TW_KEY_LAST_PRESSED, InputType.STRING);
@@ -860,7 +927,66 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.CONTROL_CLEAR_COUNTER);
         case 'control_incr_counter':
             return new IntermediateStackBlock(StackOpcode.CONTORL_INCR_COUNTER);
+        case 'control_foreach_in_range':
+            return new IntermediateStackBlock(StackOpcode.CONTROL_FOREACH_IN_RANGE, {
+                from: this.descendInputOfBlock(block, 'FROM').toType(InputType.NUMBER),
+                to: this.descendInputOfBlock(block, 'TO').toType(InputType.NUMBER),
+                do: this.descendSubstack(block, 'SUBSTACK')
+            }, this.analyzeLoop());
 
+        case 'data_addtotable': {
+            const dimension = block.fields.DIMENSION.value;
+            return new IntermediateStackBlock(StackOpcode.TABLE_ADD, {
+                dimension,
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        }
+        case 'data_insertdimensiontotable': {
+            const dimension = block.fields.DIMENSION.value;
+            return new IntermediateStackBlock(StackOpcode.TABLE_INSERT, {
+                dimension,
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        }
+        case 'data_setcellintable':
+            return new IntermediateStackBlock(StackOpcode.TABLE_SET_CELL, {
+                COLUMN: this.descendInputOfBlock(block, 'COLUMN'),
+                row: this.descendInputOfBlock(block, 'ROW'),
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE),
+                item: this.descendInputOfBlock(block, 'ITEM')
+            });
+        case 'data_deletecellintable':
+            return new IntermediateStackBlock(StackOpcode.TABLE_DELETE_CELL, {
+                COLUMN: this.descendInputOfBlock(block, 'COLUMN'),
+                row: this.descendInputOfBlock(block, 'ROW'),
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        case 'data_deletedimensionintable': {
+            const dimension = block.fields.DIMENSION.value;
+            return new IntermediateStackBlock(StackOpcode.TABLE_DELETE, {
+                dimension,
+                index: this.descendInputOfBlock(block, 'INDEX'),
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        }
+        case 'data_deletealloftable':
+            return new IntermediateStackBlock(StackOpcode.TABLE_DELETE_ALL, {
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        case 'data_settableusingarray':
+            return new IntermediateStackBlock(StackOpcode.TABLE_SET, {
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE),
+                arr: this.descendInputOfBlock(block, 'ARR')
+            });
+        case 'data_showtable':
+            return new IntermediateStackBlock(StackOpcode.TABLE_SHOW, {
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
+        case 'data_hidetable':
+            return new IntermediateStackBlock(StackOpcode.TABLE_HIDE, {
+                table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
+            });
         case 'data_addtolist':
             return new IntermediateStackBlock(StackOpcode.LIST_ADD, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
@@ -892,6 +1018,11 @@ class ScriptTreeGenerator {
                 index: index
             });
         }
+        case 'data_setlistarray':
+            return new IntermediateStackBlock(StackOpcode.LIST_SETLISTARRAY, {
+                list: this.descendVariable(block, 'LIST', LIST_TYPE),
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY)
+            });
         case 'data_hidelist':
             return new IntermediateStackBlock(StackOpcode.LIST_HIDE, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
@@ -925,6 +1056,12 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.VAR_SHOW, {
                 variable: this.descendVariable(block, 'VARIABLE', SCALAR_TYPE)
             });
+
+        case 'json_foreach':
+            return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {
+                array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
+                substack: this.descendSubstack(block, 'SUBSTACK')
+            }, this.analyzeLoop());
 
         case 'event_broadcast':
             return new IntermediateStackBlock(StackOpcode.EVENT_BROADCAST, {
@@ -1108,6 +1245,12 @@ class ScriptTreeGenerator {
             const procedure = this.getProcedureInfo(block);
             return new IntermediateStackBlock(procedure.opcode, procedure.inputs, procedure.yields);
         }
+        case 'procedures_set_param':
+            return new IntermediateStackBlock(StackOpcode.PROCEDURE_SET_PARAM, {
+                param: this.descendInputOfBlock(block, 'PARAM'),
+                value: this.descendInputOfBlock(block, 'VALUE')
+            });
+
         case 'procedures_return':
             return new IntermediateStackBlock(StackOpcode.PROCEDURE_RETURN, {
                 value: this.descendInputOfBlock(block, 'VALUE')
@@ -1310,7 +1453,7 @@ class ScriptTreeGenerator {
      * Descend into a variable.
      * @param {*} block The block that has the variable.
      * @param {string} fieldName The name of the field that the variable is stored in.
-     * @param {''|'list'} type Variable type, '' for scalar and 'list' for list.
+     * @param {''|'list'|'table'} type Variable type, '' for scalar, 'list' for list and 'table for table.
      * @private
      * @returns {*} A parsed variable object.
      */
@@ -1332,7 +1475,7 @@ class ScriptTreeGenerator {
     /**
      * @param {string|null} id The ID of the variable.
      * @param {string} name The name of the variable.
-     * @param {''|'list'} type The variable type.
+     * @param {''|'list'|'table'} type The variable type.
      * @private
      * @returns {DescendedVariable} A parsed variable object.
      */
@@ -1583,6 +1726,12 @@ class ScriptTreeGenerator {
         this.blocks.populateProcedureCache();
 
         this.script.topBlockId = topBlockId;
+
+        let blockId = topBlockId;
+        while (this.getBlockById(this.getBlockById(blockId).next)) {
+            blockId = this.getBlockById(blockId).next;
+        }
+        this.script.bottomBlockId = blockId;
 
         const topBlock = this.getBlockById(topBlockId);
         if (!topBlock) {
