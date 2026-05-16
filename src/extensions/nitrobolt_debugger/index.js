@@ -52,6 +52,21 @@ class Scratch3DebuggerBlocks {
                             defaultValue: 'Hello!'
                         }
                     }
+                },
+                {
+                    opcode: 'color',
+                    blockType: BlockType.REPORTER,
+                    text: '[COLOR][MESSAGE]',
+                    arguments: {
+                        COLOR: {
+                            type: ArgumentType.COLOR,
+                            defaultValue: '#0000ff'
+                        },
+                        MESSAGE: {
+                            type: ArgumentType.STRING,
+                            defaultValue: 'Hello!'
+                        }
+                    }
                 }
             ],
             menus: {
@@ -74,6 +89,23 @@ class Scratch3DebuggerBlocks {
     log (args, util) {
         const message = Cast.toString(args.MESSAGE);
         this.runtime.emitDebuggerLog(args.TYPE, message, util.target);
+        switch (args.TYPE) {
+            case 'warn':
+                console.warn(message);
+                break;
+            case 'error':
+                console.error(message);
+                break;
+            default:
+                console.log(message);
+                break;
+        }
+    }
+
+    color (args, util) {
+        const message = Cast.toString(args.MESSAGE);
+        const color = Cast.toRgbColorObject(args.COLOR);
+        return { __COLOR: color, message };
     }
 }
 
