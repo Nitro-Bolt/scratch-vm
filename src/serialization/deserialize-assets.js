@@ -193,8 +193,21 @@ const deserializeAsset = function (asset, runtime, zip, assetFileName) {
         return Promise.resolve(null);
     }
 
+    // Override the contentType to match the contentType of the file provided
+    const AssetType = structuredClone(storage.AssetType.Asset);
+    AssetType.contentType = asset.contentType;
+
     if (!zip) { // Zip will not be provided if loading project json from server
-        return Promise.resolve(null);
+        return storage.load(AssetType, asset.assetId, asset.dataFormat)
+            .then(loadedAsset => {
+                if (!loadedAsset) {
+                    return null;
+                }
+                asset.asset = loadedAsset;
+                asset.assetId = loadedAsset.assetId;
+                asset.md5 = `${loadedAsset.assetId}.${loadedAsset.dataFormat}`;
+                return asset;
+            });
     }
 
     let assetFile = zip.file(fileName);
@@ -213,10 +226,6 @@ const deserializeAsset = function (asset, runtime, zip, assetFileName) {
         log.error('JSZip uint8array is not supported in this browser.');
         return Promise.resolve(null);
     }
-    
-    // Override the contentType to match the contentType of the file provided
-    const AssetType = structuredClone(storage.AssetType.Asset);
-    AssetType.contentType = asset.contentType;
 
     return assetFile.async('uint8array').then(data => storage.createAsset(
         AssetType,
