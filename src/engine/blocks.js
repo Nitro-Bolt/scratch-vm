@@ -1097,8 +1097,8 @@ class Blocks {
      * @param {string} oldName The old name of the asset that was renamed.
      * @param {string} newName The new name of the asset that was renamed.
      * @param {string} assetType String representation of the kind of asset
-     * that was renamed. This can be one of 'sprite','costume', 'sound', or
-     * 'backdrop'.
+     * that was renamed. This can be one of 'sprite','costume', 'sound',
+     * 'backdrop', or 'asset'.
      */
     updateAssetName (oldName, newName, assetType) {
         let getAssetField;
@@ -1106,6 +1106,8 @@ class Blocks {
             getAssetField = this._getCostumeField.bind(this);
         } else if (assetType === 'sound') {
             getAssetField = this._getSoundField.bind(this);
+        } else if (assetType === 'asset') {
+            getAssetField = this._getAssetField.bind(this);
         } else if (assetType === 'backdrop') {
             getAssetField = this._getBackdropField.bind(this);
         } else if (assetType === 'sprite') {
@@ -1176,6 +1178,21 @@ class Blocks {
         const block = this.getBlock(blockId);
         if (block && Object.prototype.hasOwnProperty.call(block.fields, 'SOUND_MENU')) {
             return block.fields.SOUND_MENU;
+        }
+        return null;
+    }
+
+    /**
+     * Helper function to retrieve an asset menu field from a block given its id.
+     * @param {string} blockId A unique identifier for a block
+     * @return {?object} The asset menu field of the block with the given block id.
+     * Null, if either a block with the given id doesn't exist or if an asset menu field
+     * does not exist on the block with the given id.
+     */
+    _getAssetField (blockId) {
+        const block = this.getBlock(blockId);
+        if (block && Object.prototype.hasOwnProperty.call(block.fields, 'ASSET_MENU')) {
+            return block.fields.ASSET_MENU;
         }
         return null;
     }
