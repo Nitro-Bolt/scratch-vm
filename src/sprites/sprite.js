@@ -45,6 +45,10 @@ class Sprite {
         */
         this.sounds = [];
         /**
+         * List of assets for this sprite.
+         */
+        this.assets = [];
+        /**
          * List of clones for this sprite, including the original.
          * @type {Array.<!RenderedTarget>}
          */

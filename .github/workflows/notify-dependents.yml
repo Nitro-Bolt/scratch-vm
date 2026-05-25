@@ -26,11 +26,3 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/Nitro-Bolt/packager/dispatches \
             -d '{"event_type":"upstream-updated","client_payload":{"source":"scratch-vm"}}'
-
-      - name: Trigger desktop update
-        run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.CASCADE_PAT }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/Nitro-Bolt/desktop/dispatches \
-            -d '{"event_type":"upstream-updated","client_payload":{"source":"scratch-vm"}}'

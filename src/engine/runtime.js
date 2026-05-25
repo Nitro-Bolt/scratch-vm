@@ -44,6 +44,7 @@ const defaultBlockPackages = {
     scratch3_motion: require('../blocks/scratch3_motion'),
     scratch3_operators: require('../blocks/scratch3_operators'),
     scratch3_sound: require('../blocks/scratch3_sound'),
+    scratch3_assets: require('../blocks/scratch3_assets'),
     scratch3_sensing: require('../blocks/scratch3_sensing'),
     scratch3_data: require('../blocks/scratch3_data'),
     scratch3_json: require('../blocks/scratch3_json'),
@@ -2826,6 +2827,10 @@ class Runtime extends EventEmitter {
      * Queue monitor blocks to sequencer to be run.
      */
     _pushMonitors () {
+        if (this.targets.length === 0) {
+            // Project is not loaded yet, but monitors might be. Don't try to start anything.
+            return;
+        }
         this.monitorBlocks.runAllMonitored(this);
     }
 
