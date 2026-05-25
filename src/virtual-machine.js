@@ -634,7 +634,7 @@ class VirtualMachine extends EventEmitter {
             acc
                 .concat(target.sprite.sounds.map(sound => sound.asset))
                 .concat(target.sprite.costumes.map(costume => costume.asset))
-                .concat(target.sprite.assets).map(asset => asset.asset)
+                .concat(target.sprite.assets.map(asset => asset.asset))
         ), []);
         const fonts = this.runtime.fontManager.serializeAssets();
         return [
