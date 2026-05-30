@@ -378,6 +378,8 @@ class JSGenerator {
             return `(Math.round(Math.cos((Math.PI * ${this.descendInput(node.value)}) / 180) * 1e10) / 1e10)`;
         case InputOpcode.OP_DIVIDE:
             return `(${this.descendInput(node.left)} / ${this.descendInput(node.right)})`;
+        case InputOpcode.OP_POWER:
+            return `((${this.descendInput(node.left)}) ** ${this.descendInput(node.right)})`;
         case InputOpcode.OP_EQUALS: {
             const left = node.left;
             const right = node.right;
@@ -768,7 +770,7 @@ class JSGenerator {
 
             if (!this.forEachInRangeStack) this.forEachInRangeStack = [];
             this.forEachInRangeStack.push(loopVar);
-        
+
             this.source += `const ${fromVar} = Math.round(${from});\n`;
             this.source += `const ${toVar} = Math.round(${to});\n`;
             this.source += `const ${stepVar} = ${fromVar} <= ${toVar} ? 1 : -1;\n`;
@@ -904,15 +906,15 @@ class JSGenerator {
             const array = this.descendInput(node.array);
             const valVar = this.localVariables.next();
             const indVar = this.localVariables.next();
-        
+
             if (!this.foreachVarsStack) this.foreachVarsStack = [];
             this.foreachVarsStack.push({value: valVar, index: indVar});
-        
+
             this.source += `for (const [${indVar}, ${valVar}] of [...${array}].entries()) {\n`;
             if (node.substack) this.descendStack(node.substack, new Frame(true));
             this.yieldLoop();
             this.source += `}\n`;
-        
+
             this.foreachVarsStack.pop();
             break;
         }

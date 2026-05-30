@@ -525,6 +525,11 @@ class ScriptTreeGenerator {
                 left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
                 right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
             });
+        case 'operator_power':
+            return new IntermediateInput(InputOpcode.OP_POWER, InputType.NUMBER_OR_NAN, {
+                left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
+                right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
+            });
         case 'operator_equals':
             return new IntermediateInput(InputOpcode.OP_EQUALS, InputType.BOOLEAN, {
                 left: this.descendInputOfBlock(block, 'OPERAND1'),
@@ -578,7 +583,7 @@ class ScriptTreeGenerator {
         case 'operator_cast': {
             const type = block.fields.TYPE.value.toLowerCase();
             const value = this.descendInputOfBlock(block, 'VALUE');
-        
+
             switch (type) {
             case 'string': return new IntermediateInput(InputOpcode.CAST_STRING, InputType.STRING, {target: value});
             case 'number': return new IntermediateInput(InputOpcode.CAST_NUMBER, InputType.NUMBER, {target: value});
