@@ -1476,6 +1476,17 @@ class Runtime extends EventEmitter {
         // All extension blocks have from_extension
         blockJSON.extensions.push('from_extension');
 
+        // nb: Adds support for block switches
+        if (blockInfo.switches) {
+            blockJSON.switches = blockInfo.switches.map(switchData => {
+                let data = typeof switchData === 'string' ? { opcode: switchData, rawId: false } : { ...switchData };
+                if (data.rawId !== true) {
+                    data.opcode = `${categoryInfo.id}_${data.opcode}`;
+                }
+                return data;
+            });
+        }
+
         // Allow easily detecting which blocks use default colors
         if (
             blockJSON.colour === defaultExtensionColors[0] &&
