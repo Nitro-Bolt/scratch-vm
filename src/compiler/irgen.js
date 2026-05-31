@@ -721,6 +721,14 @@ class ScriptTreeGenerator {
             }
             return new IntermediateInput(InputOpcode.OP_DIVIDE_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
         }
+        case 'operator_power_extendable': {
+            const count = +block.fields.NUMS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
+            }
+            return new IntermediateInput(InputOpcode.OP_POWER_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+        }
         case 'operator_and_extendable': {
             const count = +block.fields.OPERANDS.value;
             const operands = [];

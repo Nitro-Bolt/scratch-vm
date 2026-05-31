@@ -304,6 +304,7 @@ const InputOpcode = {
     OP_SUBTRACT_EXTENDABLE: 'op.subtract_extendable',
     OP_MULTIPLY_EXTENDABLE: 'op.multiply_extendable',
     OP_DIVIDE_EXTENDABLE: 'op.divide_extendable',
+    OP_POWER_EXTENDABLE: 'op.power_extendable',
     OP_AND_EXTENDABLE: 'op.and_extendable',
     OP_OR_EXTENDABLE: 'op.or_extendable',
     OP_JOIN_EXTENDABLE: 'op.join_extendable',
