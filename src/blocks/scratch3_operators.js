@@ -32,9 +32,12 @@ class Scratch3OperatorsBlocks {
             operator_or: this.or,
             operator_and_extendable: this.andExtendable,
             operator_or_extendable: this.orExtendable,
+            operator_and_extendable: this.andExtendable,
+            operator_or_extendable: this.orExtendable,
             operator_not: this.not,
             operator_random: this.random,
             operator_join: this.join,
+            operator_join_extendable: this.joinExtendable,
             operator_join_extendable: this.joinExtendable,
             operator_letter_of: this.letterOf,
             operator_length: this.length,
@@ -49,6 +52,7 @@ class Scratch3OperatorsBlocks {
     }
 
     checkbox () {
+        return true;
         return true;
     }
 
@@ -66,6 +70,26 @@ class Scratch3OperatorsBlocks {
 
     divide (args) {
         return Cast.toNumber(args.NUM1) / Cast.toNumber(args.NUM2);
+    }
+    
+    addExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'NUMS', 'NUM');
+        return arr.reduce((a, b) => Cast.toNumber(a) + Cast.toNumber(b));
+    }
+    
+    subtractExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'NUMS', 'NUM');
+        return arr.reduce((a, b) => Cast.toNumber(a) + Cast.toNumber(b));
+    }
+    
+    multiplyExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'NUMS', 'NUM');
+        return arr.reduce((a, b) => Cast.toNumber(a) * Cast.toNumber(b));
+    }
+    
+    divideExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'NUMS', 'NUM');
+        return arr.reduce((a, b) => Cast.toNumber(a) / Cast.toNumber(b));
     }
 
     power (args) {
@@ -122,6 +146,16 @@ class Scratch3OperatorsBlocks {
         return arr.some(Cast.toBoolean);
     }
 
+    andExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        return !arr.some(input => !Cast.toBoolean(input));
+    }
+
+    orExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        return arr.some(Cast.toBoolean);
+    }
+
     not (args) {
         return !Cast.toBoolean(args.OPERAND);
     }
@@ -144,6 +178,11 @@ class Scratch3OperatorsBlocks {
 
     join (args) {
         return Cast.toString(args.STRING1) + Cast.toString(args.STRING2);
+    }
+
+    joinExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'STRINGS', 'STRING');
+        return arr.reduce((a, b) => a + Cast.toString(b), '');
     }
 
     joinExtendable (args, util) {
