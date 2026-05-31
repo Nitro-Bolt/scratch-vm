@@ -278,6 +278,15 @@ class JSGenerator {
 
         case InputOpcode.JSON_NEW_OBJECT:
             return 'new Object()';
+        case InputOpcode.JSON_OBJECT_EXTENDABLE: {
+            const entries = [];
+            for (let i = 0; i < node.count; i++) {
+                entries.push(
+                    `[${this.descendInput(node.keys[i])},${this.descendInput(node.values[i])}]`
+                );
+            }
+            return `Object.fromEntries([${entries.join(',')}])`;
+        }
         case InputOpcode.JSON_GET_PROPERTIES: {
             const property = node.property;
             const obj = this.descendInput(node.object);
@@ -302,6 +311,8 @@ class JSGenerator {
             return `${this.descendInput(node.object)}.hasOwnProperty(${this.descendInput(node.key)})`;
         case InputOpcode.JSON_NEW_ARRAY:
             return 'new Array()';
+        case InputOpcode.JSON_ARRAY_EXTENDABLE:
+            return `[${node.items.map(item =>this.descendInput(item)).join(',')}]`;
         case InputOpcode.JSON_VALUE_OF_INDEX:
             return `arrayValueOfIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_INDEX_OF_VALUE:

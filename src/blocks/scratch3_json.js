@@ -16,6 +16,7 @@ class Scratch3JSONBlocks {
     getPrimitives () {
         return {
             json_new_object: this.newObject,
+            json_object_extendable: this.objectExtendable,
             json_get_properties: this.getProperties,
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
@@ -23,6 +24,7 @@ class Scratch3JSONBlocks {
             json_merge_object: this.mergeObject,
             json_has_key: this.hasKey,
             json_new_array: this.newArray,
+            json_array_extendable: this.arrayExtendable,
             json_value_of_index: this.valueOfIndex,
             json_index_of_value: this.indexOfValue,
             json_add_item: this.addItem,
@@ -42,6 +44,12 @@ class Scratch3JSONBlocks {
 
     newObject () {
         return new Object();
+    }
+
+    objectExtendable(args, util) {
+        const keys = util.extendableToArray(args, 'ITEMS', 'KEY');
+        const vals = util.extendableToArray(args, 'ITEMS', 'VALUE');
+        return Object.fromEntries(keys.map((key, i) => [key, vals[i]]));
     }
 
     getProperties (args) {
@@ -94,6 +102,10 @@ class Scratch3JSONBlocks {
 
     newArray () {
         return new Array();
+    }
+
+    arrayExtendable(args, util) {
+        return [...util.extendableToArray(args, 'ITEMS', 'ITEM')];
     }
 
     valueOfIndex (args) {

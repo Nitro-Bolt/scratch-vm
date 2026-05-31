@@ -363,6 +363,24 @@ class ScriptTreeGenerator {
 
         case 'json_new_object':
             return new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT);
+        case 'json_object_extendable': {
+            const count = +block.fields.ITEMS.value;
+            const keys = [];
+            const values = [];
+            for (let i = 0; i < count; i++) {
+                keys.push(
+                    this.descendInputOfBlock(block, `ITEMS_${i}_KEY`).toType(InputType.STRING)
+                );
+                values.push(
+                    this.descendInputOfBlock(block, `ITEMS_${i}_VALUE`)
+                );
+            }
+            return new IntermediateInput(
+                InputOpcode.JSON_OBJECT_EXTENDABLE,
+                InputType.OBJECT,
+                {keys, values, count}
+            );
+        }
         case 'json_get_properties': {
             const property = block.fields.PROPERTY.value.toLowerCase();
             return new IntermediateInput(InputOpcode.JSON_GET_PROPERTIES, InputType.ARRAY, {
@@ -405,6 +423,20 @@ class ScriptTreeGenerator {
             });
         case 'json_new_array':
             return new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY);
+        case 'json_array_extendable': {
+            const count = +block.fields.ITEMS.value;
+            const items = [];
+            for (let i = 0; i < count; i++) {
+                items.push(
+                    this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`)
+                );
+            }
+            return new IntermediateInput(
+                InputOpcode.JSON_ARRAY_EXTENDABLE,
+                InputType.ARRAY,
+                {items, count}
+            );
+        }
         case 'json_value_of_index':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_INDEX, InputType.ANY, {
                 index: this.descendInputOfBlock(block, 'INDEX'),

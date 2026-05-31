@@ -20,7 +20,6 @@ class Scratch3OperatorsBlocks {
             operator_subtract: this.subtract,
             operator_multiply: this.multiply,
             operator_divide: this.divide,
-            operator_power: this.power,
             operator_add_extendable: this.addExtendable,
             operator_subtract_extendable: this.subtractExtendable,
             operator_multiply_extendable: this.multiplyExtendable,
@@ -68,10 +67,6 @@ class Scratch3OperatorsBlocks {
 
     divide (args) {
         return Cast.toNumber(args.NUM1) / Cast.toNumber(args.NUM2);
-    }
-
-    power (args) {
-        return Cast.toNumber(args.NUM1) ** Cast.toNumber(args.NUM2);
     }
     
     addExtendable (args, util) {
