@@ -689,6 +689,62 @@ class ScriptTreeGenerator {
                 left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
                 right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
             });
+        case 'operator_add_extendable': {
+            const count = +block.fields.NUMS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
+            }
+            return new IntermediateInput(InputOpcode.OP_ADD_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+        }
+        case 'operator_subtract_extendable': {
+            const count = +block.fields.NUMS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
+            }
+            return new IntermediateInput(InputOpcode.OP_SUBTRACT_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+        }
+        case 'operator_multiply_extendable': {
+            const count = +block.fields.NUMS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
+            }
+            return new IntermediateInput(InputOpcode.OP_MULTIPLY_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+        }
+        case 'operator_divide_extendable': {
+            const count = +block.fields.NUMS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
+            }
+            return new IntermediateInput(InputOpcode.OP_DIVIDE_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+        }
+        case 'operator_and_extendable': {
+            const count = +block.fields.OPERANDS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`).toType(InputType.BOOLEAN));
+            }
+            return new IntermediateInput(InputOpcode.OP_AND_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+        }
+        case 'operator_or_extendable': {
+            const count = +block.fields.OPERANDS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`).toType(InputType.BOOLEAN));
+            }
+            return new IntermediateInput(InputOpcode.OP_OR_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+        }
+        case 'operator_join_extendable': {
+            const count = +block.fields.STRINGS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `STRINGS_${i}_STRING`).toType(InputType.STRING));
+            }
+            return new IntermediateInput(InputOpcode.OP_JOIN_EXTENDABLE, InputType.STRING, {operands, count});
+        }
 
         case 'procedures_call': {
             const procedureInfo = this.getProcedureInfo(block);
@@ -938,6 +994,29 @@ class ScriptTreeGenerator {
                 to: this.descendInputOfBlock(block, 'TO').toType(InputType.NUMBER),
                 do: this.descendSubstack(block, 'SUBSTACK')
             }, this.analyzeLoop());
+        case 'control_if_extendable': {
+            const count = +block.fields.BRANCHES.value;
+            const branches = [];
+            for (let i = 0; i < count; i++) {
+                branches.push({
+                    condition: this.descendInputOfBlock(block, `BRANCHES_${i}_CONDITION`).toType(InputType.BOOLEAN),
+                    do: this.descendSubstack(block, `BRANCHES_${i}_BRANCH`)
+                });
+            }
+            return new IntermediateStackBlock(StackOpcode.CONTROL_IF_EXTENDABLE, {branches, count});
+        }
+        case 'control_if_else_extendable': {
+            const count = +block.fields.BRANCHES.value;
+            const branches = [];
+            for (let i = 0; i < count; i++) {
+                branches.push({
+                    condition: this.descendInputOfBlock(block, `BRANCHES_${i}_CONDITION`).toType(InputType.BOOLEAN),
+                    do: this.descendSubstack(block, `BRANCHES_${i}_BRANCH`)
+                });
+            }
+            const elseDo = this.descendSubstack(block, 'ELSE');
+            return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE_EXTENDABLE, {branches, count, elseDo});
+        }
 
         case 'data_addtotable': {
             const dimension = block.fields.DIMENSION.value;

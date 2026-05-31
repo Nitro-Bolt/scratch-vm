@@ -482,6 +482,27 @@ class JSGenerator {
             const value = this.descendInput(node.target);
             return `(Array.isArray(${value}) ? "array" : typeof ${value})`;
         }
+        case InputOpcode.OP_ADD_EXTENDABLE:
+            if (node.count === 0) return '0';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' + ')})`;
+        case InputOpcode.OP_SUBTRACT_EXTENDABLE:
+            if (node.count === 0) return '0';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' - ')})`;
+        case InputOpcode.OP_MULTIPLY_EXTENDABLE:
+            if (node.count === 0) return '0';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' * ')})`;
+        case InputOpcode.OP_DIVIDE_EXTENDABLE:
+            if (node.count === 0) return '0';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' / ')})`;
+        case InputOpcode.OP_AND_EXTENDABLE:
+            if (node.count === 0) return 'true';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' && ')})`;
+        case InputOpcode.OP_OR_EXTENDABLE:
+            if (node.count === 0) return 'false';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' || ')})`;
+        case InputOpcode.OP_JOIN_EXTENDABLE:
+            if (node.count === 0) return '""';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' + ')})`;
 
         case InputOpcode.PROCEDURE_CALL: {
             const procedureCode = node.code;
@@ -781,6 +802,38 @@ class JSGenerator {
             this.source += `}\n`;
 
             this.forEachInRangeStack.pop();
+            break;
+        }
+        case StackOpcode.CONTROL_IF_EXTENDABLE: {
+            for (let i = 0; i < node.count; i++) {
+                const branch = node.branches[i];
+                if (i === 0) {
+                    this.source += `if (${this.descendInput(branch.condition)}) {\n`;
+                } else {
+                    this.source += `} else if (${this.descendInput(branch.condition)}) {\n`;
+                }
+                this.descendStack(branch.do, new Frame(false));
+            }
+            if (node.count > 0) this.source += '}\n';
+            break;
+        }
+        case StackOpcode.CONTROL_IF_ELSE_EXTENDABLE: {
+            for (let i = 0; i < node.count; i++) {
+                const branch = node.branches[i];
+                if (i === 0) {
+                    this.source += `if (${this.descendInput(branch.condition)}) {\n`;
+                } else {
+                    this.source += `} else if (${this.descendInput(branch.condition)}) {\n`;
+                }
+                this.descendStack(branch.do, new Frame(false));
+            }
+            if (node.count > 0) {
+                this.source += '} else {\n';
+            } else {
+                this.source += 'if (true) {\n'; 
+            }
+            this.descendStack(node.elseDo, new Frame(false));
+            this.source += '}\n';
             break;
         }
 

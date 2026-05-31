@@ -131,6 +131,8 @@ const StackOpcode = {
     CONTROL_CLEAR_COUNTER: 'control.counterClear',
     CONTORL_INCR_COUNTER: 'control.counterIncr',
     CONTROL_FOREACH_IN_RANGE: 'control.forEachInRange',
+    CONTROL_IF_EXTENDABLE: 'control.if_extendable',
+    CONTROL_IF_ELSE_EXTENDABLE: 'control.if_else_extendable',
 
     TABLE_ADD: 'table.add',
     TABLE_INSERT: 'table.insert',
@@ -298,6 +300,13 @@ const InputOpcode = {
     OP_ROUND: 'op.round',
     OP_SUBTRACT: 'op.subtract',
     OP_TYPEOF: 'op.typeof',
+    OP_ADD_EXTENDABLE: 'op.add_extendable',
+    OP_SUBTRACT_EXTENDABLE: 'op.subtract_extendable',
+    OP_MULTIPLY_EXTENDABLE: 'op.multiply_extendable',
+    OP_DIVIDE_EXTENDABLE: 'op.divide_extendable',
+    OP_AND_EXTENDABLE: 'op.and_extendable',
+    OP_OR_EXTENDABLE: 'op.or_extendable',
+    OP_JOIN_EXTENDABLE: 'op.join_extendable',
 
     SENSING_ANSWER: 'sensing.answer',
     SENSING_COLOR_TOUCHING_COLOR: 'sensing.colorTouchingColor',
