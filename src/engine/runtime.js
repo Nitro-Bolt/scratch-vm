@@ -122,6 +122,11 @@ const ArgumentTypeMap = (() => {
         // They are more analagous to the label on a block.
         fieldType: 'field_image'
     };
+    map[ArgumentType.EXTENDABLE] = {
+        // Also not an "argument" in the traditional sense, 
+        // but it makes more sense to count it as one.
+        fieldType: 'extendable'
+    };
     map[ArgumentType.COSTUME] = {
         shadow: {
             type: 'looks_costume',
@@ -1736,6 +1741,175 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Converts an argument into Blockly JSON.
+     * @param {string} name 
+     * @param {bject} argInfo - information about the argument.
+     * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
+     * @param {boolean} generateXml - do we generate the XML for this argument?
+     * @returns 
+     */
+    _convertArgument(name, argInfo, context, generateXml = false) {
+        const argTypeInfo = ArgumentTypeMap[argInfo.type];
+    
+        let argJSON;
+    
+        if (argTypeInfo.fieldType === 'field_image') {
+            argJSON = this._constructInlineImageJson(argInfo);
+        } else if (argTypeInfo.fieldType) {
+            argJSON = {
+                type: argTypeInfo.fieldType,
+                name
+            };
+    
+            if (argInfo.type === ArgumentType.EXTENDABLE) {
+                argJSON = {
+                    type: 'extendable',
+                    name,
+                    args: this._convertExtendableArgs(
+                        argInfo,
+                        context
+                    ),
+                    defaultInputs: argInfo.defaultInputs || 0,
+                    minInputs: argInfo.minInputs || 0,
+                    maxInputs: argInfo.maxInputs || Infinity,
+                    separator: argInfo.separator || undefined
+                };
+            }
+    
+            if (argTypeInfo.variableTypes) {
+                argJSON.variableTypes = argTypeInfo.variableTypes;
+            }
+            if (argTypeInfo.allowEmpty) {
+                argJSON.allowEmpty = true;
+            }
+        } else {
+            // Construct input value
+
+            // Layout a block argument (e.g. an input slot on the block)
+            argJSON = {
+                type: 'input_value',
+                name
+            };
+
+            const defaultValue =
+                typeof argInfo.defaultValue === 'undefined' ? null :
+                    maybeFormatMessage(argInfo.defaultValue, this.makeMessageContextForTarget()).toString();
+
+            if (argTypeInfo.check) {
+                // Right now the only type of 'check' we have specifies that the
+                // input slot on the block accepts Boolean reporters, so it should be
+                // shaped like a hexagon
+                argJSON.check = argTypeInfo.check;
+            }
+
+            let valueName;
+            let shadowType;
+            let fieldName;
+            if (argInfo.menu) {
+                const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
+                if (menuInfo.acceptReporters) {
+                    valueName = name;
+                    shadowType = this._makeExtensionMenuId(
+                        argInfo.menu,
+                        context.categoryInfo.id
+                    );
+                    fieldName = argInfo.menu;
+                } else {
+                    if (menuInfo.acceptText) {
+                        argJSON.type = 'field_textdropdown';
+                        argJSON.text = defaultValue || '';
+                    } else {
+                        argJSON.type = 'field_dropdown';
+                    }
+                    argJSON.options = this._convertMenuItems(menuInfo.items);
+                    valueName = null;
+                    shadowType = null;
+                    fieldName = name;
+                }
+            } else {
+                valueName = name;
+                shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
+                fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+
+                if (typeof argInfo.shadow === 'string') {
+                    shadowType = `${context.categoryInfo.id}_${argInfo.shadow}`;
+                    fieldName = null;
+                }
+            }
+            
+            if (generateXml) {
+                if (valueName) {
+                    context.inputList.push(
+                        `<value name="${xmlEscape(name)}">`
+                    );
+                }
+                if (shadowType) {
+                    context.inputList.push(
+                        `<shadow type="${xmlEscape(shadowType)}">`
+                    );
+                }
+                if (defaultValue !== null && fieldName) {
+                    context.inputList.push(
+                        `<field name="${xmlEscape(fieldName)}">${xmlEscape(defaultValue)}</field>`
+                    );
+                }
+                if (shadowType) {
+                    context.inputList.push('</shadow>');
+                }
+                if (valueName) {
+                    context.inputList.push('</value>');
+                }
+            }
+    
+            if (!generateXml && shadowType) {
+                argJSON.shadowOpcode = shadowType;
+                argJSON.shadowFieldName = fieldName;
+                argJSON.shadowFieldValue = defaultValue;
+            }
+        }
+    
+        return argJSON;
+    }
+
+    _convertExtendableArgs(argInfo, context) {
+        const text = String(argInfo.text || '');
+        const args = argInfo.arguments || {};
+        const elements = [];
+    
+        const re = /\[(.+?)\]/g;
+        let lastIndex = 0;
+        let match;
+    
+        while ((match = re.exec(text))) {
+            const literal = text.slice(lastIndex, match.index);
+            if (literal) {
+                elements.push({
+                    type: 'field_label', 
+                    text: literal
+                });
+            }
+    
+            const argName = match[1];
+            const innerArgInfo = args[argName] || {};
+            elements.push(
+                this._convertArgument(argName, innerArgInfo, context, false)
+            );
+    
+            lastIndex = re.lastIndex;
+        }
+    
+        const tail = text.slice(lastIndex);
+        if (tail) {
+            elements.push({
+                type: 'field_label', 
+                text: tail
+            });
+        }
+    
+        return elements;
+    }
+
+    /**
      * Helper for _convertForScratchBlocks which handles linearization of argument placeholders. Called as a callback
      * from string#replace. In addition to the return value the JSON and XML items in the context will be filled.
      * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
@@ -1756,101 +1930,12 @@ class Runtime extends EventEmitter {
 
         // Start to construct the scratch-blocks style JSON defining how the block should be
         // laid out
-        let argJSON;
-
-        // Most field types are inputs (slots on the block that can have other blocks plugged into them)
-        // check if this is not one of those cases. E.g. an inline image on a block.
-        if (argTypeInfo.fieldType === 'field_image') {
-            argJSON = this._constructInlineImageJson(argInfo);
-        } else if (argTypeInfo.fieldType) {
-            argJSON = {
-                type: argTypeInfo.fieldType,
-                name: placeholder
-            };
-
-            if (argTypeInfo.variableTypes) {
-                argJSON.variableTypes = argTypeInfo.variableTypes;
-            }
-            if (argTypeInfo.allowEmpty) {
-                argJSON.allowEmpty = true;
-            }
-        } else {
-            // Construct input value
-
-            // Layout a block argument (e.g. an input slot on the block)
-            argJSON = {
-                type: 'input_value',
-                name: placeholder
-            };
-
-            const defaultValue =
-                typeof argInfo.defaultValue === 'undefined' ? null :
-                    maybeFormatMessage(argInfo.defaultValue, this.makeMessageContextForTarget()).toString();
-
-            if (argTypeInfo.check) {
-                // Right now the only type of 'check' we have specifies that the
-                // input slot on the block accepts Boolean reporters, so it should be
-                // shaped like a hexagon
-                argJSON.check = argTypeInfo.check;
-            }
-
-            let valueName;
-            let shadowType;
-            let fieldName;
-            if (argInfo.menu) {
-                const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
-                if (menuInfo.acceptReporters) {
-                    valueName = placeholder;
-                    shadowType = this._makeExtensionMenuId(argInfo.menu, context.categoryInfo.id);
-                    fieldName = argInfo.menu;
-                } else {
-                    if (menuInfo.acceptText) {
-                        argJSON.type = 'field_textdropdown';
-                        argJSON.text = defaultValue || '';
-                    } else {
-                        argJSON.type = 'field_dropdown';
-                    }
-                    argJSON.options = this._convertMenuItems(menuInfo.items);
-                    valueName = null;
-                    shadowType = null;
-                    fieldName = placeholder;
-                }
-            } else {
-                valueName = placeholder;
-                shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
-                fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
-
-                if (typeof argInfo.shadow === 'string') {
-                    shadowType = `${context.categoryInfo.id}_${argInfo.shadow}`;
-                    fieldName = null;
-                }
-            }
-
-            // <value> is the ScratchBlocks name for a block input.
-            if (valueName) {
-                context.inputList.push(`<value name="${xmlEscape(placeholder)}">`);
-            }
-
-            // The <shadow> is a placeholder for a reporter and is visible when there's no reporter in this input.
-            // Boolean inputs don't need to specify a shadow in the XML.
-            if (shadowType) {
-                context.inputList.push(`<shadow type="${xmlEscape(shadowType)}">`);
-            }
-
-            // A <field> displays a dynamic value: a user-editable text field, a drop-down menu, etc.
-            // Leave out the field if defaultValue or fieldName are not specified
-            if (defaultValue !== null && fieldName) {
-                context.inputList.push(`<field name="${xmlEscape(fieldName)}">${xmlEscape(defaultValue)}</field>`);
-            }
-
-            if (shadowType) {
-                context.inputList.push('</shadow>');
-            }
-
-            if (valueName) {
-                context.inputList.push('</value>');
-            }
-        }
+        let argJSON = this._convertArgument(
+            placeholder,
+            argInfo,
+            context,
+            true
+        );
 
         const argsName = `args${context.outLineNum}`;
         const blockArgs = (context.blockJSON[argsName] = context.blockJSON[argsName] || []);

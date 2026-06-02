@@ -683,7 +683,12 @@ class Blocks {
 
 
             // Update block value
-            if (!block.fields[args.name]) return;
+            if (!block.fields[args.name]) {
+                block.fields[args.name] = {
+                    name: args.name,
+                    value: args.value
+                };
+            }
             if (args.name === 'VARIABLE' ||
                 args.name === 'LIST' ||
                 args.name === 'TABLE' ||
