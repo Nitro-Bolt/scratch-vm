@@ -46,7 +46,7 @@ class Scratch3JSONBlocks {
         return new Object();
     }
 
-    objectExtendable(args, util) {
+    objectExtendable (args, util) {
         const keys = util.extendableToArray(args, 'ITEMS', 'KEY');
         const vals = util.extendableToArray(args, 'ITEMS', 'VALUE');
         return Object.fromEntries(keys.map((key, i) => [key, vals[i]]));
@@ -104,7 +104,7 @@ class Scratch3JSONBlocks {
         return new Array();
     }
 
-    arrayExtendable(args, util) {
+    arrayExtendable (args, util) {
         return [...util.extendableToArray(args, 'ITEMS', 'ITEM')];
     }
 

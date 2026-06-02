@@ -744,7 +744,7 @@ class RenderedTarget extends Target {
         return this.sprite.sounds;
     }
 
-    /***
+    /** *
      * Get full asset list
      * @returns {object[]} list of assets
      */

@@ -123,7 +123,7 @@ const ArgumentTypeMap = (() => {
         fieldType: 'field_image'
     };
     map[ArgumentType.EXTENDABLE] = {
-        // Also not an "argument" in the traditional sense, 
+        // Also not an "argument" in the traditional sense,
         // but it makes more sense to count it as one.
         fieldType: 'extendable'
     };
@@ -1484,7 +1484,7 @@ class Runtime extends EventEmitter {
         // nb: Adds support for block switches
         if (blockInfo.switches) {
             blockJSON.switches = blockInfo.switches.map(switchData => {
-                let data = typeof switchData === 'string' ? { opcode: switchData, rawId: false } : { ...switchData };
+                const data = typeof switchData === 'string' ? {opcode: switchData, rawId: false} : {...switchData};
                 if (data.rawId !== true) {
                     data.opcode = `${categoryInfo.id}_${data.opcode}`;
                 }
@@ -1742,13 +1742,13 @@ class Runtime extends EventEmitter {
 
     /**
      * Converts an argument into Blockly JSON.
-     * @param {string} name 
+     * @param {string} name
      * @param {bject} argInfo - information about the argument.
      * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
      * @param {boolean} generateXml - do we generate the XML for this argument?
-     * @returns 
+     * @returns
      */
-    _convertArgument(name, argInfo, context, generateXml = false) {
+    _convertArgument (name, argInfo, context, generateXml = false) {
         const argTypeInfo = ArgumentTypeMap[argInfo.type];
     
         let argJSON;
@@ -1871,7 +1871,7 @@ class Runtime extends EventEmitter {
         return argJSON;
     }
 
-    _convertExtendableArgs(argInfo, context) {
+    _convertExtendableArgs (argInfo, context) {
         const text = String(argInfo.text || '');
         const args = argInfo.arguments || {};
         const elements = [];
@@ -1884,7 +1884,7 @@ class Runtime extends EventEmitter {
             const literal = text.slice(lastIndex, match.index);
             if (literal) {
                 elements.push({
-                    type: 'field_label', 
+                    type: 'field_label',
                     text: literal
                 });
             }
@@ -1901,7 +1901,7 @@ class Runtime extends EventEmitter {
         const tail = text.slice(lastIndex);
         if (tail) {
             elements.push({
-                type: 'field_label', 
+                type: 'field_label',
                 text: tail
             });
         }
@@ -1930,7 +1930,7 @@ class Runtime extends EventEmitter {
 
         // Start to construct the scratch-blocks style JSON defining how the block should be
         // laid out
-        let argJSON = this._convertArgument(
+        const argJSON = this._convertArgument(
             placeholder,
             argInfo,
             context,

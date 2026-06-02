@@ -312,7 +312,7 @@ class JSGenerator {
         case InputOpcode.JSON_NEW_ARRAY:
             return 'new Array()';
         case InputOpcode.JSON_ARRAY_EXTENDABLE:
-            return `[${node.items.map(item =>this.descendInput(item)).join(',')}]`;
+            return `[${node.items.map(item => this.descendInput(item)).join(',')}]`;
         case InputOpcode.JSON_VALUE_OF_INDEX:
             return `arrayValueOfIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_INDEX_OF_VALUE:
@@ -841,7 +841,7 @@ class JSGenerator {
             if (node.count > 0) {
                 this.source += '} else {\n';
             } else {
-                this.source += 'if (true) {\n'; 
+                this.source += 'if (true) {\n';
             }
             this.descendStack(node.elseDo, new Frame(false));
             this.source += '}\n';

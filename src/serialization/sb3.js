@@ -508,7 +508,7 @@ const serializeAsset = function (asset) {
     obj.md5ext = asset.md5;
     obj.contentType = asset.asset.assetType.contentType;
     return obj;
-}
+};
 
 /**
  * Serialize the given variables object.

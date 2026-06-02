@@ -434,7 +434,7 @@ class Thread {
      * Get the bottom (last) block id in this thread's stack.
      * @returns {?string} The bottom block id, or null if not found.
      */
-    getBottomBlockId() {
+    getBottomBlockId () {
         if (!this.topBlock || !this.target || !this.target.blocks) return null;
         let blockId = this.topBlock;
         let nextBlock;
