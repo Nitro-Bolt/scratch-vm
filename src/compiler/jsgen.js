@@ -307,6 +307,8 @@ class JSGenerator {
             return `(object = Object.assign({}, ${this.descendInput(node.object)}), delete object[${this.descendInput(node.key)}], object)`;
         case InputOpcode.JSON_MERGE_OBJECT:
             return `mergeObjects(${this.descendInput(node.object1)}, ${this.descendInput(node.object2)})`;
+        case InputOpcode.JSON_MERGE_OBJECT_EXTENDABLE:
+            return `mergeObjects(${node.items.map(i => this.descendInput(i)).join(', ')})`;
         case InputOpcode.JSON_HAS_KEY:
             return `${this.descendInput(node.object)}.hasOwnProperty(${this.descendInput(node.key)})`;
         case InputOpcode.JSON_NEW_ARRAY:
@@ -327,6 +329,8 @@ class JSGenerator {
             return `${this.descendInput(node.array)}.filter((item) => item !== ${this.descendInput(node.item)})`;
         case InputOpcode.JSON_MERGE_ARRAY:
             return `${this.descendInput(node.array1)}.concat(${this.descendInput(node.array2)})`;
+        case InputOpcode.JSON_MERGE_ARRAY_EXTENDABLE:
+            return `mergeArrays(${node.items.map(i => this.descendInput(i)).join(', ')})`;
         case InputOpcode.JSON_HAS_ITEM:
             return `${this.descendInput(node.array)}.includes(${this.descendInput(node.item)})`;
         case InputOpcode.JSON_ARRAY_LENGTH:
@@ -828,23 +832,16 @@ class JSGenerator {
             if (node.count > 0) this.source += '}\n';
             break;
         }
-        case StackOpcode.CONTROL_IF_ELSE_EXTENDABLE: {
+        case StackOpcode.CONTROL_SWITCH: {
+            this.source += `switch (${this.descendInput(node.switch)}) {\n`;
             for (let i = 0; i < node.count; i++) {
-                const branch = node.branches[i];
-                if (i === 0) {
-                    this.source += `if (${this.descendInput(branch.condition)}) {\n`;
-                } else {
-                    this.source += `} else if (${this.descendInput(branch.condition)}) {\n`;
-                }
-                this.descendStack(branch.do, new Frame(false));
+                const caseNode = node.cases[i];
+                this.source += `case (${this.descendInput(caseNode.value)}): {\n`;
+                this.descendStack(caseNode.do, new Frame(false));
+                this.source += `break;}\n`;
             }
-            if (node.count > 0) {
-                this.source += '} else {\n';
-            } else {
-                this.source += 'if (true) {\n';
-            }
-            this.descendStack(node.elseDo, new Frame(false));
-            this.source += '}\n';
+            this.source += `}\n`;
+            console.log(this.source)
             break;
         }
 

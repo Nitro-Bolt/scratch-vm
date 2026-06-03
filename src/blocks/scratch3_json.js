@@ -22,9 +22,11 @@ class Scratch3JSONBlocks {
             json_set_key: this.setKey,
             json_delete_key: this.deleteKey,
             json_merge_object: this.mergeObject,
+            json_merge_object_extendable: this.mergeObjectExtendable,
             json_has_key: this.hasKey,
             json_new_array: this.newArray,
             json_array_extendable: this.arrayExtendable,
+            json_merge_array_extendable: this.mergeArrayExtendable,
             json_value_of_index: this.valueOfIndex,
             json_index_of_value: this.indexOfValue,
             json_add_item: this.addItem,
@@ -94,6 +96,11 @@ class Scratch3JSONBlocks {
         return Object.fromEntries(Object.entries(obj1).concat(Object.entries(obj2)));
     }
 
+    mergeObjectExtendable (args, util) {
+        const objs = util.extendableToArray(args, 'ITEMS', 'ITEM');
+        return objs.reduce((acc, obj) => ({...acc, ...Cast.toObject(obj)}), {});
+    }
+
     hasKey (args) {
         const obj = Cast.toObject(args.OBJ);
         const key = Cast.toString(args.KEY);
@@ -152,6 +159,11 @@ class Scratch3JSONBlocks {
         const arr1 = Cast.toArray(args.ARR1);
         const arr2 = Cast.toArray(args.ARR2);
         return arr1.concat(arr2);
+    }
+
+    mergeArrayExtendable (args, util) {
+        const arrays = util.extendableToArray(args, 'ITEMS', 'ITEM');
+        return [].concat(...arrays.map(a => Cast.toArray(a)));
     }
 
     hasItem (args) {

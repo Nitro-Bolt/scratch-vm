@@ -415,6 +415,15 @@ class ScriptTreeGenerator {
                 object2: this.descendInputOfBlock(block, 'OBJ2', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
+        case 'json_merge_object_extendable': {
+            const count = +block.fields.ITEMS.value;
+            const items = [];
+            for (let i = 0; i < count; i++) {
+                items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false, 
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT));
+            }
+            return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT_EXTENDABLE, InputType.OBJECT, {items, count});
+        }
         case 'json_has_key':
             return new IntermediateInput(InputOpcode.JSON_HAS_KEY, InputType.BOOLEAN, {
                 object: this.descendInputOfBlock(block, 'OBJ', false,
@@ -481,6 +490,15 @@ class ScriptTreeGenerator {
                 array2: this.descendInputOfBlock(block, 'ARR2', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
+        case 'json_merge_array_extendable': {
+            const count = +block.fields.ITEMS.value;
+            const items = [];
+            for (let i = 0; i < count; i++) {
+                items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false, 
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY));
+            }
+            return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY_EXTENDABLE, InputType.ARRAY, {items, count});
+        }
         case 'json_has_item':
             return new IntermediateInput(InputOpcode.JSON_HAS_ITEM, InputType.BOOLEAN, {
                 array: this.descendInputOfBlock(block, 'ARR', false,
@@ -1040,22 +1058,25 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 branches.push({
                     condition: this.descendInputOfBlock(block, `BRANCHES_${i}_CONDITION`).toType(InputType.BOOLEAN),
-                    do: this.descendSubstack(block, `BRANCHES_${i}_BRANCH`)
+                    do: this.descendSubstack(block, `SUBSTACKBRANCHES_${i}_BRANCH`)
                 });
             }
             return new IntermediateStackBlock(StackOpcode.CONTROL_IF_EXTENDABLE, {branches, count});
         }
-        case 'control_if_else_extendable': {
-            const count = +block.fields.BRANCHES.value;
-            const branches = [];
+        case 'control_switch': {
+            const count = +block.fields.CASES.value;
+            const cases = [];
             for (let i = 0; i < count; i++) {
-                branches.push({
-                    condition: this.descendInputOfBlock(block, `BRANCHES_${i}_CONDITION`).toType(InputType.BOOLEAN),
-                    do: this.descendSubstack(block, `BRANCHES_${i}_BRANCH`)
+                cases.push({
+                    value: this.descendInputOfBlock(block, `CASES_${i}_CASE`),
+                    do: this.descendSubstack(block, `SUBSTACKCASES_${i}_BRANCH`)
                 });
             }
-            const elseDo = this.descendSubstack(block, 'ELSE');
-            return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE_EXTENDABLE, {branches, count, elseDo});
+            return new IntermediateStackBlock(StackOpcode.CONTROL_SWITCH, {
+                switch: this.descendInputOfBlock(block, 'SWITCH'),
+                cases,
+                count
+            });
         }
 
         case 'data_addtotable': {

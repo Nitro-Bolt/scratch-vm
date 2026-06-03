@@ -31,13 +31,21 @@ const runtimeFunctions = {};
 baseRuntime += `const nullCoalsh = (n, v) => ((n === null || n === (void 0)) ? v : n);`;
 
 /**
- * Merges 2 objects. (use this to get around spread overflow)
- * @param {object} a
- * @param {object} b
+ * Merges objects. (use this to get around spread overflow)
+ * @param {object} objs
  * @returns {object}
  */
-runtimeFunctions.mergeObjects = `const mergeObjects = (a, b) => {
-  return Object.fromEntries(Object.entries(a).concat(Object.entries(b)));
+runtimeFunctions.mergeObjects = `const mergeObjects = (...objs) => {
+  return Object.assign({}, ...objs.map(o => toObject(o)));
+};`;
+
+/**
+ * Merges arrays. (use this to get around spread overflow)
+ * @param {...Array<any>} arrs
+ * @returns {Array<any>}
+ */
+runtimeFunctions.mergeArrays = `const mergeArrays = (...arrs) => {
+  return [].concat(...arrs.map(a => toArray(a)));
 };`;
 
 baseRuntime += `const arrayIndexSlow = (index, length) => {
