@@ -120,6 +120,11 @@ class Scratch3AssetBlocks {
                 return i;
             }
         }
+        for (let i = 0; i < assets.length; i++) {
+            if (`${assets[i].name}.${assets[i].dataFormat}` === assetName) {
+                return i;
+            }
+        } 
         return -1;
     }
 }
