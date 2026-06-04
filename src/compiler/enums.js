@@ -132,6 +132,7 @@ const StackOpcode = {
     CONTORL_INCR_COUNTER: 'control.counterIncr',
     CONTROL_FOREACH_IN_RANGE: 'control.forEachInRange',
     CONTROL_IF_EXTENDABLE: 'control.ifExtendable',
+    CONTROL_IF_ELSE_EXTENDABLE: 'control.ifElseExtendable',
     CONTROL_SWITCH: 'control.switch',
 
     TABLE_ADD: 'table.add',

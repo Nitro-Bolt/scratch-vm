@@ -1063,6 +1063,18 @@ class ScriptTreeGenerator {
             }
             return new IntermediateStackBlock(StackOpcode.CONTROL_IF_EXTENDABLE, {branches, count});
         }
+        case 'control_if_else_extendable': {
+            const count = +block.fields.BRANCHES.value;
+            const branches = [];
+            for (let i = 0; i < count; i++) {
+                branches.push({
+                    condition: this.descendInputOfBlock(block, `BRANCHES_${i}_CONDITION`).toType(InputType.BOOLEAN),
+                    do: this.descendSubstack(block, `SUBSTACKBRANCHES_${i}_BRANCH`)
+                });
+            }
+            const elseBranch = this.descendSubstack(block, 'ELSE_BRANCH');
+            return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE_EXTENDABLE, {branches, count, elseBranch});
+        }
         case 'control_switch': {
             const count = +block.fields.CASES.value;
             const cases = [];
@@ -1072,10 +1084,12 @@ class ScriptTreeGenerator {
                     do: this.descendSubstack(block, `SUBSTACKCASES_${i}_BRANCH`)
                 });
             }
+            const defaultBranch = this.descendSubstack(block, 'DEFAULT_BRANCH');
             return new IntermediateStackBlock(StackOpcode.CONTROL_SWITCH, {
                 switch: this.descendInputOfBlock(block, 'SWITCH'),
                 cases,
-                count
+                count,
+                defaultBranch
             });
         }
 

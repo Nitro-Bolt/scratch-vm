@@ -832,6 +832,22 @@ class JSGenerator {
             if (node.count > 0) this.source += '}\n';
             break;
         }
+        case StackOpcode.CONTROL_IF_ELSE_EXTENDABLE: {
+            for (let i = 0; i < node.count; i++) {
+                const branch = node.branches[i];
+                if (i === 0) {
+                    this.source += `if (${this.descendInput(branch.condition)}) {\n`;
+                } else {
+                    this.source += `} else if (${this.descendInput(branch.condition)}) {\n`;
+                }
+                this.descendStack(branch.do, new Frame(false));
+            }
+            if (node.count > 0) this.source += '}\n';
+            this.source += `else {\n`;
+            this.descendStack(node.elseBranch, new Frame(false));
+            this.source += '}\n';
+            break;
+        }
         case StackOpcode.CONTROL_SWITCH: {
             this.source += `switch (${this.descendInput(node.switch)}) {\n`;
             for (let i = 0; i < node.count; i++) {
@@ -840,8 +856,9 @@ class JSGenerator {
                 this.descendStack(caseNode.do, new Frame(false));
                 this.source += `break;}\n`;
             }
-            this.source += `}\n`;
-            console.log(this.source)
+            this.source += `default: {\n`;
+            this.descendStack(node.defaultBranch, new Frame(false));
+            this.source += `}\n}\n`;
             break;
         }
 
