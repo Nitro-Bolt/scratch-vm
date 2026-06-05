@@ -127,9 +127,9 @@ class Scratch3JSONBlocks {
         return arr.indexOf(args.VALUE) === -1 ? '' : arr.indexOf(args.VALUE);
     }
 
-    addItem (args) {
+    addItem (args, util) {
         const arr = [...Cast.toArray(args.ARR)];
-        arr.push(args.ITEM);
+        arr.push(...util.extendableToArray(args, 'ITEMS', 'ITEM'));
         return arr;
     }
 

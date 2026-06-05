@@ -419,7 +419,7 @@ class ScriptTreeGenerator {
             const count = +block.fields.ITEMS.value;
             const items = [];
             for (let i = 0; i < count; i++) {
-                items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false, 
+                items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false,
                     new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT));
             }
             return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT_EXTENDABLE, InputType.OBJECT, {items, count});
@@ -459,8 +459,13 @@ class ScriptTreeGenerator {
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
         case 'json_add_item':
+            const count = +block.fields.ITEMS.value;
+            const items = [];
+            for (let i = 0; i < count; i++) {
+                items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false));
+            }
             return new IntermediateInput(InputOpcode.JSON_ADD_ITEM, InputType.ARRAY, {
-                item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING),
+                items,
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
@@ -469,7 +474,7 @@ class ScriptTreeGenerator {
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
-                item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
+                item: this.descendInputOfBlock(block, 'ITEM')
             });
         case 'json_delete_index':
             return new IntermediateInput(InputOpcode.JSON_DELETE_INDEX, InputType.ARRAY, {
@@ -479,7 +484,7 @@ class ScriptTreeGenerator {
             });
         case 'json_delete_all_occurrences':
             return new IntermediateInput(InputOpcode.JSON_DELETE_ALL_OCCURRENCES, InputType.ARRAY, {
-                item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING),
+                item: this.descendInputOfBlock(block, 'ITEM'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
@@ -494,7 +499,7 @@ class ScriptTreeGenerator {
             const count = +block.fields.ITEMS.value;
             const items = [];
             for (let i = 0; i < count; i++) {
-                items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false, 
+                items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY));
             }
             return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY_EXTENDABLE, InputType.ARRAY, {items, count});
@@ -503,7 +508,7 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_HAS_ITEM, InputType.BOOLEAN, {
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
-                item: this.descendInputOfBlock(block, 'ITEM').toType(InputType.STRING)
+                item: this.descendInputOfBlock(block, 'ITEM')
             });
         case 'json_array_length':
             return new IntermediateInput(InputOpcode.JSON_ARRAY_LENGTH, InputType.NUMBER_WHOLE, {
