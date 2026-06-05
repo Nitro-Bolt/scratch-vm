@@ -204,10 +204,6 @@ const StackOpcode = {
 
     SENSING_TIMER_RESET: 'timer.reset',
 
-    COMMENTS_HAT: 'comments.hat',
-    COMMENTS_COMMAND: 'comments.command',
-    COMMENTS_LOOP: 'comments.loop',
-
     PROCEDURE_SET_PARAM: 'procedures.setParam',
     PROCEDURE_RETURN: 'procedures.return',
     PROCEDURE_CALL: 'procedures.call'

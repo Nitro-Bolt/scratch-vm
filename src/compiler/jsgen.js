@@ -1121,17 +1121,6 @@ class JSGenerator {
             this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.variable.id)}", element: "checkbox", value: true }, runtime);\n`;
             break;
 
-        case StackOpcode.COMMENTS_HAT:
-            this.source += `\n`;
-            break;
-        case StackOpcode.COMMENTS_COMMAND:
-            this.source += `\n`;
-            break;
-        case StackOpcode.COMMENTS_LOOP:
-            this.source += `\n`;
-            this.descendStack(node.do, new Frame(true));
-            break;
-
         case StackOpcode.VISUAL_REPORT: {
             const value = this.localVariables.next();
             this.source += `const ${value} = ${this.descendInput(node.input)};`;
