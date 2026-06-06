@@ -272,7 +272,6 @@ const InputOpcode = {
     OP_AND: 'op.and',
     OP_CONTAINS: 'op.contains',
     OP_DIVIDE: 'op.divide',
-    OP_POWER: 'op.power',
     OP_EQUALS: 'op.equals',
     OP_GREATER: 'op.greater',
     OP_LESS: 'op.less',

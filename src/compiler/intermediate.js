@@ -60,6 +60,9 @@ class IntermediateStackBlock {
  */
 class IntermediateInput {
 
+    /**
+     * @param {unknown} number
+     */
     static getNumberInputType (number) {
         if (typeof number !== 'number') throw new Error('Expected a number.');
         if (number === Infinity) return InputType.NUMBER_POS_INF;
@@ -89,7 +92,7 @@ class IntermediateInput {
         this.type = type;
 
         /**
-         * @type {Object}
+         * @type {Record<string, any>}
          */
         this.inputs = inputs;
 

@@ -401,8 +401,6 @@ class JSGenerator {
             return `(Math.round(Math.cos((Math.PI * ${this.descendInput(node.value)}) / 180) * 1e10) / 1e10)`;
         case InputOpcode.OP_DIVIDE:
             return `(${this.descendInput(node.left)} / ${this.descendInput(node.right)})`;
-        case InputOpcode.OP_POWER:
-            return `((${this.descendInput(node.left)}) ** ${this.descendInput(node.right)})`;
         case InputOpcode.OP_EQUALS: {
             const left = node.left;
             const right = node.right;
@@ -517,6 +515,9 @@ class JSGenerator {
         case InputOpcode.OP_DIVIDE_EXTENDABLE:
             if (node.count === 0) return '0';
             return `(${node.operands.map(o => this.descendInput(o)).join(' / ')})`;
+        case InputOpcode.OP_POWER_EXTENDABLE:
+            if (node.count === 0) return '0';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' ** ')})`;
         case InputOpcode.OP_AND_EXTENDABLE:
             if (node.count === 0) return 'true';
             return `(${node.operands.map(o => this.descendInput(o)).join(' && ')})`;

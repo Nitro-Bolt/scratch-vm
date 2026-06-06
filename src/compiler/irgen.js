@@ -184,14 +184,15 @@ class ScriptTreeGenerator {
      * Descend into a child input of a block. (eg. the input STRING of "length of ( )")
      * @param {*} parentBlock The parent Scratch block that contains the input.
      * @param {string} inputName The name of the input to descend into.
-     * @param {boolean} preserveStrings Should this input keep the names of costumes and sounds at strings.
+     * @param {boolean} [preserveStrings] Should this input keep the names of costumes and sounds at strings.
+     * @param {IntermediateInput} [fallback] Optional fallback value if the input or block is missing. 
      * @private
      * @returns {IntermediateInput} Compiled input node for this input.
      */
     descendInputOfBlock (parentBlock, inputName, preserveStrings = false, fallback) {
         const input = parentBlock.inputs[inputName];
         if (!input) {
-            if (arguments.length > 3) {
+            if (arguments.length > 3 && fallback != null) {
                 return fallback;
             }
             log.warn(`IR: ${parentBlock.opcode}: missing input ${inputName}`, parentBlock);
@@ -577,11 +578,6 @@ class ScriptTreeGenerator {
             });
         case 'operator_divide':
             return new IntermediateInput(InputOpcode.OP_DIVIDE, InputType.NUMBER_OR_NAN, {
-                left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
-                right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
-            });
-        case 'operator_power':
-            return new IntermediateInput(InputOpcode.OP_POWER, InputType.NUMBER_OR_NAN, {
                 left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
                 right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
             });
