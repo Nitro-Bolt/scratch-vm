@@ -24,7 +24,7 @@ class Scratch3OperatorsBlocks {
             operator_subtract_extendable: this.subtractExtendable,
             operator_multiply_extendable: this.multiplyExtendable,
             operator_divide_extendable: this.divideExtendable,
-            operator_power_extendable: this.powerExtendable,
+            operator_power: this.power,
             operator_lt: this.lt,
             operator_equals: this.equals,
             operator_gt: this.gt,
@@ -88,7 +88,7 @@ class Scratch3OperatorsBlocks {
         return arr.reduce((a, b) => Cast.toNumber(a) / Cast.toNumber(b));
     }
 
-    powerExtendable (args, util) {
+    power (args, util) {
         const arr = util.extendableToArray(args, 'NUMS', 'NUM');
         return arr.reduce((a, b) => Cast.toNumber(a) ** Cast.toNumber(b));
     }

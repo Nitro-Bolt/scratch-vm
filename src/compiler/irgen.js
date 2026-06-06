@@ -364,7 +364,7 @@ class ScriptTreeGenerator {
 
         case 'json_new_object':
             return new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT);
-        case 'json_object_extendable': {
+        case 'json_object': {
             const count = +block.fields.ITEMS.value;
             const keys = [];
             const values = [];
@@ -377,7 +377,7 @@ class ScriptTreeGenerator {
                 );
             }
             return new IntermediateInput(
-                InputOpcode.JSON_OBJECT_EXTENDABLE,
+                InputOpcode.JSON_OBJECT,
                 InputType.OBJECT,
                 {keys, values, count}
             );
@@ -409,21 +409,14 @@ class ScriptTreeGenerator {
                 object: this.descendInputOfBlock(block, 'OBJ', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
             });
-        case 'json_merge_object':
-            return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT, InputType.OBJECT, {
-                object1: this.descendInputOfBlock(block, 'OBJ1', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
-                object2: this.descendInputOfBlock(block, 'OBJ2', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
-            });
-        case 'json_merge_object_extendable': {
+        case 'json_merge_object': {
             const count = +block.fields.ITEMS.value;
             const items = [];
             for (let i = 0; i < count; i++) {
                 items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false,
                     new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT));
             }
-            return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT_EXTENDABLE, InputType.OBJECT, {items, count});
+            return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT, InputType.OBJECT, {items, count});
         }
         case 'json_has_key':
             return new IntermediateInput(InputOpcode.JSON_HAS_KEY, InputType.BOOLEAN, {
@@ -433,7 +426,7 @@ class ScriptTreeGenerator {
             });
         case 'json_new_array':
             return new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY);
-        case 'json_array_extendable': {
+        case 'json_array': {
             const count = +block.fields.ITEMS.value;
             const items = [];
             for (let i = 0; i < count; i++) {
@@ -442,7 +435,7 @@ class ScriptTreeGenerator {
                 );
             }
             return new IntermediateInput(
-                InputOpcode.JSON_ARRAY_EXTENDABLE,
+                InputOpcode.JSON_ARRAY,
                 InputType.ARRAY,
                 {items, count}
             );
@@ -489,21 +482,14 @@ class ScriptTreeGenerator {
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
-        case 'json_merge_array':
-            return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY, InputType.ARRAY, {
-                array1: this.descendInputOfBlock(block, 'ARR1', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
-                array2: this.descendInputOfBlock(block, 'ARR2', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
-        case 'json_merge_array_extendable': {
+        case 'json_merge_array': {
             const count = +block.fields.ITEMS.value;
             const items = [];
             for (let i = 0; i < count; i++) {
                 items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY));
             }
-            return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY_EXTENDABLE, InputType.ARRAY, {items, count});
+            return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY, InputType.ARRAY, {items, count});
         }
         case 'json_has_item':
             return new IntermediateInput(InputOpcode.JSON_HAS_ITEM, InputType.BOOLEAN, {
@@ -772,13 +758,13 @@ class ScriptTreeGenerator {
             }
             return new IntermediateInput(InputOpcode.OP_DIVIDE_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
         }
-        case 'operator_power_extendable': {
+        case 'operator_power': {
             const count = +block.fields.NUMS.value;
             const operands = [];
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
             }
-            return new IntermediateInput(InputOpcode.OP_POWER_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_POWER, InputType.NUMBER_OR_NAN, {operands, count});
         }
         case 'operator_and_extendable': {
             const count = +block.fields.OPERANDS.value;

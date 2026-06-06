@@ -278,7 +278,7 @@ class JSGenerator {
 
         case InputOpcode.JSON_NEW_OBJECT:
             return 'new Object()';
-        case InputOpcode.JSON_OBJECT_EXTENDABLE: {
+        case InputOpcode.JSON_OBJECT: {
             const entries = [];
             for (let i = 0; i < node.count; i++) {
                 entries.push(
@@ -310,14 +310,12 @@ class JSGenerator {
             return `((${i_} = Object.assign({}, ${this.descendInput(node.object)})), delete ${i_}[${this.descendInput(node.key)}], ${i_})`;
         } 
         case InputOpcode.JSON_MERGE_OBJECT:
-            return `mergeObjects(${this.descendInput(node.object1)}, ${this.descendInput(node.object2)})`;
-        case InputOpcode.JSON_MERGE_OBJECT_EXTENDABLE:
             return `mergeObjects(${node.items.map(i => this.descendInput(i)).join(', ')})`;
         case InputOpcode.JSON_HAS_KEY:
             return `${this.descendInput(node.object)}.hasOwnProperty(${this.descendInput(node.key)})`;
         case InputOpcode.JSON_NEW_ARRAY:
             return '[]';
-        case InputOpcode.JSON_ARRAY_EXTENDABLE:
+        case InputOpcode.JSON_ARRAY:
             return `[${node.items.map(item => this.descendInput(item)).join(',')}]`;
         case InputOpcode.JSON_VALUE_OF_INDEX:
             return `arrayValueOfIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
@@ -336,8 +334,6 @@ class JSGenerator {
             return `${this.descendInput(node.array)}.filter(${i_} => ${i_} !== ${this.descendInput(node.item)})`;
         }
         case InputOpcode.JSON_MERGE_ARRAY:
-            return `${this.descendInput(node.array1)}.concat(${this.descendInput(node.array2)})`;
-        case InputOpcode.JSON_MERGE_ARRAY_EXTENDABLE:
             return `mergeArrays(${node.items.map(i => this.descendInput(i)).join(', ')})`;
         case InputOpcode.JSON_HAS_ITEM:
             return `${this.descendInput(node.array)}.includes(${this.descendInput(node.item)})`;
@@ -515,7 +511,7 @@ class JSGenerator {
         case InputOpcode.OP_DIVIDE_EXTENDABLE:
             if (node.count === 0) return '0';
             return `(${node.operands.map(o => this.descendInput(o)).join(' / ')})`;
-        case InputOpcode.OP_POWER_EXTENDABLE:
+        case InputOpcode.OP_POWER:
             if (node.count === 0) return '0';
             return `(${node.operands.map(o => this.descendInput(o)).join(' ** ')})`;
         case InputOpcode.OP_AND_EXTENDABLE:
