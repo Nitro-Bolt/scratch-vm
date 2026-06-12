@@ -1720,7 +1720,7 @@ class Runtime extends EventEmitter {
     /**
      * Helper for _convertPlaceholdes which handles inline images which are a specialized case of block "arguments".
      * @param {object} argInfo Metadata about the inline image as specified by the extension
-     * @return {object} JSON blob for a scratch-blocks image field.
+     * @returns {object} JSON blob for a scratch-blocks image field.
      * @private
      */
     _constructInlineImageJson (argInfo) {
@@ -1743,10 +1743,10 @@ class Runtime extends EventEmitter {
     /**
      * Converts an argument into Blockly JSON.
      * @param {string} name
-     * @param {bject} argInfo - information about the argument.
+     * @param {oject} argInfo - information about the argument.
      * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
      * @param {boolean} generateXml - do we generate the XML for this argument?
-     * @returns
+     * @returns {object}
      */
     _convertArgument (name, argInfo, context, generateXml = false) {
         const argTypeInfo = ArgumentTypeMap[argInfo.type];
@@ -1915,7 +1915,7 @@ class Runtime extends EventEmitter {
      * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
      * @param {string} match - the overall string matched by the placeholder regex, including brackets: '[FOO]'.
      * @param {string} placeholder - the name of the placeholder being matched: 'FOO'.
-     * @return {string} scratch-blocks placeholder for the argument: '%1'.
+     * @returns {string} scratch-blocks placeholder for the argument: '%1'.
      * @private
      */
     _convertPlaceholders (context, match, placeholder) {

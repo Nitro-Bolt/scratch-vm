@@ -61,7 +61,7 @@ class IntermediateStackBlock {
 class IntermediateInput {
 
     /**
-     * @param {unknown} number
+     * @param {number} number
      */
     static getNumberInputType (number) {
         if (typeof number !== 'number') throw new Error('Expected a number.');
