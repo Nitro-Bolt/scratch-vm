@@ -790,6 +790,45 @@ class ScriptTreeGenerator {
             }
             return new IntermediateInput(InputOpcode.OP_JOIN_EXTENDABLE, InputType.STRING, {operands, count});
         }
+        case 'operator_lt_extendable': {
+            const count = +block.fields.OPERANDS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
+            }
+            return new IntermediateInput(InputOpcode.OP_LESS_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+        }
+        case 'operator_equals_extendable': {
+            const count = +block.fields.OPERANDS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
+            }
+            return new IntermediateInput(InputOpcode.OP_EQUALS_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+        }
+        case 'operator_gt_extendable': {
+            const count = +block.fields.OPERANDS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
+            }
+            return new IntermediateInput(InputOpcode.OP_GREATER_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+        }
+        case 'operator_compare': {
+            const count = +block.fields.OPERANDS.value;
+            const operators = [];
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operators.push(block.fields[`OPERANDS_${i}_OP`].value);
+                operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
+            }
+            return new IntermediateInput(InputOpcode.OP_COMPARE, InputType.BOOLEAN, {
+                firstOperand: this.descendInputOfBlock(block, 'OPERAND1'),
+                operators,
+                operands,
+                count
+            });
+        }
 
         case 'procedures_call': {
             const procedureInfo = this.getProcedureInfo(block);

@@ -308,6 +308,10 @@ const InputOpcode = {
     OP_AND_EXTENDABLE: 'op.and_extendable',
     OP_OR_EXTENDABLE: 'op.or_extendable',
     OP_JOIN_EXTENDABLE: 'op.join_extendable',
+    OP_LESS_EXTENDABLE: 'op.less_extendable',
+    OP_EQUALS_EXTENDABLE: 'op.equals_extendable',
+    OP_GREATER_EXTENDABLE: 'op.greater_extendable',
+    OP_COMPARE: 'op.compare',
 
     SENSING_ANSWER: 'sensing.answer',
     SENSING_COLOR_TOUCHING_COLOR: 'sensing.colorTouchingColor',

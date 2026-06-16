@@ -28,6 +28,10 @@ class Scratch3OperatorsBlocks {
             operator_lt: this.lt,
             operator_equals: this.equals,
             operator_gt: this.gt,
+            operator_lt_extendable: this.ltExtendable,
+            operator_equals_extendable: this.equalsExtendable,
+            operator_gt_extendable: this.gtExtendable,
+            operator_compare: this.compare,
             operator_and: this.and,
             operator_or: this.or,
             operator_and_extendable: this.andExtendable,
@@ -103,6 +107,51 @@ class Scratch3OperatorsBlocks {
 
     gt (args) {
         return Cast.compare(args.OPERAND1, args.OPERAND2) > 0;
+    }
+
+    ltExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        for (let i = 0; i < arr.length - 1; i++) {
+            if (Cast.compare(arr[i], arr[i + 1]) >= 0) return false;
+        }
+        return true;
+    }
+
+    equalsExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        for (let i = 0; i < arr.length - 1; i++) {
+            if (Cast.compare(arr[i], arr[i + 1]) !== 0) return false;
+        }
+        return true;
+    }
+
+    gtExtendable (args, util) {
+        const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        for (let i = 0; i < arr.length - 1; i++) {
+            if (Cast.compare(arr[i], arr[i + 1]) <= 0) return false;
+        }
+        return true;
+    }
+
+    compare (args, util) {
+        const operators = util.extendableToArray(args, 'OPERANDS', 'OP');
+        const operands = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        let prev = args.OPERAND1;
+        for (let i = 0; i < operators.length; i++) {
+            const op = operators[i];
+            const curr = operands[i];
+            const result = Cast.compare(prev, curr);
+            switch (op) {
+            case '<': if (result >= 0) return false; break;
+            case '<=': if (result > 0) return false; break;
+            case '>': if (result <= 0) return false; break;
+            case '>=': if (result < 0) return false; break;
+            case '=': if (result !== 0) return false; break;
+            case '!=': if (result === 0) return false; break;
+            }
+            prev = curr;
+        }
+        return true;
     }
 
     and (args) {
