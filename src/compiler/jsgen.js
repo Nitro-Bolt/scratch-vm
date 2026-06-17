@@ -538,24 +538,16 @@ class JSGenerator {
             return `(${node.operands.slice(0, -1).map((_, i) =>
                 `compareGreaterThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
             ).join(' && ')})`;
-        case InputOpcode.OP_COMPARE: {
-            if (node.count === 0) return 'true';
-            const pairs = [];
-            for (let i = 0; i < node.count; i++) {
-                const prev = i === 0 ? node.firstOperand : node.operands[i - 1];
-                const curr = node.operands[i];
-                const op = node.operators[i];
-                switch (op) {
-                case '<': pairs.push(`compareLessThan(${this.descendInput(prev)}, ${this.descendInput(curr)})`); break;
-                case '<=': pairs.push(`!compareGreaterThan(${this.descendInput(prev)}, ${this.descendInput(curr)})`); break;
-                case '>': pairs.push(`compareGreaterThan(${this.descendInput(prev)}, ${this.descendInput(curr)})`); break;
-                case '>=': pairs.push(`!compareLessThan(${this.descendInput(prev)}, ${this.descendInput(curr)})`); break;
-                case '=': pairs.push(`compareEqual(${this.descendInput(prev)}, ${this.descendInput(curr)})`); break;
-                case '!=': pairs.push(`!compareEqual(${this.descendInput(prev)}, ${this.descendInput(curr)})`); break;
-                }
-            }
-            return `(${pairs.join(' && ')})`;
-        }
+        case InputOpcode.OP_LESS_OR_EQUAL_EXTENDABLE:
+            if (node.count <= 1) return 'true';
+            return `(${node.operands.slice(0, -1).map((_, i) =>
+                `!compareGreaterThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
+            ).join(' && ')})`;
+        case InputOpcode.OP_GREATER_OR_EQUAL_EXTENDABLE:
+            if (node.count <= 1) return 'true';
+            return `(${node.operands.slice(0, -1).map((_, i) =>
+                `!compareLessThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
+            ).join(' && ')})`;
 
         case InputOpcode.PROCEDURE_CALL: {
             const procedureCode = node.code;

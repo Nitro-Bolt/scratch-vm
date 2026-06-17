@@ -814,20 +814,21 @@ class ScriptTreeGenerator {
             }
             return new IntermediateInput(InputOpcode.OP_GREATER_EXTENDABLE, InputType.BOOLEAN, {operands, count});
         }
-        case 'operator_compare': {
+        case 'operator_lte': {
             const count = +block.fields.OPERANDS.value;
-            const operators = [];
             const operands = [];
             for (let i = 0; i < count; i++) {
-                operators.push(block.fields[`OPERANDS_${i}_OP`].value);
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
             }
-            return new IntermediateInput(InputOpcode.OP_COMPARE, InputType.BOOLEAN, {
-                firstOperand: this.descendInputOfBlock(block, 'OPERAND1'),
-                operators,
-                operands,
-                count
-            });
+            return new IntermediateInput(InputOpcode.OP_LESS_OR_EQUAL_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+        }
+        case 'operator_gte': {
+            const count = +block.fields.OPERANDS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
+            }
+            return new IntermediateInput(InputOpcode.OP_GREATER_OR_EQUAL_EXTENDABLE, InputType.BOOLEAN, {operands, count});
         }
 
         case 'procedures_call': {
