@@ -122,6 +122,11 @@ const ArgumentTypeMap = (() => {
         // They are more analagous to the label on a block.
         fieldType: 'field_image'
     };
+    map[ArgumentType.EXTENDABLE] = {
+        // Also not an "argument" in the traditional sense,
+        // but it makes more sense to count it as one.
+        fieldType: 'extendable'
+    };
     map[ArgumentType.COSTUME] = {
         shadow: {
             type: 'looks_costume',
@@ -1479,7 +1484,7 @@ class Runtime extends EventEmitter {
         // nb: Adds support for block switches
         if (blockInfo.switches) {
             blockJSON.switches = blockInfo.switches.map(switchData => {
-                let data = typeof switchData === 'string' ? { opcode: switchData, rawId: false } : { ...switchData };
+                const data = typeof switchData === 'string' ? {opcode: switchData, rawId: false} : {...switchData};
                 if (data.rawId !== true) {
                     data.opcode = `${categoryInfo.id}_${data.opcode}`;
                 }
@@ -1715,7 +1720,7 @@ class Runtime extends EventEmitter {
     /**
      * Helper for _convertPlaceholdes which handles inline images which are a specialized case of block "arguments".
      * @param {object} argInfo Metadata about the inline image as specified by the extension
-     * @return {object} JSON blob for a scratch-blocks image field.
+     * @returns {object} JSON blob for a scratch-blocks image field.
      * @private
      */
     _constructInlineImageJson (argInfo) {
@@ -1736,38 +1741,41 @@ class Runtime extends EventEmitter {
     }
 
     /**
-     * Helper for _convertForScratchBlocks which handles linearization of argument placeholders. Called as a callback
-     * from string#replace. In addition to the return value the JSON and XML items in the context will be filled.
+     * Converts an argument into Blockly JSON.
+     * @param {string} name
+     * @param {oject} argInfo - information about the argument.
      * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
-     * @param {string} match - the overall string matched by the placeholder regex, including brackets: '[FOO]'.
-     * @param {string} placeholder - the name of the placeholder being matched: 'FOO'.
-     * @return {string} scratch-blocks placeholder for the argument: '%1'.
-     * @private
+     * @param {boolean} generateXml - do we generate the XML for this argument?
+     * @returns {object}
      */
-    _convertPlaceholders (context, match, placeholder) {
-        // Determine whether the argument type is one of the known standard field types
-        const argInfo = context.blockInfo.arguments[placeholder] || {};
-        let argTypeInfo = ArgumentTypeMap[argInfo.type] || {};
-
-        // Field type not a standard field type, see if extension has registered custom field type
-        if (!ArgumentTypeMap[argInfo.type] && context.categoryInfo.customFieldTypes[argInfo.type]) {
-            argTypeInfo = context.categoryInfo.customFieldTypes[argInfo.type].argumentTypeInfo;
-        }
-
-        // Start to construct the scratch-blocks style JSON defining how the block should be
-        // laid out
+    _convertArgument (name, argInfo, context, generateXml = false) {
+        const argTypeInfo = ArgumentTypeMap[argInfo.type];
+    
         let argJSON;
-
-        // Most field types are inputs (slots on the block that can have other blocks plugged into them)
-        // check if this is not one of those cases. E.g. an inline image on a block.
+    
         if (argTypeInfo.fieldType === 'field_image') {
             argJSON = this._constructInlineImageJson(argInfo);
         } else if (argTypeInfo.fieldType) {
             argJSON = {
                 type: argTypeInfo.fieldType,
-                name: placeholder
+                name
             };
-
+    
+            if (argInfo.type === ArgumentType.EXTENDABLE) {
+                argJSON = {
+                    type: 'extendable',
+                    name,
+                    args: this._convertExtendableArgs(
+                        argInfo,
+                        context
+                    ),
+                    defaultInputs: argInfo.defaultInputs || 0,
+                    minInputs: argInfo.minInputs || 0,
+                    maxInputs: argInfo.maxInputs || Infinity,
+                    separator: argInfo.separator || undefined
+                };
+            }
+    
             if (argTypeInfo.variableTypes) {
                 argJSON.variableTypes = argTypeInfo.variableTypes;
             }
@@ -1780,7 +1788,7 @@ class Runtime extends EventEmitter {
             // Layout a block argument (e.g. an input slot on the block)
             argJSON = {
                 type: 'input_value',
-                name: placeholder
+                name
             };
 
             const defaultValue =
@@ -1800,8 +1808,11 @@ class Runtime extends EventEmitter {
             if (argInfo.menu) {
                 const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
                 if (menuInfo.acceptReporters) {
-                    valueName = placeholder;
-                    shadowType = this._makeExtensionMenuId(argInfo.menu, context.categoryInfo.id);
+                    valueName = name;
+                    shadowType = this._makeExtensionMenuId(
+                        argInfo.menu,
+                        context.categoryInfo.id
+                    );
                     fieldName = argInfo.menu;
                 } else {
                     if (menuInfo.acceptText) {
@@ -1813,10 +1824,10 @@ class Runtime extends EventEmitter {
                     argJSON.options = this._convertMenuItems(menuInfo.items);
                     valueName = null;
                     shadowType = null;
-                    fieldName = placeholder;
+                    fieldName = name;
                 }
             } else {
-                valueName = placeholder;
+                valueName = name;
                 shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
                 fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
 
@@ -1825,32 +1836,106 @@ class Runtime extends EventEmitter {
                     fieldName = null;
                 }
             }
-
-            // <value> is the ScratchBlocks name for a block input.
-            if (valueName) {
-                context.inputList.push(`<value name="${xmlEscape(placeholder)}">`);
+            
+            if (generateXml) {
+                if (valueName) {
+                    context.inputList.push(
+                        `<value name="${xmlEscape(name)}">`
+                    );
+                }
+                if (shadowType) {
+                    context.inputList.push(
+                        `<shadow type="${xmlEscape(shadowType)}">`
+                    );
+                }
+                if (defaultValue !== null && fieldName) {
+                    context.inputList.push(
+                        `<field name="${xmlEscape(fieldName)}">${xmlEscape(defaultValue)}</field>`
+                    );
+                }
+                if (shadowType) {
+                    context.inputList.push('</shadow>');
+                }
+                if (valueName) {
+                    context.inputList.push('</value>');
+                }
             }
-
-            // The <shadow> is a placeholder for a reporter and is visible when there's no reporter in this input.
-            // Boolean inputs don't need to specify a shadow in the XML.
-            if (shadowType) {
-                context.inputList.push(`<shadow type="${xmlEscape(shadowType)}">`);
-            }
-
-            // A <field> displays a dynamic value: a user-editable text field, a drop-down menu, etc.
-            // Leave out the field if defaultValue or fieldName are not specified
-            if (defaultValue !== null && fieldName) {
-                context.inputList.push(`<field name="${xmlEscape(fieldName)}">${xmlEscape(defaultValue)}</field>`);
-            }
-
-            if (shadowType) {
-                context.inputList.push('</shadow>');
-            }
-
-            if (valueName) {
-                context.inputList.push('</value>');
+    
+            if (!generateXml && shadowType) {
+                argJSON.shadowOpcode = shadowType;
+                argJSON.shadowFieldName = fieldName;
+                argJSON.shadowFieldValue = defaultValue;
             }
         }
+    
+        return argJSON;
+    }
+
+    _convertExtendableArgs (argInfo, context) {
+        const text = String(argInfo.text || '');
+        const args = argInfo.arguments || {};
+        const elements = [];
+    
+        const re = /\[(.+?)\]/g;
+        let lastIndex = 0;
+        let match;
+    
+        while ((match = re.exec(text))) {
+            const literal = text.slice(lastIndex, match.index);
+            if (literal) {
+                elements.push({
+                    type: 'field_label',
+                    text: literal
+                });
+            }
+    
+            const argName = match[1];
+            const innerArgInfo = args[argName] || {};
+            elements.push(
+                this._convertArgument(argName, innerArgInfo, context, false)
+            );
+    
+            lastIndex = re.lastIndex;
+        }
+    
+        const tail = text.slice(lastIndex);
+        if (tail) {
+            elements.push({
+                type: 'field_label',
+                text: tail
+            });
+        }
+    
+        return elements;
+    }
+
+    /**
+     * Helper for _convertForScratchBlocks which handles linearization of argument placeholders. Called as a callback
+     * from string#replace. In addition to the return value the JSON and XML items in the context will be filled.
+     * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
+     * @param {string} match - the overall string matched by the placeholder regex, including brackets: '[FOO]'.
+     * @param {string} placeholder - the name of the placeholder being matched: 'FOO'.
+     * @returns {string} scratch-blocks placeholder for the argument: '%1'.
+     * @private
+     */
+    _convertPlaceholders (context, match, placeholder) {
+        // Determine whether the argument type is one of the known standard field types
+        const argInfo = context.blockInfo.arguments[placeholder] || {};
+        let argTypeInfo = ArgumentTypeMap[argInfo.type] || {};
+
+        // Field type not a standard field type, see if extension has registered custom field type
+        if (!ArgumentTypeMap[argInfo.type] && context.categoryInfo.customFieldTypes[argInfo.type]) {
+            argTypeInfo = context.categoryInfo.customFieldTypes[argInfo.type].argumentTypeInfo;
+        }
+
+        // Start to construct the scratch-blocks style JSON defining how the block should be
+        // laid out
+        const argJSON = this._convertArgument(
+            placeholder,
+            argInfo,
+            context,
+            true
+        );
 
         const argsName = `args${context.outLineNum}`;
         const blockArgs = (context.blockJSON[argsName] = context.blockJSON[argsName] || []);

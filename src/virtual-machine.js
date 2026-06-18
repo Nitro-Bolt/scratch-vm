@@ -1224,7 +1224,7 @@ class VirtualMachine extends EventEmitter {
      * @param {string} newName - the desired new name of the asset (will be modified if already in use).
      */
     renameAsset (assetIndex, newName, extension) {
-        this.editingTarget.renameAsset(assetIndex, newName,  extension);
+        this.editingTarget.renameAsset(assetIndex, newName, extension);
         this.emitTargetsUpdate();
     }
 

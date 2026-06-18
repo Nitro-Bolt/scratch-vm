@@ -38,9 +38,9 @@ class Scratch3AssetBlocks {
             return asset.asset.encodeDataURI();
         } else if (args.TYPE === 'text') {
             return new TextDecoder().decode(asset.asset.data);
-        } else {
-            return '';
         }
+        return '';
+        
     }
 
     metadata (args, util) {
@@ -90,7 +90,7 @@ class Scratch3AssetBlocks {
         } else {
             asset.encodeTextData(value, assetObject.dataFormat, true);
         }
-        assetObject.md5 = asset.assetId + '.' + assetObject.dataFormat;
+        assetObject.md5 = `${asset.assetId}.${assetObject.dataFormat}`;
         assetObject.assetId = asset.assetId;
     }
 

@@ -107,7 +107,7 @@ class Cast {
     /**
      * Scratch cast to object.
      * @param {*} value Value to cast to object.
-     * @param {?boolean} nullSafe Is null allowed.
+     * @param {?boolean} [nullSafe] Is null allowed.
      * @return {object} The Scratch-casted object value.
      */
     static toObject (value, nullSafe) {

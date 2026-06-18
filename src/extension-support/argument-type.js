@@ -81,7 +81,12 @@ const ArgumentType = {
     /**
      * Name of broadcast message in the current scope
      */
-    BROADCAST: 'broadcast'
+    BROADCAST: 'broadcast',
+
+    /**
+     * Name of extendable field
+    */
+    EXTENDABLE: 'extendable'
 };
 
 module.exports = ArgumentType;

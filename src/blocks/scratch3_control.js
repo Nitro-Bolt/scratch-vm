@@ -32,6 +32,9 @@ class Scratch3ControlBlocks {
             control_wait_until: this.waitUntil,
             control_if: this.if,
             control_if_else: this.ifElse,
+            control_if_extendable: this.ifExtendable,
+            control_if_else_extendable: this.ifElseExtendable,
+            control_switch: this.switch,
             control_stop: this.stop,
             control_create_clone_of: this.createClone,
             control_delete_this_clone: this.deleteClone,
@@ -137,6 +140,39 @@ class Scratch3ControlBlocks {
         } else {
             util.startBranch(2, false);
         }
+    }
+
+    ifExtendable (args, util) {
+        const argCount = args.BRANCHES;
+        for (let i = 0; i < argCount; i++) {
+            if (Cast.toBoolean(args[`BRANCHES_${i}_CONDITION`])) {
+                util.startBranch(`BRANCHES_${i}_BRANCH`);
+                return;
+            }
+        }
+    }
+
+    ifElseExtendable (args, util) {
+        const argCount = args.BRANCHES;
+        for (let i = 0; i < argCount; i++) {
+            if (Cast.toBoolean(args[`BRANCHES_${i}_CONDITION`])) {
+                util.startBranch(`BRANCHES_${i}_BRANCH`, false);
+                return;
+            }
+        }
+        util.startBranch(`ELSE_BRANCH`, false);
+    }
+
+    switch (args, util) {
+        const switchVal = Cast.toString(args.SWITCH);
+        const caseCount = args.CASES;
+        for (let i = 0; i < caseCount; i++) {
+            if (switchVal === Cast.toString(args[`CASES_${i}_CASE`])) {
+                util.startBranch(`CASES_${i}_BRANCH`, false);
+                return;
+            }
+        }
+        util.startBranch(`DEFAULT_BRANCH`, false);
     }
 
     stop (args, util) {
