@@ -517,6 +517,9 @@ class JSGenerator {
         case InputOpcode.OP_AND_EXTENDABLE:
             if (node.count === 0) return 'true';
             return `(${node.operands.map(o => this.descendInput(o)).join(' && ')})`;
+        case InputOpcode.OP_OR_EXTENDABLE:
+            if (node.count === 0) return 'false';
+            return `(${node.operands.map(o => this.descendInput(o)).join(' || ')})`;
         case InputOpcode.OP_XOR_EXTENDABLE:
             if (node.count === 0) return 'false';
             return `(${node.operands.map(o => this.descendInput(o)).join(' !== ')})`;
