@@ -37,6 +37,7 @@ class Scratch3OperatorsBlocks {
             operator_or: this.or,
             operator_and_extendable: this.andExtendable,
             operator_or_extendable: this.orExtendable,
+            operator_xor_extendable: this.xorExtendable,
             operator_not: this.not,
             operator_random: this.random,
             operator_join: this.join,
@@ -72,22 +73,22 @@ class Scratch3OperatorsBlocks {
     divide (args) {
         return Cast.toNumber(args.NUM1) / Cast.toNumber(args.NUM2);
     }
-    
+
     addExtendable (args, util) {
         const arr = util.extendableToArray(args, 'NUMS', 'NUM');
         return arr.reduce((a, b) => Cast.toNumber(a) + Cast.toNumber(b));
     }
-    
+
     subtractExtendable (args, util) {
         const arr = util.extendableToArray(args, 'NUMS', 'NUM');
         return arr.reduce((a, b) => Cast.toNumber(a) - Cast.toNumber(b));
     }
-    
+
     multiplyExtendable (args, util) {
         const arr = util.extendableToArray(args, 'NUMS', 'NUM');
         return arr.reduce((a, b) => Cast.toNumber(a) * Cast.toNumber(b));
     }
-    
+
     divideExtendable (args, util) {
         const arr = util.extendableToArray(args, 'NUMS', 'NUM');
         return arr.reduce((a, b) => Cast.toNumber(a) / Cast.toNumber(b));
@@ -166,6 +167,14 @@ class Scratch3OperatorsBlocks {
     orExtendable (args, util) {
         const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
         return arr.some(Cast.toBoolean);
+    }
+
+    xorExtendable(args, util) {
+        const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
+        return arr.reduce(
+            (acc, value) => acc !== Cast.toBoolean(value),
+            false
+        );
     }
 
     not (args) {

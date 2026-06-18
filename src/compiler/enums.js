@@ -307,6 +307,7 @@ const InputOpcode = {
     OP_POWER: 'op.power',
     OP_AND_EXTENDABLE: 'op.and_extendable',
     OP_OR_EXTENDABLE: 'op.or_extendable',
+    OP_XOR_EXTENDABLE: 'op.xor_extendable',
     OP_JOIN_EXTENDABLE: 'op.join_extendable',
     OP_LESS_EXTENDABLE: 'op.less_extendable',
     OP_EQUALS_EXTENDABLE: 'op.equals_extendable',

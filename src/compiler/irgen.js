@@ -185,7 +185,7 @@ class ScriptTreeGenerator {
      * @param {*} parentBlock The parent Scratch block that contains the input.
      * @param {string} inputName The name of the input to descend into.
      * @param {boolean} [preserveStrings] Should this input keep the names of costumes and sounds at strings.
-     * @param {IntermediateInput} [fallback] Optional fallback value if the input or block is missing. 
+     * @param {IntermediateInput} [fallback] Optional fallback value if the input or block is missing.
      * @private
      * @returns {IntermediateInput} Compiled input node for this input.
      */
@@ -781,6 +781,14 @@ class ScriptTreeGenerator {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`).toType(InputType.BOOLEAN));
             }
             return new IntermediateInput(InputOpcode.OP_OR_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+        }
+        case 'operator_xor_extendable': {
+            const count = +block.fields.OPERANDS.value;
+            const operands = [];
+            for (let i = 0; i < count; i++) {
+                operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`).toType(InputType.BOOLEAN));
+            }
+            return new IntermediateInput(InputOpcode.OP_XOR_EXTENDABLE, InputType.BOOLEAN, {operands, count});
         }
         case 'operator_join_extendable': {
             const count = +block.fields.STRINGS.value;

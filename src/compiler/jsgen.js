@@ -308,7 +308,7 @@ class JSGenerator {
         case InputOpcode.JSON_DELETE_KEY: {
             const i_ = this.localVariables.next();
             return `((${i_} = Object.assign({}, ${this.descendInput(node.object)})), delete ${i_}[${this.descendInput(node.key)}], ${i_})`;
-        } 
+        }
         case InputOpcode.JSON_MERGE_OBJECT:
             return `mergeObjects(${node.items.map(i => this.descendInput(i)).join(', ')})`;
         case InputOpcode.JSON_HAS_KEY:
@@ -517,9 +517,9 @@ class JSGenerator {
         case InputOpcode.OP_AND_EXTENDABLE:
             if (node.count === 0) return 'true';
             return `(${node.operands.map(o => this.descendInput(o)).join(' && ')})`;
-        case InputOpcode.OP_OR_EXTENDABLE:
+        case InputOpcode.OP_XOR_EXTENDABLE:
             if (node.count === 0) return 'false';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' || ')})`;
+            return `(${node.operands.map(o => this.descendInput(o)).join(' !== ')})`;
         case InputOpcode.OP_JOIN_EXTENDABLE:
             if (node.count === 0) return '""';
             return `(${node.operands.map(o => this.descendInput(o)).join(' + ')})`;
