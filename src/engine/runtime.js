@@ -1749,7 +1749,16 @@ class Runtime extends EventEmitter {
      * @returns {object}
      */
     _convertArgument (name, argInfo, context, generateXml = false) {
-        const argTypeInfo = ArgumentTypeMap[argInfo.type];
+        let argTypeInfo = ArgumentTypeMap[argInfo.type];
+
+        if (!argTypeInfo) {
+            if (context && argInfo.type &&
+                context.categoryInfo.customFieldTypes[argInfo.type]) {
+                argTypeInfo = context.categoryInfo.customFieldTypes[argInfo.type].argumentTypeInfo;
+            } else {
+                argTypeInfo = {};
+            }
+        }
     
         let argJSON;
     
