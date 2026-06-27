@@ -1107,7 +1107,7 @@ class ScriptTreeGenerator {
                     do: this.descendSubstack(block, `SUBSTACKBRANCHES_${i}_BRANCH`)
                 });
             }
-            const elseBranch = this.descendSubstack(block, 'ELSE_BRANCH');
+            const elseBranch = this.descendSubstack(block, 'SUBSTACKELSE_BRANCH');
             return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE_EXTENDABLE, {branches, count, elseBranch});
         }
         case 'control_switch': {
@@ -1119,7 +1119,7 @@ class ScriptTreeGenerator {
                     do: this.descendSubstack(block, `SUBSTACKCASES_${i}_BRANCH`)
                 });
             }
-            const defaultBranch = this.descendSubstack(block, 'DEFAULT_BRANCH');
+            const defaultBranch = this.descendSubstack(block, 'SUBSTACKDEFAULT_BRANCH');
             return new IntermediateStackBlock(StackOpcode.CONTROL_SWITCH, {
                 switch: this.descendInputOfBlock(block, 'SWITCH'),
                 cases,
