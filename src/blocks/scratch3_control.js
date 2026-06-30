@@ -34,6 +34,7 @@ class Scratch3ControlBlocks {
             control_if_else: this.ifElse,
             control_if_extendable: this.ifExtendable,
             control_if_else_extendable: this.ifElseExtendable,
+            control_inline_if_else: this.inlineIfElse,
             control_switch: this.switch,
             control_stop: this.stop,
             control_create_clone_of: this.createClone,
@@ -163,6 +164,10 @@ class Scratch3ControlBlocks {
         util.startBranch(`ELSE_BRANCH`, false);
     }
 
+    inlineIfElse (args, util) {
+        return Cast.toBoolean(args.OPERAND) ? args.THEN : args.ELSE;
+    }
+
     switch (args, util) {
         const switchVal = Cast.toString(args.SWITCH);
         const caseCount = args.CASES;
@@ -249,10 +254,10 @@ class Scratch3ControlBlocks {
         }
         return 0;
     }
-    
+
     forEachInRange (args, util) {
         const {stackFrame, thread} = util;
-    
+
         if (typeof stackFrame.index === 'undefined') {
             const from = Math.round(Cast.toNumber(args.FROM));
             const to = Math.round(Cast.toNumber(args.TO));
@@ -263,15 +268,15 @@ class Scratch3ControlBlocks {
                 index: from
             });
         }
-    
+
         const {index, to, step} = stackFrame;
         const done = step > 0 ? index > to : index < to;
-    
+
         if (done) {
             delete thread.stackFrames[thread.stackFrames.length - 1].forEachInRangeItem;
             return;
         }
-    
+
         thread.stackFrames[thread.stackFrames.length - 1].forEachInRangeItem = index;
         stackFrame.index += step;
         util.startBranch(1, true);
