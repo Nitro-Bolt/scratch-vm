@@ -202,6 +202,8 @@ class Thread {
 
         this.isCompiled = false;
 
+        this.stackClick = false;
+
         // compiler data
         // these values only make sense if isCompiled == true
         this.timer = null;

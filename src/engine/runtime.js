@@ -296,7 +296,6 @@ class Runtime extends EventEmitter {
         /**
          * Map to look up all block information by extended opcode.
          * @type {Array.<CategoryInfo>}
-         * @private
          */
         this._blockInfo = [];
 
@@ -1651,7 +1650,6 @@ class Runtime extends EventEmitter {
     /**
      * Generate a separator between blocks categories or sub-categories.
      * @param {ExtensionBlockMetadata} blockInfo - the block to convert
-     * @param {CategoryInfo} categoryInfo - the category for this block
      * @returns {ConvertedBlockInfo} - the converted & original block information
      * @private
      */
