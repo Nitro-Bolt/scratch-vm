@@ -342,18 +342,16 @@ test('layers', t => { // TODO this tests fake functionality. Move layering tests
     const a = new RenderedTarget(s, r);
     a.renderer = renderer;
     a.goToFront();
-    t.equals(a.renderer.order, 5);
+    t.equals(a.renderer.z, 1);
     a.goBackwardLayers(2);
-    t.equals(a.renderer.order, 3);
+    t.equals(a.renderer.z, 0);
     a.goToBack();
-    // Note, there are only sprites in this test, no stage, and the addition
-    // of layer groups, goToBack no longer specifies a minimum order number
-    t.equals(a.renderer.order, 0);
+    t.equals(a.renderer.z, -1);
     a.goForwardLayers(1);
-    t.equals(a.renderer.order, 1);
+    t.equals(a.renderer.z, 0);
     o.drawableID = 999;
     a.goBehindOther(o);
-    t.equals(a.renderer.order, 1);
+    t.equals(a.renderer.z, -1);
     t.end();
 });
 
@@ -369,7 +367,7 @@ test('getLayerOrder returns result of renderer getDrawableOrder or null if rende
     r.attachRenderer(renderer);
     const b = new RenderedTarget(s, r);
 
-    t.equal(b.getLayerOrder(), 'stub');
+    t.equal(b.getLayerOrder(), 0);
 
     t.end();
 });

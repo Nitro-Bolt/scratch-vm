@@ -304,7 +304,10 @@ class Scratch3LooksBlocks {
             looks_setstretchto: () => {},
             looks_gotofrontback: this.goToFrontBack,
             looks_goforwardbackwardlayers: this.goForwardBackwardLayers,
+            looks_changelayerby: this.changeLayerBy,
+            looks_setlayerto: this.setLayerTo,
             looks_size: this.getSize,
+            looks_layer: this.getLayer,
             looks_costumenumbername: this.getCostumeNumberName,
             looks_backdropnumbername: this.getBackdropNumberName
         };
@@ -315,6 +318,10 @@ class Scratch3LooksBlocks {
             looks_size: {
                 isSpriteSpecific: true,
                 getId: targetId => `${targetId}_size`
+            },
+            looks_layer: {
+                isSpriteSpecific: true,
+                getId: targetId => `${targetId}_layer`
             },
             looks_costumenumbername: {
                 isSpriteSpecific: true,
@@ -595,6 +602,33 @@ class Scratch3LooksBlocks {
 
     getSize (args, util) {
         return Math.round(util.target.size);
+    }
+
+    getLayer (args, util) {
+        return util.target.getLayerOrder();
+    }
+
+    changeLayerBy (args, util) {
+        if (!util.target.isStage && util.target.renderer) {
+            util.target.renderer.setDrawableOrder(
+                util.target.drawableID,
+                Cast.toNumber(args.NUM),
+                StageLayering.SPRITE_LAYER,
+                true,
+                undefined,
+                true
+            );
+        }
+    }
+
+    setLayerTo (args, util) {
+        if (!util.target.isStage && util.target.renderer) {
+            util.target.renderer.setDrawableOrder(
+                util.target.drawableID,
+                Cast.toNumber(args.NUM),
+                StageLayering.SPRITE_LAYER
+            );
+        }
     }
 
     getBackdropNumberName (args) {

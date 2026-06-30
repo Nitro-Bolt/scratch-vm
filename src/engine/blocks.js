@@ -1272,6 +1272,7 @@ class Blocks {
                 id="${xmlEscape(block.id)}"
                 type="${xmlEscape(block.opcode)}"
                 ${block.topLevel ? `x="${block.x}" y="${block.y}"` : ''}
+                ${block.collapsed ? 'collapsed="true"' : ''}
             >`;
         const commentId = block.comment;
         if (commentId) {

@@ -565,6 +565,8 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.LOOKS_COSTUME_NAME, InputType.STRING);
         case 'looks_size':
             return new IntermediateInput(InputOpcode.LOOKS_SIZE_GET, InputType.NUMBER_POS | InputType.NUMBER_ZERO);
+        case 'looks_layer':
+            return new IntermediateInput(InputOpcode.LOOKS_LAYER_GET, InputType.NUMBER_POS | InputType.NUMBER_ZERO);
 
         case 'motion_direction':
             return new IntermediateInput(InputOpcode.MOTION_DIRECTION_GET, InputType.NUMBER_REAL);
@@ -1323,6 +1325,14 @@ class ScriptTreeGenerator {
                 return new IntermediateStackBlock(StackOpcode.LOOKS_LAYER_FRONT);
             }
             return new IntermediateStackBlock(StackOpcode.LOOKS_LAYER_BACK);
+        case 'looks_changelayerby':
+            return new IntermediateStackBlock(StackOpcode.LOOKS_LAYER_CHANGE, {
+                num: this.descendInputOfBlock(block, 'NUM').toType(InputType.NUMBER)
+            });
+        case 'looks_setlayerto':
+            return new IntermediateStackBlock(StackOpcode.LOOKS_LAYER_SET, {
+                num: this.descendInputOfBlock(block, 'NUM').toType(InputType.NUMBER)
+            });
         case 'looks_hide':
             return new IntermediateStackBlock(StackOpcode.LOOKS_HIDE);
         case 'looks_nextbackdrop':

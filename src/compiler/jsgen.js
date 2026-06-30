@@ -379,6 +379,8 @@ class JSGenerator {
 
         case InputOpcode.LOOKS_SIZE_GET:
             return 'Math.round(target.size)';
+        case InputOpcode.LOOKS_LAYER_GET:
+            return 'target.getLayerOrder()';
         case InputOpcode.LOOKS_BACKDROP_NAME:
             return 'stage.getCostumes()[stage.currentCostume].name';
         case InputOpcode.LOOKS_BACKDROP_NUMBER:
@@ -1140,6 +1142,16 @@ class JSGenerator {
         case StackOpcode.LOOKS_LAYER_FRONT:
             if (!this.target.isStage) {
                 this.source += 'target.goToFront();\n';
+            }
+            break;
+        case StackOpcode.LOOKS_LAYER_CHANGE:
+            if (!this.target.isStage) {
+                this.source += `runtime.renderer.setDrawableOrder(target.drawableID, ${this.descendInput(node.num)}, 'sprite', true, undefined, true);\n`;
+            }
+            break;
+        case StackOpcode.LOOKS_LAYER_SET:
+            if (!this.target.isStage) {
+                this.source += `runtime.renderer.setDrawableOrder(target.drawableID, ${this.descendInput(node.num)}, 'sprite');\n`;
             }
             break;
         case StackOpcode.LOOKS_HIDE:

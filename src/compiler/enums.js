@@ -172,6 +172,8 @@ const StackOpcode = {
     LOOKS_LAYER_BACKWARD: 'looks.backwardLayers',
     LOOKS_LAYER_FRONT: 'looks.goToFront',
     LOOKS_LAYER_BACK: 'looks.goToBack',
+    LOOKS_LAYER_CHANGE: 'looks.changeLayer',
+    LOOKS_LAYER_SET: 'looks.setLayer',
     LOOKS_HIDE: 'looks.hide',
     LOOKS_SHOW: 'looks.show',
     LOOKS_BACKDROP_NEXT: 'looks.nextBackdrop',
@@ -243,6 +245,7 @@ const InputOpcode = {
     LOOKS_COSTUME_NUMBER: 'looks.costumeNumber',
     LOOKS_COSTUME_NAME: 'looks.costumeName',
     LOOKS_SIZE_GET: 'looks.size',
+    LOOKS_LAYER_GET: 'looks.layer',
 
     VAR_GET: 'var.get',
 
