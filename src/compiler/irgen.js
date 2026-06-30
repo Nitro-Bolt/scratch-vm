@@ -938,6 +938,12 @@ class ScriptTreeGenerator {
             // This menu is special compared to other menus -- it actually has an opcode function.
             return this.createConstantInput(block.fields.SOUND_MENU.value, true);
 
+        case 'control_inline_if_else':
+            return new IntermediateInput(InputOpcode.CONTROL_INLINE_IF_ELSE, InputType.ANY, {
+                operand: this.descendInputOfBlock(block, 'OPERAND').toType(InputType.BOOLEAN),
+                then: this.descendInputOfBlock(block, 'THEN'),
+                else: this.descendInputOfBlock(block, 'ELSE')
+            });
         case 'control_foreach_in_range_item':
             return new IntermediateInput(InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM, InputType.NUMBER);
         case 'control_get_counter':

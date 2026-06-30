@@ -235,6 +235,7 @@ const InputOpcode = {
     COMPATIBILITY_LAYER: 'compat',
     OLD_COMPILER_COMPATIBILITY_LAYER: 'oldCompiler',
 
+    CONTROL_INLINE_IF_ELSE: 'control.inlineIfElse',
     CONTROL_FOREACH_IN_RANGE_ITEM: 'control.forEachInRangeItem',
 
     LOOKS_BACKDROP_NUMBER: 'looks.backdropNumber',

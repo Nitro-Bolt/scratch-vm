@@ -647,6 +647,19 @@ class JSGenerator {
         case InputOpcode.SENSING_TIMER_GET:
             return 'runtime.ioDevices.clock.projectTimer()';
 
+        case InputOpcode.CONTROL_INLINE_IF_ELSE: {
+            const operand = this.descendInput(node.operand);
+            const _then = this.descendInput(node.then);
+            const _else = this.descendInput(node.else);
+
+            if (node.operand.isConstant(true)) {
+                return `${_then}`;
+            } else if (node.operand.isConstant(false)) {
+                return `${_else}`;
+            }
+
+            return `(${operand} ? ${_then} : ${_else})`;
+        }
         case InputOpcode.CONTROL_COUNTER:
             return 'runtime.ext_scratch3_control._counter';
         case InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM: {
