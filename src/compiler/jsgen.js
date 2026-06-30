@@ -27,6 +27,7 @@ const {
 /* eslint-disable max-len */
 /* eslint-disable prefer-template */
 
+/** @param {string | null} string */
 const sanitize = string => {
     if (typeof string !== 'string') {
         log.warn(`sanitize got unexpected type: ${typeof string}`);
@@ -54,6 +55,11 @@ const functionNameVariablePool = new VariablePool('fun');
  */
 const generatorNameVariablePool = new VariablePool('gen');
 
+/**
+ * @param {IntermediateInput} input
+ * @param {IntermediateInput} other
+ * @returns {boolean}
+ */
 const isSafeInputForEqualsOptimization = (input, other) => {
     // Only optimize constants
     if (input.opcode !== InputOpcode.CONSTANT) return false;
@@ -74,6 +80,7 @@ const isSafeInputForEqualsOptimization = (input, other) => {
  * A frame contains some information about the current substack being compiled.
  */
 class Frame {
+    /** @param {boolean} isLoop */
     constructor (isLoop) {
         /**
          * Whether the current stack runs in a loop (while, for)
@@ -120,6 +127,7 @@ class JSGenerator {
 
         this.localVariables = new VariablePool('a');
         this._setupVariablesPool = new VariablePool('b');
+        /** @type {Record<string, string>} */
         this._setupVariables = {};
 
         this.descendedIntoModulo = false;
@@ -128,6 +136,12 @@ class JSGenerator {
         this.debug = this.target.runtime.debug;
 
         this.oldCompilerStub = new oldCompilerCompatibility.JSGeneratorStub(this);
+
+        /** @type {{value: string, index: string}[] | null} */
+        this.foreachVarsStack = null;
+
+        /** @type {string[] | null} */
+        this.forEachInRangeStack = null;
     }
 
     /**
@@ -309,21 +323,29 @@ class JSGenerator {
             const i_ = this.localVariables.next();
             return `((${i_} = Object.assign({}, ${this.descendInput(node.object)})), delete ${i_}[${this.descendInput(node.key)}], ${i_})`;
         }
-        case InputOpcode.JSON_MERGE_OBJECT:
-            return `mergeObjects(${node.items.map(i => this.descendInput(i)).join(', ')})`;
+        case InputOpcode.JSON_MERGE_OBJECT: {
+            /** @type {IntermediateInput[]} */
+            const items = node.items;
+            return `mergeObjects(${items.map(i => this.descendInput(i)).join(', ')})`;
+        }
         case InputOpcode.JSON_HAS_KEY:
             return `${this.descendInput(node.object)}.hasOwnProperty(${this.descendInput(node.key)})`;
         case InputOpcode.JSON_NEW_ARRAY:
             return '[]';
-        case InputOpcode.JSON_ARRAY:
-            return `[${node.items.map(item => this.descendInput(item)).join(',')}]`;
+        case InputOpcode.JSON_ARRAY: {
+            /** @type {IntermediateInput[]} */
+            const items = node.items;
+            return `[${items.map(item => this.descendInput(item)).join(',')}]`;
+        }
         case InputOpcode.JSON_VALUE_OF_INDEX:
             return `arrayValueOfIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_INDEX_OF_VALUE:
             return `arrayIndexOf(${this.descendInput(node.array)}, ${this.descendInput(node.value)})`;
         case InputOpcode.JSON_ADD_ITEM: {
+            /** @type {IntermediateInput[]} */
+            const items = node.items;
             const i_ = this.localVariables.next();
-            return `((${i_} = ${this.descendInput(node.array)}.slice(0)), ${i_}.push(...[${node.items.map(i => this.descendInput(i)).join(', ')}]), ${i_})`;
+            return `((${i_} = ${this.descendInput(node.array)}.slice(0)), ${i_}.push(...[${items.map(i => this.descendInput(i)).join(', ')}]), ${i_})`;
         }
         case InputOpcode.JSON_REPLACE_INDEX:
             return `arrayReplaceAtIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)}, ${this.descendInput(node.item)})`;
@@ -333,8 +355,11 @@ class JSGenerator {
             const i_ = this.localVariables.next();
             return `${this.descendInput(node.array)}.filter(${i_} => ${i_} !== ${this.descendInput(node.item)})`;
         }
-        case InputOpcode.JSON_MERGE_ARRAY:
-            return `mergeArrays(${node.items.map(i => this.descendInput(i)).join(', ')})`;
+        case InputOpcode.JSON_MERGE_ARRAY: {
+            /** @type {IntermediateInput[]} */
+            const items = node.items;
+            return `mergeArrays(${items.map(i => this.descendInput(i)).join(', ')})`;
+        }
         case InputOpcode.JSON_HAS_ITEM:
             return `${this.descendInput(node.array)}.includes(${this.descendInput(node.item)})`;
         case InputOpcode.JSON_ARRAY_LENGTH:
@@ -499,58 +524,100 @@ class JSGenerator {
             const value = this.descendInput(node.target);
             return `(Array.isArray(${value}) ? "array" : typeof ${value})`;
         }
-        case InputOpcode.OP_ADD_EXTENDABLE:
+        case InputOpcode.OP_ADD_EXTENDABLE: {
             if (node.count === 0) return '0';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' + ')})`;
-        case InputOpcode.OP_SUBTRACT_EXTENDABLE:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' + ')})`;
+        }
+        case InputOpcode.OP_SUBTRACT_EXTENDABLE: {
             if (node.count === 0) return '0';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' - ')})`;
-        case InputOpcode.OP_MULTIPLY_EXTENDABLE:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' - ')})`;
+        }
+        case InputOpcode.OP_MULTIPLY_EXTENDABLE: {
             if (node.count === 0) return '0';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' * ')})`;
-        case InputOpcode.OP_DIVIDE_EXTENDABLE:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' * ')})`;
+        }
+        case InputOpcode.OP_DIVIDE_EXTENDABLE: {
             if (node.count === 0) return '0';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' / ')})`;
-        case InputOpcode.OP_POWER:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' / ')})`;
+        }
+        case InputOpcode.OP_POWER: {
             if (node.count === 0) return '0';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' ** ')})`;
-        case InputOpcode.OP_AND_EXTENDABLE:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' ** ')})`;
+        }
+        case InputOpcode.OP_AND_EXTENDABLE: {
             if (node.count === 0) return 'true';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' && ')})`;
-        case InputOpcode.OP_OR_EXTENDABLE:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' && ')})`;
+        }
+        case InputOpcode.OP_OR_EXTENDABLE: {
             if (node.count === 0) return 'false';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' || ')})`;
-        case InputOpcode.OP_XOR_EXTENDABLE:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' || ')})`;
+        }
+        case InputOpcode.OP_XOR_EXTENDABLE: {
             if (node.count === 0) return 'false';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' !== ')})`;
-        case InputOpcode.OP_JOIN_EXTENDABLE:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' !== ')})`;
+        }
+        case InputOpcode.OP_JOIN_EXTENDABLE: {
             if (node.count === 0) return '""';
-            return `(${node.operands.map(o => this.descendInput(o)).join(' + ')})`;
-        case InputOpcode.OP_LESS_EXTENDABLE:
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' + ')})`;
+        }
+        case InputOpcode.OP_LESS_EXTENDABLE: {
             if (node.count <= 1) return 'true';
-            return `(${node.operands.slice(0, -1).map((_, i) =>
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
                 `compareLessThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
             ).join(' && ')})`;
-        case InputOpcode.OP_EQUALS_EXTENDABLE:
+        }
+        case InputOpcode.OP_EQUALS_EXTENDABLE: {
             if (node.count <= 1) return 'true';
-            return `(${node.operands.slice(0, -1).map((_, i) =>
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
                 `compareEqual(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
             ).join(' && ')})`;
-        case InputOpcode.OP_GREATER_EXTENDABLE:
+        }
+        case InputOpcode.OP_GREATER_EXTENDABLE: {
             if (node.count <= 1) return 'true';
-            return `(${node.operands.slice(0, -1).map((_, i) =>
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
                 `compareGreaterThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
             ).join(' && ')})`;
-        case InputOpcode.OP_LESS_OR_EQUAL_EXTENDABLE:
+        }
+        case InputOpcode.OP_LESS_OR_EQUAL_EXTENDABLE: {
             if (node.count <= 1) return 'true';
-            return `(${node.operands.slice(0, -1).map((_, i) =>
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
                 `!compareGreaterThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
             ).join(' && ')})`;
-        case InputOpcode.OP_GREATER_OR_EQUAL_EXTENDABLE:
+        }
+        case InputOpcode.OP_GREATER_OR_EQUAL_EXTENDABLE: {
             if (node.count <= 1) return 'true';
-            return `(${node.operands.slice(0, -1).map((_, i) =>
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
                 `!compareLessThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
             ).join(' && ')})`;
+        }
 
         case InputOpcode.PROCEDURE_CALL: {
             const procedureCode = node.code;
@@ -683,6 +750,7 @@ class JSGenerator {
      * @param {IntermediateStackBlock} block Stacked block to compile.
      */
     descendStackedBlock (block) {
+        /** @type {Record<string, any>} */
         const node = block.inputs;
         switch (block.opcode) {
         case StackOpcode.ADDON_CALL: {
@@ -1429,6 +1497,7 @@ class JSGenerator {
         return factoryNameVariablePool.next();
     }
 
+    /** @param {boolean} yields */
     getScriptName (yields) {
         let name = yields ? generatorNameVariablePool.next() : functionNameVariablePool.next();
         if (this.isProcedure) {
@@ -1546,6 +1615,7 @@ JSGenerator.unstable_exports = {
 };
 
 // Test hook used by automated snapshot testing.
+// @ts-ignore
 JSGenerator.testingApparatus = null;
 
 module.exports = JSGenerator;
