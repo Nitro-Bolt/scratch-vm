@@ -15,6 +15,7 @@ const MathUtil = require('./util/math-util');
 const Runtime = require('./engine/runtime');
 const RenderedTarget = require('./sprites/rendered-target');
 const Sprite = require('./sprites/sprite');
+const LazySprite = require('./sprites/nb-lazy-sprite.js');
 const StringUtil = require('./util/string-util');
 const formatMessage = require('format-message');
 
@@ -222,6 +223,7 @@ class VirtualMachine extends EventEmitter {
          */
         this.exports = {
             Sprite,
+            LazySprite,
             RenderedTarget,
             JSZip,
             Variable,
@@ -732,6 +734,11 @@ class VirtualMachine extends EventEmitter {
     deserializeProject (projectJSON, zip) {
         // Clear the current runtime
         this.clear();
+
+        if (typeof zip !== 'undefined') {
+            // Store the zip in runtime for later use
+            this.runtime._zip = zip;
+        }
 
         if (typeof performance !== 'undefined') {
             performance.mark('scratch-vm-deserialize-start');

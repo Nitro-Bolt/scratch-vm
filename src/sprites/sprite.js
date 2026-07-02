@@ -16,7 +16,9 @@ class Sprite {
      * @constructor
      */
     constructor (blocks, runtime) {
+        /** @type {import('../engine/runtime')} */
         this.runtime = runtime;
+        
         if (!blocks) {
             // Shared set of blocks for all clones.
             blocks = new Blocks(runtime);

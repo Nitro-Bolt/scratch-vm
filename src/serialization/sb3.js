@@ -1726,5 +1726,6 @@ module.exports = {
     serializeBlocks: serializeBlocks,
     deserializeStandaloneBlocks: deserializeStandaloneBlocks,
     serializeStandaloneBlocks: serializeStandaloneBlocks,
+    parseScratchAssets: parseScratchAssets,
     getExtensionIdForOpcode: getExtensionIdForOpcode
 };
