@@ -18,6 +18,7 @@ class Scratch3AssetBlocks {
         return {
             assets_menu: this.assetsMenu,
             assets_file_as_type: this.fileAsType,
+            assets_all: this.all,
             assets_metadata: this.metadata,
             assets_set: this.set,
             assets_write: this.write
@@ -26,6 +27,19 @@ class Scratch3AssetBlocks {
 
     assetsMenu (args) {
         return args.ASSET_MENU;
+    }
+
+    all (args, util) {
+        let target;
+        if (args.SPRITE === '_myself_') {
+            target = util.target;
+        } else if (args.SPRITE === 'Stage') {
+            target = this.runtime.getTargetForStage();
+        } else {
+            target = this.runtime.getSpriteTargetByName(args.SPRITE);
+        }
+
+        return target.sprite.assets.map(a => a.name);
     }
 
     fileAsType (args, util) {

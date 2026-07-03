@@ -39,6 +39,7 @@ const stacked = [
 const inputs = [
     'assets_file_as_type',
     'assets_metadata',
+    'assets_all',
     'motion_xscroll',
     'motion_yscroll',
     'sensing_loud',
