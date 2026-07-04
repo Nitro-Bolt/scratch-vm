@@ -959,10 +959,18 @@ class ScriptTreeGenerator {
             });
         case 'sensing_username':
             return new IntermediateInput(InputOpcode.SENSING_USERNAME, InputType.STRING);
+        case 'sensing_loudness':
+            return new IntermediateInput(InputOpcode.SENSING_LOUDNESS, InputType.NUMBER);
+        case 'sensing_loud':
+            return new IntermediateInput(InputOpcode.SENSING_LOUD, InputType.BOOLEAN);
+        case 'sensing_online':
+            return new IntermediateInput(InputOpcode.SENSING_ONLINE, InputType.BOOLEAN);
 
         case 'sound_sounds_menu':
             // This menu is special compared to other menus -- it actually has an opcode function.
             return this.createConstantInput(block.fields.SOUND_MENU.value, true);
+        case 'sound_volume':
+            return new IntermediateInput(InputOpcode.SOUND_VOLUME, InputType.NUMBER);
 
         case 'control_inline_if_else':
             return new IntermediateInput(InputOpcode.CONTROL_INLINE_IF_ELSE, InputType.ANY, {
@@ -1484,6 +1492,10 @@ class ScriptTreeGenerator {
 
         case 'sensing_resettimer':
             return new IntermediateStackBlock(StackOpcode.SENSING_TIMER_RESET);
+        case 'sensing_setdragmode':
+            return new IntermediateStackBlock(StackOpcode.SENSING_SET_DRAG_MODE, {
+                draggable: block.fields.DRAG_MODE.value === 'draggable'
+            });
 
         default: {
             const opcodeFunction = this.runtime.getOpcodeFunction(block.opcode);

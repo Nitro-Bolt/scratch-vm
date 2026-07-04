@@ -206,6 +206,7 @@ const StackOpcode = {
     PEN_STAMP: 'pen.stamp',
 
     SENSING_TIMER_RESET: 'timer.reset',
+    SENSING_SET_DRAG_MODE: 'sensing.setDragMode',
 
     PROCEDURE_SET_PARAM: 'procedures.setParam',
     PROCEDURE_RETURN: 'procedures.return',
@@ -314,6 +315,8 @@ const InputOpcode = {
 
     SENSING_ANSWER: 'sensing.answer',
     SENSING_COLOR_TOUCHING_COLOR: 'sensing.colorTouchingColor',
+    SENSING_LOUDNESS: 'sensing.loudness',
+    SENSING_LOUD: 'sensing.loud',
     SENSING_TIME_YEAR: 'sensing.year',
     SENSING_TIME_MONTH: 'sensing.month',
     SENSING_TIME_DATE: 'sensing.date',
@@ -342,6 +345,9 @@ const InputOpcode = {
     SENSING_TOUCHING_COLOR: 'sensing.touchingColor',
     SENSING_TOUCHING_OBJECT: 'sensing.touching',
     SENSING_USERNAME: 'sensing.username',
+    SENSING_ONLINE: 'sensing.online',
+
+    SOUND_VOLUME: 'sound.volume',
 
     JSON_NEW_OBJECT: 'json.newObject',
     JSON_OBJECT: 'json.objectExtendable',

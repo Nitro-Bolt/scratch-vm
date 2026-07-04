@@ -25,7 +25,6 @@ const stacked = [
     'motion_scroll_right',
     'motion_scroll_up',
     'sensing_askandwait',
-    'sensing_setdragmode',
     'sound_changeeffectby',
     'sound_changevolumeby',
     'sound_cleareffects',
@@ -42,11 +41,7 @@ const inputs = [
     'assets_all',
     'motion_xscroll',
     'motion_yscroll',
-    'sensing_loud',
-    'sensing_loudness',
-    'sensing_online',
     'sensing_userid',
-    'sound_volume'
 ];
 
 module.exports = {

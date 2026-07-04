@@ -710,9 +710,22 @@ class JSGenerator {
             return 'runtime.ioDevices.userData.getUsername()';
         case InputOpcode.SENSING_TIME_YEAR:
             return `(new Date().getFullYear())`;
-
         case InputOpcode.SENSING_TIMER_GET:
             return 'runtime.ioDevices.clock.projectTimer()';
+        case InputOpcode.SENSING_LOUDNESS:
+            return 'runtime.ext_scratch3_sensing.getLoudness()';
+        case InputOpcode.SENSING_LOUD:
+            return '(runtime.ext_scratch3_sensing.getLoudness() > 10)'
+        case InputOpcode.SENSING_ONLINE: {
+            // Read: sensing_online implementation in scratch3_sensing.js
+            if (typeof navigator?.onLine === 'boolean') {
+                return `navigator.onLine`;
+            }
+            return 'true';
+        }
+
+        case InputOpcode.SOUND_VOLUME:
+            return 'target.volume';
 
         case InputOpcode.CONTROL_INLINE_IF_ELSE: {
             const operand = this.descendInput(node.operand);
@@ -1292,6 +1305,10 @@ class JSGenerator {
 
         case StackOpcode.SENSING_TIMER_RESET:
             this.source += 'runtime.ioDevices.clock.resetProjectTimer();\n';
+            break;
+        case StackOpcode.SENSING_SET_DRAG_MODE:
+            console.log(node);
+            this.source += `target.setDraggable(${node.draggable});\n`;
             break;
 
         case StackOpcode.DEBUGGER:
