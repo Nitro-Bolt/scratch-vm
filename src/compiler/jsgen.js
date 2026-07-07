@@ -302,16 +302,16 @@ class JSGenerator {
             return `Object.fromEntries([${entries.join(',')}])`;
         }
         case InputOpcode.JSON_GET_PROPERTIES: {
-            const property = node.property;
-            const obj = this.descendInput(node.object);
-            if (property === 'keys') {
-                return `Object.keys(${obj})`;
-            } else if (property === 'values') {
-                return `Object.values(${obj})`;
-            } else if (property === 'entries') {
-                return `Object.entries(${obj})`;
+            switch (node.property) {
+                case 'keys':
+                    return `Object.keys(${this.descendInput(node.object)})`;
+                case 'values':
+                    return `Object.values(${this.descendInput(node.object)})`;
+                case 'entries':
+                    return `Object.entries(${this.descendInput(node.object)})`;
+                default:
+                    return '[]';
             }
-            return `[]`;
         }
         case InputOpcode.JSON_VALUE_OF_KEY:
             return `(${this.descendInput(node.object)}[${this.descendInput(node.key)}] ?? "")`;
