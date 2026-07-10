@@ -81,7 +81,7 @@ class ScriptTreeGenerator {
 
         /**
          * @type {import('../engine/runtime.js')}
-         * @private 
+         * @private
          */
         this.runtime = this.target.runtime;
 
@@ -170,9 +170,9 @@ class ScriptTreeGenerator {
     }
 
     /**
-     * @param {any} constant 
-     * @param {boolean} preserveStrings 
-     * @returns 
+     * @param {any} constant
+     * @param {boolean} preserveStrings
+     * @returns
      */
     createConstantInput (constant, preserveStrings = false) {
         if (constant === null) throw new Error('IR: Constant cannot have a null value.');
@@ -417,7 +417,7 @@ class ScriptTreeGenerator {
             });
         }
         case 'json_value_of_key':
-            return new IntermediateInput(InputOpcode.JSON_VALUE_OF_KEY, InputType.STRING, {
+            return new IntermediateInput(InputOpcode.JSON_VALUE_OF_KEY, InputType.ANY, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
                 object: this.descendInputOfBlock(block, 'OBJ', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
@@ -427,7 +427,7 @@ class ScriptTreeGenerator {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
                 object: this.descendInputOfBlock(block, 'OBJ', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
-                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.STRING)
+                value: this.descendInputOfBlock(block, 'VALUE')
             });
         case 'json_delete_key':
             return new IntermediateInput(InputOpcode.JSON_DELETE_KEY, InputType.OBJECT, {
