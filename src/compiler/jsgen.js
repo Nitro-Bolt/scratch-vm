@@ -487,6 +487,12 @@ class JSGenerator {
         }
         case InputOpcode.OP_LETTER_OF:
             return `((${this.descendInput(node.string)})[${this.descendInput(node.letter)} - 1] || "")`;
+        case InputOpcode.OP_LETTERS_IN: {
+            const str = this.descendInput(node.string);
+            const start = this.descendInput(node.start);
+            const end = this.descendInput(node.end);
+            return `((() => { const _s = ${str}; const _start = ${start} - 1; const _end = ${end} - 1; return (_start > _end || _start < 0 || _start >= _s.length) ? '' : _s.substring(_start, Math.min(_end, _s.length - 1) + 1); })())`;
+        }
         case InputOpcode.OP_LOG_E:
             return `Math.log(${this.descendInput(node.value)})`;
         case InputOpcode.OP_LOG_10:
@@ -702,6 +708,10 @@ class JSGenerator {
             return `(${varRef} ? ${varRef}.value : 0)`;
         } case InputOpcode.SENSING_TIME_SECOND:
             return `(new Date().getSeconds())`;
+        case InputOpcode.SENSING_TIME_MILLISECOND:
+            return `(new Date().getMilliseconds())`;
+        case InputOpcode.SENSING_TIME_TIMESTAMP:
+            return `(new Date().getTime())`;
         case InputOpcode.SENSING_TOUCHING_OBJECT:
             return `target.isTouchingObject(${this.descendInput(node.object)})`;
         case InputOpcode.SENSING_TOUCHING_COLOR:

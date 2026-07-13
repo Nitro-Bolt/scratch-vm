@@ -617,6 +617,12 @@ class ScriptTreeGenerator {
                 letter: this.descendInputOfBlock(block, 'LETTER').toType(InputType.NUMBER_INDEX),
                 string: this.descendInputOfBlock(block, 'STRING').toType(InputType.STRING)
             });
+        case 'operator_letters_in':
+            return new IntermediateInput(InputOpcode.OP_LETTERS_IN, InputType.STRING, {
+                start: this.descendInputOfBlock(block, 'START').toType(InputType.NUMBER_INDEX),
+                end: this.descendInputOfBlock(block, 'END').toType(InputType.NUMBER_INDEX),
+                string: this.descendInputOfBlock(block, 'STRING').toType(InputType.STRING)
+            });
         case 'operator_lt':
             return new IntermediateInput(InputOpcode.OP_LESS, InputType.BOOLEAN, {
                 left: this.descendInputOfBlock(block, 'OPERAND1'),
@@ -900,6 +906,8 @@ class ScriptTreeGenerator {
             case 'hour': return new IntermediateInput(InputOpcode.SENSING_TIME_HOUR, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
             case 'minute': return new IntermediateInput(InputOpcode.SENSING_TIME_MINUTE, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
             case 'second': return new IntermediateInput(InputOpcode.SENSING_TIME_SECOND, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
+            case 'millisecond': return new IntermediateInput(InputOpcode.SENSING_TIME_MILLISECOND, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
+            case 'timestamp': return new IntermediateInput(InputOpcode.SENSING_TIME_TIMESTAMP, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
             default: return this.createConstantInput(0);
             }
         case 'sensing_dayssince2000':

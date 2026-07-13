@@ -43,6 +43,7 @@ class Scratch3OperatorsBlocks {
             operator_join: this.join,
             operator_join_extendable: this.joinExtendable,
             operator_letter_of: this.letterOf,
+            operator_letters_in: this.lettersIn,
             operator_length: this.length,
             operator_contains: this.contains,
             operator_mod: this.mod,
@@ -215,6 +216,17 @@ class Scratch3OperatorsBlocks {
             return '';
         }
         return str.charAt(index);
+    }
+
+    lettersIn (args) {
+        const start = Cast.toNumber(args.START) - 1;
+        const end = Cast.toNumber(args.END) - 1;
+        const str = Cast.toString(args.STRING);
+        if (start > end || start < 0 || start >= str.length) {
+            return '';
+        }
+        const clampedEnd = Math.min(end, str.length - 1);
+        return str.substring(start, clampedEnd + 1);
     }
 
     length (args) {
