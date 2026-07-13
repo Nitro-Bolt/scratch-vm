@@ -48,6 +48,7 @@ class Scratch3OperatorsBlocks {
             operator_mod: this.mod,
             operator_round: this.round,
             operator_mathop: this.mathop,
+            operator_constant: this.constant,
             operator_cast: this.cast,
             operator_typeof: this.typeof,
             checkbox: this.checkbox
@@ -258,6 +259,20 @@ class Scratch3OperatorsBlocks {
         case 'log': return Math.log(n) / Math.LN10;
         case 'e ^': return Math.exp(n);
         case '10 ^': return Math.pow(10, n);
+        }
+        return 0;
+    }
+
+    constant (args) {
+        const constant = Cast.toString(args.CONSTANT).toLowerCase();
+        switch (constant) {
+        case 'pi': return Math.PI;
+        case 'e': return Math.E;
+        case 'phi': return (1 + Math.sqrt(5)) / 2;
+        case 'sqrt2': return Math.SQRT2;
+        case 'sqrt1_2': return Math.SQRT1_2;
+        case 'epsilon': return Number.EPSILON;
+        case 'infinity': return Number.POSITIVE_INFINITY;
         }
         return 0;
     }
