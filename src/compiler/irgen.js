@@ -655,10 +655,7 @@ class ScriptTreeGenerator {
             case 'pi': return this.createConstantInput(Math.PI);
             case 'e': return this.createConstantInput(Math.E);
             case 'phi': return this.createConstantInput((1 + Math.sqrt(5)) / 2);
-            case 'sqrt2': return this.createConstantInput(Math.SQRT2);
-            case 'sqrt1_2': return this.createConstantInput(Math.SQRT1_2);
             case 'epsilon': return this.createConstantInput(Number.EPSILON);
-            case 'infinity': return this.createConstantInput(Number.POSITIVE_INFINITY);
             default: return this.createConstantInput(0);
             }
         }

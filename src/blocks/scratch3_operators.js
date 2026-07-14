@@ -281,10 +281,7 @@ class Scratch3OperatorsBlocks {
         case 'pi': return Math.PI;
         case 'e': return Math.E;
         case 'phi': return (1 + Math.sqrt(5)) / 2;
-        case 'sqrt2': return Math.SQRT2;
-        case 'sqrt1_2': return Math.SQRT1_2;
         case 'epsilon': return Number.EPSILON;
-        case 'infinity': return Number.POSITIVE_INFINITY;
         }
         return 0;
     }
