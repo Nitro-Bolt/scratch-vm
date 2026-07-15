@@ -41,7 +41,7 @@ const inputs = [
     'assets_all',
     'motion_xscroll',
     'motion_yscroll',
-    'sensing_userid',
+    'sensing_userid'
 ];
 
 module.exports = {

@@ -171,7 +171,7 @@ class Scratch3OperatorsBlocks {
         return arr.some(Cast.toBoolean);
     }
 
-    xorExtendable(args, util) {
+    xorExtendable (args, util) {
         const arr = util.extendableToArray(args, 'OPERANDS', 'OPERAND');
         return arr.reduce(
             (acc, value) => acc !== Cast.toBoolean(value),

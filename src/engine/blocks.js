@@ -87,7 +87,7 @@ class Blocks {
              * @type {object.<string, object>}
              */
             compiledScripts: {},
-            
+
             /**
              * tw: A cache of procedure code opcodes to a parsed intermediate representation
              * @type {object.<string, object>}
@@ -309,9 +309,56 @@ class Blocks {
     }
 
     /**
+     * Normalize procedure defaults based on param types from the proccode.
+     * @param {string} proccode The procedure code string.
+     * @param {string[]} names Parameter names.
+     * @param {string[]} ids Parameter IDs.
+     * @param {Array} defaults Parameter defaults.
+     * @returns {Array} Normalized defaults.
+     */
+    static normalizeProcedureDefaults (proccode, names, ids, defaults) {
+        const paramTypes = [];
+        const regex = /%([snboa])/g;
+        let match;
+        while ((match = regex.exec(proccode)) !== null) {
+            paramTypes.push(match[1]);
+        }
+
+        const len = names.length;
+        const result = [];
+        for (let i = 0; i < len; i++) {
+            const type = paramTypes[i];
+            let def = i < defaults.length ? defaults[i] : null;
+
+            if (type === 'a') {
+                if (!Array.isArray(def)) {
+                    def = [];
+                }
+            } else if (type === 'o') {
+                if (typeof def !== 'object' || def === null || Array.isArray(def)) {
+                    def = {};
+                }
+            } else if (type === 'b') {
+                if (typeof def !== 'string' || (def !== 'true' && def !== 'false')) {
+                    def = 'false';
+                }
+            } else if (type === 'n') {
+                if (typeof def !== 'number') {
+                    def = 1;
+                }
+            } else if (typeof def === 'object') {
+                def = '';
+            }
+
+            result.push(def);
+        }
+        return result;
+    }
+
+    /**
      * Get names, ids, and defaults of parameters for the given procedure.
      * @param {?string} name Name of procedure to query.
-     * @return {?Array.<string>} List of param names for a procedure.
+     * @return {?Array} List of param names, ids, and defaults for a procedure.
      */
     getProcedureParamNamesIdsAndDefaults (name) {
         const cachedNames = this._cache.procedureParamNames[name];
@@ -327,7 +374,10 @@ class Blocks {
                 // tw: make sure that populateProcedureCache is kept up to date with this method
                 const names = JSON.parse(block.mutation.argumentnames);
                 const ids = JSON.parse(block.mutation.argumentids);
-                const defaults = JSON.parse(block.mutation.argumentdefaults);
+                const defaults = Blocks.normalizeProcedureDefaults(
+                    block.mutation.proccode, names, ids,
+                    JSON.parse(block.mutation.argumentdefaults)
+                );
 
                 this._cache.procedureParamNames[name] = [names, ids, defaults];
                 return this._cache.procedureParamNames[name];
@@ -361,7 +411,10 @@ class Blocks {
                 if (!this._cache.procedureParamNames[name]) {
                     const names = JSON.parse(block.mutation.argumentnames);
                     const ids = JSON.parse(block.mutation.argumentids);
-                    const defaults = JSON.parse(block.mutation.argumentdefaults);
+                    const defaults = Blocks.normalizeProcedureDefaults(
+                        block.mutation.proccode, names, ids,
+                        JSON.parse(block.mutation.argumentdefaults)
+                    );
                     this._cache.procedureParamNames[name] = [names, ids, defaults];
                 }
                 continue;

@@ -303,14 +303,14 @@ class JSGenerator {
         }
         case InputOpcode.JSON_GET_PROPERTIES: {
             switch (node.property) {
-                case 'keys':
-                    return `Object.keys(${this.descendInput(node.object)})`;
-                case 'values':
-                    return `Object.values(${this.descendInput(node.object)})`;
-                case 'entries':
-                    return `Object.entries(${this.descendInput(node.object)})`;
-                default:
-                    return '[]';
+            case 'keys':
+                return `Object.keys(${this.descendInput(node.object)})`;
+            case 'values':
+                return `Object.values(${this.descendInput(node.object)})`;
+            case 'entries':
+                return `Object.entries(${this.descendInput(node.object)})`;
+            default:
+                return '[]';
             }
         }
         case InputOpcode.JSON_VALUE_OF_KEY:
@@ -590,7 +590,8 @@ class JSGenerator {
             const operands = node.operands;
             return `(${operands.slice(0, -1).map((_, i) =>
                 `compareLessThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
-            ).join(' && ')})`;
+            )
+                .join(' && ')})`;
         }
         case InputOpcode.OP_EQUALS_EXTENDABLE: {
             if (node.count <= 1) return 'true';
@@ -598,7 +599,8 @@ class JSGenerator {
             const operands = node.operands;
             return `(${operands.slice(0, -1).map((_, i) =>
                 `compareEqual(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
-            ).join(' && ')})`;
+            )
+                .join(' && ')})`;
         }
         case InputOpcode.OP_GREATER_EXTENDABLE: {
             if (node.count <= 1) return 'true';
@@ -606,7 +608,8 @@ class JSGenerator {
             const operands = node.operands;
             return `(${operands.slice(0, -1).map((_, i) =>
                 `compareGreaterThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
-            ).join(' && ')})`;
+            )
+                .join(' && ')})`;
         }
         case InputOpcode.OP_LESS_OR_EQUAL_EXTENDABLE: {
             if (node.count <= 1) return 'true';
@@ -614,7 +617,8 @@ class JSGenerator {
             const operands = node.operands;
             return `(${operands.slice(0, -1).map((_, i) =>
                 `!compareGreaterThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
-            ).join(' && ')})`;
+            )
+                .join(' && ')})`;
         }
         case InputOpcode.OP_GREATER_OR_EQUAL_EXTENDABLE: {
             if (node.count <= 1) return 'true';
@@ -622,7 +626,8 @@ class JSGenerator {
             const operands = node.operands;
             return `(${operands.slice(0, -1).map((_, i) =>
                 `!compareLessThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
-            ).join(' && ')})`;
+            )
+                .join(' && ')})`;
         }
 
         case InputOpcode.PROCEDURE_CALL: {
@@ -725,7 +730,7 @@ class JSGenerator {
         case InputOpcode.SENSING_LOUDNESS:
             return 'runtime.ext_scratch3_sensing.getLoudness()';
         case InputOpcode.SENSING_LOUD:
-            return '(runtime.ext_scratch3_sensing.getLoudness() > 10)'
+            return '(runtime.ext_scratch3_sensing.getLoudness() > 10)';
         case InputOpcode.SENSING_ONLINE: {
             // Read: sensing_online implementation in scratch3_sensing.js
             if (typeof navigator?.onLine === 'boolean') {

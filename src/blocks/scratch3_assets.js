@@ -54,7 +54,7 @@ class Scratch3AssetBlocks {
             return new TextDecoder().decode(asset.asset.data);
         }
         return '';
-        
+
     }
 
     metadata (args, util) {
@@ -100,7 +100,7 @@ class Scratch3AssetBlocks {
             try {
                 const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
                 asset.setData(arr, assetObject.dataFormat, true);
-            } catch {}
+            } catch { /* empty */ }
         } else {
             asset.encodeTextData(value, assetObject.dataFormat, true);
         }
@@ -138,7 +138,7 @@ class Scratch3AssetBlocks {
             if (`${assets[i].name}.${assets[i].dataFormat}` === assetName) {
                 return i;
             }
-        } 
+        }
         return -1;
     }
 }
