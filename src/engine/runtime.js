@@ -1458,7 +1458,8 @@ class Runtime extends EventEmitter {
             extensions: [],
             colour: blockInfo.color1 ?? categoryInfo.color1,
             colourSecondary: blockInfo.color2 ?? categoryInfo.color2,
-            colourTertiary: blockInfo.color3 ?? categoryInfo.color3
+            colourTertiary: blockInfo.color3 ?? categoryInfo.color3,
+            tooltip: blockInfo.tooltip
         };
         const context = {
             // TODO: store this somewhere so that we can map args appropriately after translation.
@@ -1757,9 +1758,9 @@ class Runtime extends EventEmitter {
                 argTypeInfo = {};
             }
         }
-    
+
         let argJSON;
-    
+
         if (argTypeInfo.fieldType === 'field_image') {
             argJSON = this._constructInlineImageJson(argInfo);
         } else if (argTypeInfo.fieldType) {
@@ -1767,7 +1768,7 @@ class Runtime extends EventEmitter {
                 type: argTypeInfo.fieldType,
                 name
             };
-    
+
             if (argInfo.type === ArgumentType.EXTENDABLE) {
                 argJSON = {
                     type: 'extendable',
@@ -1782,7 +1783,7 @@ class Runtime extends EventEmitter {
                     separator: argInfo.separator || undefined
                 };
             }
-    
+
             if (argTypeInfo.variableTypes) {
                 argJSON.variableTypes = argTypeInfo.variableTypes;
             }
@@ -1843,7 +1844,7 @@ class Runtime extends EventEmitter {
                     fieldName = null;
                 }
             }
-            
+
             if (generateXml) {
                 if (valueName) {
                     context.inputList.push(
@@ -1867,14 +1868,14 @@ class Runtime extends EventEmitter {
                     context.inputList.push('</value>');
                 }
             }
-    
+
             if (!generateXml && shadowType) {
                 argJSON.shadowOpcode = shadowType;
                 argJSON.shadowFieldName = fieldName;
                 argJSON.shadowFieldValue = defaultValue;
             }
         }
-    
+
         return argJSON;
     }
 
@@ -1882,11 +1883,11 @@ class Runtime extends EventEmitter {
         const text = String(argInfo.text || '');
         const args = argInfo.arguments || {};
         const elements = [];
-    
+
         const re = /\[(.+?)\]/g;
         let lastIndex = 0;
         let match;
-    
+
         while ((match = re.exec(text))) {
             const literal = text.slice(lastIndex, match.index);
             if (literal) {
@@ -1895,16 +1896,16 @@ class Runtime extends EventEmitter {
                     text: literal
                 });
             }
-    
+
             const argName = match[1];
             const innerArgInfo = args[argName] || {};
             elements.push(
                 this._convertArgument(argName, innerArgInfo, context, false)
             );
-    
+
             lastIndex = re.lastIndex;
         }
-    
+
         const tail = text.slice(lastIndex);
         if (tail) {
             elements.push({
@@ -1912,7 +1913,7 @@ class Runtime extends EventEmitter {
                 text: tail
             });
         }
-    
+
         return elements;
     }
 
