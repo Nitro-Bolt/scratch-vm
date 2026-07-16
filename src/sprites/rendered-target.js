@@ -872,7 +872,7 @@ class RenderedTarget extends Target {
     /**
      * Return whether touching any of a named sprite's clones.
      * @param {string} spriteName Name of the sprite.
-     * @return {boolean} True iff touching a clone of the sprite.
+     * @return {boolean} True if touching a clone of the sprite.
      */
     isTouchingSprite (spriteName) {
         spriteName = Cast.toString(spriteName);
@@ -887,6 +887,18 @@ class RenderedTarget extends Target {
             .map(clone => clone.drawableID);
         return this.renderer.isTouchingDrawables(
             this.drawableID, drawableCandidates);
+    }
+
+    /**
+     * Return whether touching a specific target instance.
+     * @param {Target} target The target instance.
+     * @return {boolean} True if touching the specific target.
+     */
+    isTouchingTarget (target) {
+        if (!target || !this.renderer || target.dragging) {
+            return false;
+        }
+        return this.renderer.isTouchingDrawables(this.drawableID, [target.drawableID]);
     }
 
     /**
