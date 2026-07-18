@@ -585,6 +585,11 @@ class ExtensionManager {
         }, blockInfo);
         blockInfo.text = blockInfo.text || blockInfo.opcode;
 
+        if (typeof blockInfo.blockType === 'function' && typeof blockInfo.blockType.shape !== 'undefined') {
+            blockInfo.blockShape = blockInfo.blockType.shape;
+            blockInfo.blockType = BlockType.REPORTER;
+        }
+
         switch (blockInfo.blockType) {
         case BlockType.EVENT:
             if (blockInfo.func) {
@@ -650,6 +655,26 @@ class ExtensionManager {
             };
             break;
         }
+        }
+
+        if (blockInfo.func && blockInfo.arguments) {
+            const customTypeArgs = {};
+            for (const name in blockInfo.arguments) {
+                const arg = blockInfo.arguments[name];
+                if (typeof arg.type === 'function' && typeof arg.type.shape !== 'function') {
+                    customTypeArgs[name] = arg.type;
+                }
+            }
+            if (Object.keys(customTypeArgs).length > 0) {
+                const originalFunc = blockInfo.func;
+                blockInfo.func = (args, util) => {
+                    const wrappedArgs = Object.assign({}, args);
+                    for (const name in customTypeArgs) {
+                        wrappedArgs[name] = new customTypeArgs[name](wrappedArgs[name]);
+                    }
+                    return originalFunc(wrappedArgs, util);
+                };
+            }
         }
 
         return blockInfo;
