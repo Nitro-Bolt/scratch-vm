@@ -217,7 +217,7 @@ class ScriptTreeGenerator {
     descendInputOfBlock (parentBlock, inputName, preserveStrings = false, fallback) {
         const input = parentBlock.inputs[inputName];
         if (!input) {
-            if (arguments.length > 3 && fallback != null) {
+            if (arguments.length > 3 && fallback && fallback !== null) {
                 return fallback;
             }
             log.warn(`IR: ${parentBlock.opcode}: missing input ${inputName}`, parentBlock);
@@ -477,7 +477,7 @@ class ScriptTreeGenerator {
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
-        case 'json_add_item':
+        case 'json_add_item': {
             const count = +block.fields.ITEMS.value;
             const items = [];
             for (let i = 0; i < count; i++) {
@@ -488,6 +488,7 @@ class ScriptTreeGenerator {
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
+        }
         case 'json_replace_index':
             return new IntermediateInput(InputOpcode.JSON_REPLACE_INDEX, InputType.ARRAY, {
                 index: this.descendInputOfBlock(block, 'INDEX'),

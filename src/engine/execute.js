@@ -321,7 +321,7 @@ class BlockCached {
                 const fieldValue = fields[fieldName].value;
                 this._argValues[fieldName] = {
                     id: fields[fieldName].id || null,
-                    name: fieldValue == null ? '' : fieldValue
+                    name: fieldValue === null ? '' : fieldValue
                 };
             } else {
                 this._argValues[fieldName] = fields[fieldName].value;

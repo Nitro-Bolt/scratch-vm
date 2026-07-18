@@ -164,7 +164,7 @@ class Scratch3ControlBlocks {
         util.startBranch(`ELSE_BRANCH`, false);
     }
 
-    inlineIfElse (args, util) {
+    inlineIfElse (args) {
         return Cast.toBoolean(args.OPERAND) ? args.THEN : args.ELSE;
     }
 

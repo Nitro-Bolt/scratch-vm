@@ -1431,8 +1431,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
         // Make sure if soundBank is undefined, sprite.soundBank is then null.
         sprite.soundBank = soundBank || null;
     });
-    Promise.all(assetPromises).then(assets => {
-        sprite.assets = assets;
+    Promise.all(assetPromises).then(_assets => {
+        sprite.assets = _assets;
     });
     return Promise.all(costumePromises.concat(soundPromises).concat(assetPromises)).then(() => target);
 };
@@ -1641,7 +1641,10 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
     await checkPlatformCompatibility(json, runtime);
 
     if (!isSingleSprite) {
-        runtime._storedProjectOptions = json.projectOptions ? ExtendedJSON.parse(json.projectOptions) : null;
+        const parsedProjectOptions = json.projectOptions ? ExtendedJSON.parse(json.projectOptions) : null;
+        if (typeof runtime._storedProjectOptions === 'undefined' || runtime._storedProjectOptions === null) {
+            runtime._storedProjectOptions = parsedProjectOptions;
+        }
     }
 
     const extensions = {

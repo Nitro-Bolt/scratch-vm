@@ -1780,7 +1780,7 @@ class Runtime extends EventEmitter {
                     defaultInputs: argInfo.defaultInputs || 0,
                     minInputs: argInfo.minInputs || 0,
                     maxInputs: argInfo.maxInputs || Infinity,
-                    separator: argInfo.separator || undefined
+                    separator: argInfo.separator || ''
                 };
             }
 
@@ -1929,12 +1929,13 @@ class Runtime extends EventEmitter {
     _convertPlaceholders (context, match, placeholder) {
         // Determine whether the argument type is one of the known standard field types
         const argInfo = context.blockInfo.arguments[placeholder] || {};
+        /*
         let argTypeInfo = ArgumentTypeMap[argInfo.type] || {};
 
         // Field type not a standard field type, see if extension has registered custom field type
         if (!ArgumentTypeMap[argInfo.type] && context.categoryInfo.customFieldTypes[argInfo.type]) {
             argTypeInfo = context.categoryInfo.customFieldTypes[argInfo.type].argumentTypeInfo;
-        }
+        }*/
 
         // Start to construct the scratch-blocks style JSON defining how the block should be
         // laid out

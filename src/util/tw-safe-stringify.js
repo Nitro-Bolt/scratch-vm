@@ -20,7 +20,7 @@ const safeStringify = input => {
     if (input !== null) {
         if (input instanceof Float32Array) {
             return JSON.stringify(
-                Array.from(input, v => (!isFinite(v) ? v.toString() : v)),
+                Array.from(input, v => (isFinite(v) ? v : v.toString())),
                 circularReplacer()
             );
         }
