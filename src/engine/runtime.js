@@ -3344,13 +3344,15 @@ class Runtime extends EventEmitter {
      * @param {string} blockId ID for the block.
      * @param {string} value Value to show associated with the block.
      * @param {boolean?} error Is the thing being reported an error?
+     * @param {string} html HTML to show in the reporter bubble.
      */
-    visualReport (target, blockId, value, error = false) {
+    visualReport (target, blockId, value, error = false, html) {
         if (target === this.getEditingTarget()) {
             this.emit(Runtime.VISUAL_REPORT, {
                 id: blockId,
                 value: safeStringify(value),
-                error
+                error,
+                html: html ? safeStringify(html) : null
             });
         }
     }
