@@ -314,8 +314,8 @@ class Sequencer {
     /**
      * Step a procedure.
      * @param {!Thread} thread Thread object to step to procedure.
-    * @param {!string} procedureCode Procedure code of procedure to step to.
-    * @param {boolean=} isGlobal If true, resolve globally scoped procedures.
+     * @param {!string} procedureCode Procedure code of procedure to step to.
+     * @param {boolean=} isGlobal If true, resolve globally scoped procedures.
      */
     stepToProcedure (thread, procedureCode, isGlobal) {
         let definition = null;

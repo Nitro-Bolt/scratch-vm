@@ -3457,7 +3457,6 @@ class Runtime extends EventEmitter {
         }
 
         if (didChange) {
-            this.requestBlocksUpdate();
             this.emitProjectChanged();
         }
     }

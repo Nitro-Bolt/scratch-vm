@@ -8,6 +8,7 @@ const BlocksRuntimeCache = require('./blocks-runtime-cache');
 const log = require('../util/log');
 const Variable = require('./variable');
 const getMonitorIdForBlockWithArgs = require('../util/get-monitor-id');
+const uid = require('../util/uid');
 
 /**
  * @fileoverview
@@ -889,8 +890,8 @@ class Blocks {
         }
 
         let changed = false;
-        for (const id in this._blocks) {
-            if (!Object.prototype.hasOwnProperty.call(this._blocks, id)) continue;
+        const blockIds = Object.keys(this._blocks);
+        for (const id of blockIds) {
             const block = this._blocks[id];
             if (!block || !block.mutation || !mutationProcCodes[block.mutation.proccode]) {
                 continue;
@@ -904,6 +905,11 @@ class Blocks {
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
                 block.mutation.colour = nextMutation.colour;
+                if (Object.prototype.hasOwnProperty.call(nextMutation, 'return')) {
+                    block.mutation.return = nextMutation.return;
+                } else {
+                    delete block.mutation.return;
+                }
                 changed = true;
                 continue;
             }
@@ -914,6 +920,17 @@ class Blocks {
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
                 block.mutation.colour = nextMutation.colour;
+                const shapeChanged = (Number(block.mutation.return) > 0) !==
+                    (Number(nextMutation.return) > 0);
+                const canChangeShape = block.topLevel && !block.next;
+                if (!shapeChanged || canChangeShape) {
+                    if (Object.prototype.hasOwnProperty.call(nextMutation, 'return')) {
+                        block.mutation.return = nextMutation.return;
+                    } else {
+                        delete block.mutation.return;
+                    }
+                }
+                this._syncGlobalProcedureInputs(block, nextMutation);
                 changed = true;
             }
         }
@@ -922,6 +939,82 @@ class Blocks {
             this.resetCache();
         }
         return changed;
+    }
+
+    /**
+     * Reconcile inputs on an inactive global procedure caller. Existing inputs
+     * stay connected by argument ID, removed user blocks become top-level, and
+     * new string/number inputs receive their standard default shadows.
+     * @param {!object} block Procedure call block.
+     * @param {!object} mutation Updated procedure prototype mutation.
+     * @private
+     */
+    _syncGlobalProcedureInputs (block, mutation) {
+        let argumentIds;
+        try {
+            argumentIds = JSON.parse(mutation.argumentids || '[]');
+        } catch (e) {
+            return;
+        }
+
+        const argumentTypes = [];
+        const argumentPattern = /(?:^|[^\\])%([nboas])/g;
+        let match;
+        while ((match = argumentPattern.exec(mutation.proccode || ''))) {
+            argumentTypes.push(match[1]);
+        }
+
+        block.inputs = block.inputs || {};
+        const activeArgumentIds = new Set(argumentIds);
+        for (const inputId of Object.keys(block.inputs)) {
+            if (activeArgumentIds.has(inputId)) continue;
+            const input = block.inputs[inputId];
+            const child = input && this._blocks[input.block];
+            const shadowId = input && input.shadow;
+
+            if (child && input.block !== shadowId) {
+                child.parent = null;
+                if (typeof child.x === 'undefined') child.x = 0;
+                if (typeof child.y === 'undefined') child.y = 0;
+                this._addScript(child.id);
+            }
+            if (shadowId) {
+                delete this._blocks[shadowId];
+            }
+            delete block.inputs[inputId];
+        }
+
+        for (let i = 0; i < argumentIds.length; i++) {
+            const argumentId = argumentIds[i];
+            const argumentType = argumentTypes[i];
+            if (block.inputs[argumentId] || (argumentType !== 's' && argumentType !== 'n')) {
+                continue;
+            }
+
+            const shadowId = uid();
+            const isNumber = argumentType === 'n';
+            const fieldName = isNumber ? 'NUM' : 'TEXT';
+            this._blocks[shadowId] = {
+                id: shadowId,
+                opcode: isNumber ? 'math_number' : 'text',
+                inputs: {},
+                fields: {
+                    [fieldName]: {
+                        name: fieldName,
+                        value: isNumber ? '1' : ''
+                    }
+                },
+                next: null,
+                topLevel: false,
+                parent: block.id,
+                shadow: true
+            };
+            block.inputs[argumentId] = {
+                name: argumentId,
+                block: shadowId,
+                shadow: shadowId
+            };
+        }
     }
 
     /**
