@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: git config --global user.email "you@example.com"
-      - run: git config --global user.name "Your Name"
+      - run: git config user.name "GitHub Action"
+      - run: git config user.email "action@github.com"
       - run: npm install
       - run: git diff --quiet package-lock.json || (git add package-lock.json && git commit -m "Update package-lock.json" && git push)
