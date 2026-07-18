@@ -144,7 +144,7 @@ class Sprite {
         const blocksContainer = this.blocks._blocks;
         const originalBlocks = Object.keys(blocksContainer).map(key => blocksContainer[key]);
         const copiedBlocks = JSON.parse(JSON.stringify(originalBlocks));
-        newBlockIds(copiedBlocks);
+        newSprite._duplicateBlockIdMap = newBlockIds(copiedBlocks);
         copiedBlocks.forEach(block => {
             newSprite.blocks.createBlock(block);
         });

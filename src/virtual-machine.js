@@ -1840,6 +1840,7 @@ class VirtualMachine extends EventEmitter {
         const workspaceComments = Object.keys(this.editingTarget.comments)
             .map(k => this.editingTarget.comments[k])
             .filter(c => c.blockId === null);
+        const workspaceGroups = Object.values(this.editingTarget.groups || {});
 
         const xmlString = `<xml xmlns="http://www.w3.org/1999/xhtml">
                             <variables>
@@ -1847,6 +1848,7 @@ class VirtualMachine extends EventEmitter {
                                 ${localVariables.map(v => v.toXML(true)).join()}
                             </variables>
                             ${workspaceComments.map(c => c.toXML()).join()}
+                            ${workspaceGroups.map(g => g.toXML()).join()}
                             ${this.editingTarget.blocks.toXML(this.editingTarget.comments)}
                         </xml>`;
 

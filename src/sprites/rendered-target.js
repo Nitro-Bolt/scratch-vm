@@ -4,6 +4,7 @@ const Cast = require('../util/cast');
 const Clone = require('../util/clone');
 const Target = require('../engine/target');
 const StageLayering = require('../engine/stage-layering');
+const uid = require('../util/uid');
 
 /**
  * Rendered target: instance of a sprite (clone), or the stage.
@@ -1091,6 +1092,25 @@ class RenderedTarget extends Target {
             newTarget.rotationStyle = this.rotationStyle;
             newTarget.effects = JSON.parse(JSON.stringify(this.effects));
             newTarget.variables = this.duplicateVariables(newTarget.blocks);
+            const blockIds = newSprite._duplicateBlockIdMap || {};
+            for (const comment of Object.values(this.comments)) {
+                const blockId = comment.blockId ? blockIds[comment.blockId] : null;
+                newTarget.createComment(uid(), blockId, comment.text, comment.x,
+                    comment.y, comment.width, comment.height, comment.minimized);
+            }
+            for (const group of Object.values(this.groups)) {
+                newTarget.createGroup({
+                    title: group.title,
+                    x: group.x,
+                    y: group.y,
+                    width: group.width,
+                    height: group.height,
+                    expandedHeight: group.expandedHeight,
+                    collapsed: group.collapsed,
+                    blocks: group.blocks.map(id => blockIds[id]).filter(Boolean)
+                });
+            }
+            delete newSprite._duplicateBlockIdMap;
             newTarget.updateAllDrawableProperties();
             return newTarget;
         });
@@ -1176,6 +1196,7 @@ class RenderedTarget extends Target {
             visible: this.visible,
             rotationStyle: this.rotationStyle,
             comments: this.comments,
+            groups: this.groups,
             blocks: this.blocks._blocks,
             variables: this.variables,
             costumes: costumes,

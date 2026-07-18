@@ -9,6 +9,7 @@ const Blocks = require('../engine/blocks');
 const Sprite = require('../sprites/sprite');
 const Variable = require('../engine/variable');
 const Comment = require('../engine/comment');
+const Group = require('../engine/group');
 const MonitorRecord = require('../engine/monitor-record');
 const StageLayering = require('../engine/stage-layering');
 const log = require('../util/log');
@@ -581,6 +582,25 @@ const serializeComments = function (comments) {
     return obj;
 };
 
+const serializeGroups = function (groups) {
+    const obj = Object.create(null);
+    for (const groupId in groups) {
+        if (!Object.prototype.hasOwnProperty.call(groups, groupId)) continue;
+        const group = groups[groupId];
+        obj[groupId] = {
+            title: group.title,
+            x: group.x,
+            y: group.y,
+            width: group.width,
+            height: group.height,
+            expandedHeight: group.expandedHeight,
+            collapsed: group.collapsed,
+            blocks: group.blocks.slice()
+        };
+    }
+    return obj;
+};
+
 /**
  * Serialize the given target. Only serialize properties that are necessary
  * for saving and loading this target.
@@ -600,6 +620,7 @@ const serializeTarget = function (target, extensions) {
     obj.broadcasts = vars.broadcasts;
     [obj.blocks, targetExtensions] = serializeBlocks(target.blocks);
     obj.comments = serializeComments(target.comments);
+    obj.groups = serializeGroups(target.groups);
 
     // TODO remove this check/patch when (#1901) is fixed
     if (target.currentCostume < 0 || target.currentCostume >= target.costumes.length) {
@@ -1383,6 +1404,12 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 newComment.blockId = comment.blockId;
             }
             target.comments[newComment.id] = newComment;
+        }
+    }
+    if (Object.prototype.hasOwnProperty.call(object, 'groups')) {
+        for (const groupId in object.groups) {
+            const newGroup = new Group(Object.assign({id: groupId}, object.groups[groupId]));
+            target.groups[newGroup.id] = newGroup;
         }
     }
     if (Object.prototype.hasOwnProperty.call(object, 'x')) {

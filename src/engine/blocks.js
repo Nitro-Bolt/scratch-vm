@@ -452,11 +452,21 @@ class Blocks {
         // Validate event
         if (typeof e !== 'object') return;
         if (typeof e.blockId !== 'string' && typeof e.varId !== 'string' &&
-            typeof e.commentId !== 'string') {
+            typeof e.commentId !== 'string' && typeof e.groupId !== 'string') {
             return;
         }
         const stage = this.runtime.getTargetForStage();
         const editingTarget = this.runtime.getEditingTarget();
+
+        if (e.type === 'group_change' && editingTarget) {
+            if (e.newState) {
+                editingTarget.createGroup(e.newState);
+            } else {
+                delete editingTarget.groups[e.groupId];
+            }
+            this.emitProjectChanged();
+            return;
+        }
 
         // UI event: clicked scripts toggle in the runtime.
         if (e.element === 'stackclick') {
