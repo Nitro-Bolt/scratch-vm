@@ -217,7 +217,7 @@ class ScriptTreeGenerator {
     descendInputOfBlock (parentBlock, inputName, preserveStrings = false, fallback) {
         const input = parentBlock.inputs[inputName];
         if (!input) {
-            if (arguments.length > 3 && fallback && fallback !== null) {
+            if (arguments.length > 3 && typeof fallback !== 'undefined' && fallback !== null) {
                 return fallback;
             }
             log.warn(`IR: ${parentBlock.opcode}: missing input ${inputName}`, parentBlock);

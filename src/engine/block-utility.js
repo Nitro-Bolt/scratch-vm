@@ -240,7 +240,7 @@ class BlockUtility {
             }
 
             let length = -1;
-            if (args[key] && args[key] !== null) {
+            if (typeof args[key] !== 'undefined' && args[key] !== null) {
                 const parsed = Math.floor(Number(args[key]));
                 if (parsed >= 0) {
                     length = parsed;
