@@ -306,7 +306,7 @@ class Sequencer {
             branchNum = 1;
         }
         const currentBlockId = thread.peekStack();
-        const branchId = thread.target.blocks.getBranch(
+        const branchId = thread.blockContainer.getBranch(
             currentBlockId,
             branchNum
         );
@@ -323,9 +323,33 @@ class Sequencer {
      * Step a procedure.
      * @param {!Thread} thread Thread object to step to procedure.
      * @param {!string} procedureCode Procedure code of procedure to step to.
+     * @param {boolean=} isGlobal If true, resolve globally scoped procedures.
      */
-    stepToProcedure (thread, procedureCode) {
-        const definition = thread.target.blocks.getProcedureDefinition(procedureCode);
+    stepToProcedure (thread, procedureCode, isGlobal) {
+        let definition = null;
+        let definitionTarget = thread.target;
+
+        // Prefer a local definition first for non-global calls.
+        definition = definitionTarget.blocks.getProcedureDefinition(procedureCode, false);
+
+        // Global calls are resolved across original targets.
+        if (isGlobal) {
+            definition = definitionTarget.blocks.getProcedureDefinition(procedureCode, true);
+            if (!definition) {
+                for (const target of this.runtime.targets) {
+                    if (!target || !target.blocks || !target.isOriginal || target === definitionTarget) {
+                        continue;
+                    }
+                    const candidate = target.blocks.getProcedureDefinition(procedureCode, true);
+                    if (candidate) {
+                        definition = candidate;
+                        definitionTarget = target;
+                        break;
+                    }
+                }
+            }
+        }
+
         if (!definition) {
             return;
         }
@@ -338,6 +362,14 @@ class Sequencer {
         // When that set of blocks finishes executing, it will be popped
         // from the stack by the sequencer, returning control to the caller.
         thread.pushStack(definition);
+
+        // Use the definition's block container for procedure body traversal, but keep
+        // execution target on the caller so variables and motion affect the caller sprite.
+        if (definitionTarget !== thread.target) {
+            const procedureFrame = thread.peekStackFrame();
+            procedureFrame.returnToBlockContainer = thread.blockContainer || thread.target.blocks;
+            thread.blockContainer = definitionTarget.blocks;
+        }
         // In known warp-mode threads, only yield when time is up.
         if (thread.peekStackFrame().warpMode &&
             thread.warpTimer.timeElapsed() > Sequencer.WARP_TIME) {
@@ -345,8 +377,8 @@ class Sequencer {
         } else {
             // Look for warp-mode flag on definition, and set the thread
             // to warp-mode if needed.
-            const definitionBlock = thread.target.blocks.getBlock(definition);
-            const innerBlock = thread.target.blocks.getBlock(
+            const definitionBlock = thread.blockContainer.getBlock(definition);
+            const innerBlock = thread.blockContainer.getBlock(
                 definitionBlock.inputs.custom_block.block);
             let doWarp = false;
             if (innerBlock && innerBlock.mutation) {

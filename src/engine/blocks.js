@@ -8,6 +8,7 @@ const BlocksRuntimeCache = require('./blocks-runtime-cache');
 const log = require('../util/log');
 const Variable = require('./variable');
 const getMonitorIdForBlockWithArgs = require('../util/get-monitor-id');
+const uid = require('../util/uid');
 
 /**
  * @fileoverview
@@ -272,14 +273,17 @@ class Blocks {
     }
 
     /**
-     * Get the procedure definition for a given name.
+     * Get the procedure definition for a given name and scope.
      * @param {?string} name Name of procedure to query.
+     * @param {boolean} requireGlobal If true, only match globally scoped procedures.
      * @return {?string} ID of procedure definition.
      */
-    getProcedureDefinition (name) {
-        const blockID = this._cache.procedureDefinitions[name];
-        if (typeof blockID !== 'undefined') {
-            return blockID;
+    getProcedureDefinitionWithScope (name, requireGlobal) {
+        if (!requireGlobal) {
+            const blockID = this._cache.procedureDefinitions[name];
+            if (typeof blockID !== 'undefined') {
+                return blockID;
+            }
         }
 
         for (const id in this._blocks) {
@@ -289,14 +293,31 @@ class Blocks {
                 // tw: make sure that populateProcedureCache is kept up to date with this method
                 const internal = this._getCustomBlockInternal(block);
                 if (internal && internal.mutation.proccode === name) {
-                    this._cache.procedureDefinitions[name] = id; // The outer define block id
+                    if (requireGlobal && !(internal.mutation.global === true || internal.mutation.global === 'true')) {
+                        continue;
+                    }
+                    if (!requireGlobal) {
+                        this._cache.procedureDefinitions[name] = id; // The outer define block id
+                    }
                     return id;
                 }
             }
         }
 
-        this._cache.procedureDefinitions[name] = null;
+        if (!requireGlobal) {
+            this._cache.procedureDefinitions[name] = null;
+        }
         return null;
+    }
+
+    /**
+     * Get the procedure definition for a given name and scope.
+     * @param {?string} name Name of procedure to query.
+     * @param {boolean=} requireGlobal If true, only match globally scoped procedures.
+     * @return {?string} ID of procedure definition.
+     */
+    getProcedureDefinition (name, requireGlobal) {
+        return this.getProcedureDefinitionWithScope(name, !!requireGlobal);
     }
 
     /**
@@ -304,8 +325,8 @@ class Blocks {
      * @param {?string} name Name of procedure to query.
      * @return {?Array.<string>} List of param names for a procedure.
      */
-    getProcedureParamNamesAndIds (name) {
-        return this.getProcedureParamNamesIdsAndDefaults(name).slice(0, 2);
+    getProcedureParamNamesAndIds (name, requireGlobal) {
+        return this.getProcedureParamNamesIdsAndDefaults(name, requireGlobal).slice(0, 2);
     }
 
     /**
@@ -360,10 +381,13 @@ class Blocks {
      * @param {?string} name Name of procedure to query.
      * @return {?Array} List of param names, ids, and defaults for a procedure.
      */
-    getProcedureParamNamesIdsAndDefaults (name) {
-        const cachedNames = this._cache.procedureParamNames[name];
-        if (typeof cachedNames !== 'undefined') {
-            return cachedNames;
+    getProcedureParamNamesIdsAndDefaults (name, requireGlobal) {
+        const mustBeGlobal = !!requireGlobal;
+        if (!mustBeGlobal) {
+            const cachedNames = this._cache.procedureParamNames[name];
+            if (typeof cachedNames !== 'undefined') {
+                return cachedNames;
+            }
         }
 
         for (const id in this._blocks) {
@@ -371,6 +395,10 @@ class Blocks {
             const block = this._blocks[id];
             if (block.opcode === 'procedures_prototype' &&
                 block.mutation.proccode === name) {
+                if (mustBeGlobal && !(block.mutation.global === true || block.mutation.global === 'true')) {
+                    continue;
+                }
+
                 // tw: make sure that populateProcedureCache is kept up to date with this method
                 const names = JSON.parse(block.mutation.argumentnames);
                 const ids = JSON.parse(block.mutation.argumentids);
@@ -379,18 +407,25 @@ class Blocks {
                     JSON.parse(block.mutation.argumentdefaults)
                 );
 
-                this._cache.procedureParamNames[name] = [names, ids, defaults];
-                return this._cache.procedureParamNames[name];
+                if (!mustBeGlobal) {
+                    this._cache.procedureParamNames[name] = [names, ids, defaults];
+                    return this._cache.procedureParamNames[name];
+                }
+                return [names, ids, defaults];
             }
         }
 
-        const addonBlock = this.runtime.getAddonBlock(name);
-        if (addonBlock) {
-            this._cache.procedureParamNames[name] = addonBlock.namesIdsDefaults;
-            return addonBlock.namesIdsDefaults;
+        if (!mustBeGlobal) {
+            const addonBlock = this.runtime.getAddonBlock(name);
+            if (addonBlock) {
+                this._cache.procedureParamNames[name] = addonBlock.namesIdsDefaults;
+                return addonBlock.namesIdsDefaults;
+            }
         }
 
-        this._cache.procedureParamNames[name] = null;
+        if (!mustBeGlobal) {
+            this._cache.procedureParamNames[name] = null;
+        }
         return null;
     }
 
@@ -778,9 +813,25 @@ class Blocks {
                 }
             }
             break;
-        case 'mutation':
+        case 'mutation': {
+            const oldMutation = block.mutation ? Object.assign({}, block.mutation) : null;
             block.mutation = mutationAdapter(args.value);
+            if (block.opcode === 'procedures_prototype') {
+                const isGlobal = block.mutation &&
+                    (block.mutation.global === true || block.mutation.global === 'true');
+                const wasGlobal = oldMutation &&
+                    (oldMutation.global === true || oldMutation.global === 'true');
+                if (isGlobal || wasGlobal) {
+                    const sourceTarget = this.runtime.getEditingTarget();
+                    this.runtime.syncGlobalProcedureMutation(
+                        sourceTarget && sourceTarget.id,
+                        block.mutation,
+                        oldMutation
+                    );
+                }
+            }
             break;
+        }
         case 'shadow':
             block.shadow = args.value;
             break;
@@ -875,6 +926,153 @@ class Blocks {
         this.emitProjectChanged();
 
         this.resetCache();
+    }
+
+    /**
+     * Apply a global procedure mutation to matching procedure blocks.
+     * @param {!object} nextMutation New mutation state.
+     * @param {?object} prevMutation Previous mutation state.
+     * @returns {boolean} True if any blocks were updated.
+     */
+    syncGlobalProcedureMutation (nextMutation, prevMutation) {
+        if (!nextMutation || !nextMutation.proccode) {
+            return false;
+        }
+
+        const oldProcCode = prevMutation && prevMutation.proccode;
+        const nextProcCode = nextMutation.proccode;
+        const mutationProcCodes = Object.create(null);
+        mutationProcCodes[nextProcCode] = true;
+        if (oldProcCode) {
+            mutationProcCodes[oldProcCode] = true;
+        }
+
+        let changed = false;
+        const blockIds = Object.keys(this._blocks);
+        for (const id of blockIds) {
+            const block = this._blocks[id];
+            if (!block || !block.mutation || !mutationProcCodes[block.mutation.proccode]) {
+                continue;
+            }
+
+            if (block.opcode === 'procedures_prototype') {
+                block.mutation.proccode = nextProcCode;
+                block.mutation.argumentids = nextMutation.argumentids;
+                block.mutation.argumentnames = nextMutation.argumentnames;
+                block.mutation.argumentdefaults = nextMutation.argumentdefaults;
+                block.mutation.warp = nextMutation.warp;
+                block.mutation.global = nextMutation.global;
+                block.mutation.colour = nextMutation.colour;
+                if (Object.prototype.hasOwnProperty.call(nextMutation, 'return')) {
+                    block.mutation.return = nextMutation.return;
+                } else {
+                    delete block.mutation.return;
+                }
+                changed = true;
+                continue;
+            }
+
+            if (block.opcode === 'procedures_call') {
+                block.mutation.proccode = nextProcCode;
+                block.mutation.argumentids = nextMutation.argumentids;
+                block.mutation.warp = nextMutation.warp;
+                block.mutation.global = nextMutation.global;
+                block.mutation.colour = nextMutation.colour;
+                const shapeChanged = (Number(block.mutation.return) > 0) !==
+                    (Number(nextMutation.return) > 0);
+                const canChangeShape = block.topLevel && !block.next;
+                if (!shapeChanged || canChangeShape) {
+                    if (Object.prototype.hasOwnProperty.call(nextMutation, 'return')) {
+                        block.mutation.return = nextMutation.return;
+                    } else {
+                        delete block.mutation.return;
+                    }
+                }
+                this._syncGlobalProcedureInputs(block, nextMutation);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.resetCache();
+        }
+        return changed;
+    }
+
+    /**
+     * Reconcile inputs on an inactive global procedure caller. Existing inputs
+     * stay connected by argument ID, removed user blocks become top-level, and
+     * new string/number inputs receive their standard default shadows.
+     * @param {!object} block Procedure call block.
+     * @param {!object} mutation Updated procedure prototype mutation.
+     * @private
+     */
+    _syncGlobalProcedureInputs (block, mutation) {
+        let argumentIds;
+        try {
+            argumentIds = JSON.parse(mutation.argumentids || '[]');
+        } catch (e) {
+            return;
+        }
+
+        const argumentTypes = [];
+        const argumentPattern = /(?:^|[^\\])%([nboas])/g;
+        let match;
+        while ((match = argumentPattern.exec(mutation.proccode || ''))) {
+            argumentTypes.push(match[1]);
+        }
+
+        block.inputs = block.inputs || {};
+        const activeArgumentIds = new Set(argumentIds);
+        for (const inputId of Object.keys(block.inputs)) {
+            if (activeArgumentIds.has(inputId)) continue;
+            const input = block.inputs[inputId];
+            const child = input && this._blocks[input.block];
+            const shadowId = input && input.shadow;
+
+            if (child && input.block !== shadowId) {
+                child.parent = null;
+                if (typeof child.x === 'undefined') child.x = 0;
+                if (typeof child.y === 'undefined') child.y = 0;
+                this._addScript(child.id);
+            }
+            if (shadowId) {
+                delete this._blocks[shadowId];
+            }
+            delete block.inputs[inputId];
+        }
+
+        for (let i = 0; i < argumentIds.length; i++) {
+            const argumentId = argumentIds[i];
+            const argumentType = argumentTypes[i];
+            if (block.inputs[argumentId] || (argumentType !== 's' && argumentType !== 'n')) {
+                continue;
+            }
+
+            const shadowId = uid();
+            const isNumber = argumentType === 'n';
+            const fieldName = isNumber ? 'NUM' : 'TEXT';
+            this._blocks[shadowId] = {
+                id: shadowId,
+                opcode: isNumber ? 'math_number' : 'text',
+                inputs: {},
+                fields: {
+                    [fieldName]: {
+                        name: fieldName,
+                        value: isNumber ? '1' : ''
+                    }
+                },
+                next: null,
+                topLevel: false,
+                parent: block.id,
+                shadow: true
+            };
+            block.inputs[argumentId] = {
+                name: argumentId,
+                block: shadowId,
+                shadow: shadowId
+            };
+        }
     }
 
     /**

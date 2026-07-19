@@ -162,27 +162,53 @@ class BlockUtility {
     /**
      * Start a specified procedure on this thread.
      * @param {string} procedureCode Procedure code for procedure to start.
+     * @param {boolean=} isGlobal If true, resolve globally scoped procedures.
      */
-    startProcedure (procedureCode) {
-        this.sequencer.stepToProcedure(this.thread, procedureCode);
+    startProcedure (procedureCode, isGlobal) {
+        this.sequencer.stepToProcedure(this.thread, procedureCode, isGlobal);
     }
 
     /**
      * Get names and ids of parameters for the given procedure.
      * @param {string} procedureCode Procedure code for procedure to query.
+     * @param {boolean=} requireGlobal If true, query globally scoped procedures.
      * @return {Array.<string>} List of param names for a procedure.
      */
-    getProcedureParamNamesAndIds (procedureCode) {
-        return this.thread.target.blocks.getProcedureParamNamesAndIds(procedureCode);
+    getProcedureParamNamesAndIds (procedureCode, requireGlobal) {
+        const info = this.getProcedureParamNamesIdsAndDefaults(procedureCode, requireGlobal);
+        return info ? info.slice(0, 2) : null;
     }
 
     /**
      * Get names, ids, and defaults of parameters for the given procedure.
      * @param {string} procedureCode Procedure code for procedure to query.
+     * @param {boolean=} requireGlobal If true, query globally scoped procedures.
      * @return {Array.<string>} List of param names for a procedure.
      */
-    getProcedureParamNamesIdsAndDefaults (procedureCode) {
-        return this.thread.target.blocks.getProcedureParamNamesIdsAndDefaults(procedureCode);
+    getProcedureParamNamesIdsAndDefaults (procedureCode, requireGlobal) {
+        const mustBeGlobal = !!requireGlobal;
+        const currentTarget = this.thread.target;
+
+        if (!mustBeGlobal) {
+            return currentTarget.blocks.getProcedureParamNamesIdsAndDefaults(procedureCode, false);
+        }
+
+        let result = currentTarget.blocks.getProcedureParamNamesIdsAndDefaults(procedureCode, true);
+        if (result) {
+            return result;
+        }
+
+        for (const target of this.runtime.targets) {
+            if (!target || !target.blocks || !target.isOriginal || target === currentTarget) {
+                continue;
+            }
+            result = target.blocks.getProcedureParamNamesIdsAndDefaults(procedureCode, true);
+            if (result) {
+                return result;
+            }
+        }
+
+        return null;
     }
 
     /**
