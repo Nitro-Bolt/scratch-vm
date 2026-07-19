@@ -3334,8 +3334,8 @@ class Runtime extends EventEmitter {
      * @param {Array.<object>} blocks The set of blocks dragged to the GUI
      * @param {string} topBlockId The original id of the top block being dragged
      */
-    emitBlockEndDrag (blocks, topBlockId) {
-        this.emit(Runtime.BLOCK_DRAG_END, blocks, topBlockId);
+    emitBlockEndDrag (blocks, topBlockId, group) {
+        this.emit(Runtime.BLOCK_DRAG_END, blocks, topBlockId, group);
     }
 
     /**
