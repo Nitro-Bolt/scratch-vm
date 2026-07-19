@@ -1087,7 +1087,7 @@ class VirtualMachine extends EventEmitter {
      * Update a sound buffer.
      * @param {int} soundIndex - the index of the sound to be updated.
      * @param {AudioBuffer} newBuffer - new audio buffer for the audio engine.
-     * @param {ArrayBuffer} soundEncoding - the new (wav) encoded sound to be stored
+     * @param {ArrayBuffer} soundEncoding - the new (mp3) encoded sound to be stored
      */
     updateSoundBuffer (soundIndex, newBuffer, soundEncoding) {
         const sound = this.editingTarget.sprite.sounds[soundIndex];
@@ -1107,13 +1107,13 @@ class VirtualMachine extends EventEmitter {
             const storage = this.runtime.storage;
             sound.asset = storage.createAsset(
                 storage.AssetType.Sound,
-                storage.DataFormat.WAV,
+                storage.DataFormat.MP3,
                 soundEncoding,
                 null,
                 true // generate md5
             );
             sound.assetId = sound.asset.assetId;
-            sound.dataFormat = storage.DataFormat.WAV;
+            sound.dataFormat = storage.DataFormat.MP3;
             sound.md5 = `${sound.assetId}.${sound.dataFormat}`;
             sound.sampleCount = newBuffer.length;
             sound.rate = newBuffer.sampleRate;
