@@ -3,6 +3,7 @@ const EventEmitter = require('events');
 const Blocks = require('./blocks');
 const Variable = require('../engine/variable');
 const Comment = require('../engine/comment');
+const Group = require('../engine/group');
 const uid = require('../util/uid');
 const log = require('../util/log');
 const StringUtil = require('../util/string-util');
@@ -55,6 +56,11 @@ class Target extends EventEmitter {
          * @type {Object.<string,*>}
          */
         this.comments = {};
+        /**
+         * Dictionary of groups for this target.
+         * Key is the group id.
+         */
+        this.groups = {};
         /**
          * Dictionary of custom state for this target.
          * This can be used to store target-specific custom state for blocks which need it.
@@ -328,6 +334,14 @@ class Target extends EventEmitter {
             }
             this.comments[id] = newComment;
         }
+    }
+
+    /**
+     * Create or replace an editor script group.
+     */
+    createGroup (state) {
+        const group = new Group(state);
+        this.groups[group.id] = group;
     }
 
     /**

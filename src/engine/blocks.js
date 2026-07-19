@@ -487,11 +487,21 @@ class Blocks {
         // Validate event
         if (typeof e !== 'object') return;
         if (typeof e.blockId !== 'string' && typeof e.varId !== 'string' &&
-            typeof e.commentId !== 'string') {
+            typeof e.commentId !== 'string' && typeof e.groupId !== 'string') {
             return;
         }
         const stage = this.runtime.getTargetForStage();
         const editingTarget = this.runtime.getEditingTarget();
+
+        if (e.type === 'group_change' && editingTarget) {
+            if (e.newState) {
+                editingTarget.createGroup(e.newState);
+            } else {
+                delete editingTarget.groups[e.groupId];
+            }
+            this.emitProjectChanged();
+            return;
+        }
 
         // UI event: clicked scripts toggle in the runtime.
         if (e.element === 'stackclick') {
@@ -539,6 +549,21 @@ class Blocks {
                 this.runtime.emitBlockEndDrag(newBlocks, e.blockId);
             }
             break;
+        case 'group_drag_outside':
+            this.runtime.emitBlockDragUpdate(e.isOutside);
+            break;
+        case 'group_end_drag': {
+            this.runtime.emitBlockDragUpdate(false);
+            if (e.isOutside) {
+                const newBlocks = e.xmls.reduce((all, xml) =>
+                    all.concat(adapter({xml})), []);
+                const group = Object.assign({}, e.groupState, {
+                    blocks: newBlocks.filter(block => block.topLevel).map(block => block.id)
+                });
+                this.runtime.emitBlockEndDrag(newBlocks, group.blocks[0] || null, group);
+            }
+            break;
+        }
         case 'delete':
             // Don't accept delete events for missing blocks,
             // or shadow blocks being obscured.
