@@ -60,6 +60,9 @@ class IntermediateStackBlock {
  */
 class IntermediateInput {
 
+    /**
+     * @param {number} number
+     */
     static getNumberInputType (number) {
         if (typeof number !== 'number') throw new Error('Expected a number.');
         if (number === Infinity) return InputType.NUMBER_POS_INF;
@@ -89,7 +92,7 @@ class IntermediateInput {
         this.type = type;
 
         /**
-         * @type {Object}
+         * @type {Record<string, any>}
          */
         this.inputs = inputs;
 
@@ -288,6 +291,12 @@ class IntermediateScript {
          * @type {string?}
          */
         this.topBlockId = null;
+
+        /**
+         * The ID of the bottom block of this script.
+         * @type {string?}
+         */
+        this.bottomBlockId = null;
 
         /**
          * List of nodes that make up this script.

@@ -21,7 +21,7 @@ const compress = require('./tw-compress-sb3');
 
 const {loadCostume} = require('../import/load-costume.js');
 const {loadSound} = require('../import/load-sound.js');
-const {deserializeCostume, deserializeSound} = require('./deserialize-assets.js');
+const {deserializeCostume, deserializeSound, deserializeAsset} = require('./deserialize-assets.js');
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
@@ -46,6 +46,7 @@ const INPUT_DIFF_BLOCK_SHADOW = 3; // obscured shadow
 // Constants used during deserialization of an SB3 file
 const CORE_EXTENSIONS = [
     'argument',
+    'assets',
     'colour',
     'control',
     'data',
@@ -493,37 +494,20 @@ const serializeSound = function (sound) {
     return obj;
 };
 
-// Using some bugs, it can be possible to get values like undefined, null, or complex objects into
-// variables or lists. This will cause make the project unusable after exporting without JSON editing
-// as it will fail validation in scratch-parser.
-// To avoid this, we'll convert those objects to strings before saving them.
-const isVariableValueSafeForJSON = value => (
-    typeof value === 'number' ||
-    typeof value === 'string' ||
-    typeof value === 'boolean' ||
-    typeof value === 'object'
-);
-const makeSafeForJSON = value => {
-    if (Array.isArray(value)) {
-        let copy = null;
-        for (let i = 0; i < value.length; i++) {
-            if (!isVariableValueSafeForJSON(value[i])) {
-                if (!copy) {
-                    // Only copy the list when needed
-                    copy = value.slice();
-                }
-                copy[i] = `${copy[i]}`;
-            }
-        }
-        if (copy) {
-            return copy;
-        }
-        return value;
-    }
-    if (isVariableValueSafeForJSON(value)) {
-        return value;
-    }
-    return `${value}`;
+/**
+ * Serialize the given asset.
+ * @param {object} asset The asset to be serialized.
+ * @returns {object} A serialized representation of the asset.
+ */
+const serializeAsset = function (asset) {
+    const obj = Object.create(null);
+    obj.name = asset.name;
+    obj.lastModified = asset.lastModified;
+    obj.dataFormat = asset.dataFormat.toLowerCase();
+    obj.assetId = asset.assetId;
+    obj.md5ext = asset.md5;
+    obj.contentType = asset.asset.assetType.contentType;
+    return obj;
 };
 
 /**
@@ -548,16 +532,20 @@ const serializeVariables = function (variables) {
             continue;
         }
         if (v.type === Variable.LIST_TYPE) {
-            obj.lists[varId] = [v.name, makeSafeForJSON(v.value)];
+            obj.lists[varId] = [v.name, v.value];
             continue;
         }
         if (v.type === Variable.TABLE_TYPE) {
-            obj.tables[varId] = [v.name, makeSafeForJSON(v.value)];
+            obj.tables[varId] = [v.name, v.value];
+            continue;
+        }
+        if (v.type === Variable.TABLE_TYPE) {
+            obj.tables[varId] = [v.name, v.value];
             continue;
         }
 
         // otherwise should be a scalar type
-        obj.variables[varId] = [v.name, makeSafeForJSON(v.value)];
+        obj.variables[varId] = [v.name, v.value];
         // only scalar vars have the potential to be cloud vars
         if (v.isCloud) obj.variables[varId].push(true);
     }
@@ -618,10 +606,10 @@ const serializeTarget = function (target, extensions) {
         log.warn(`currentCostume property for target ${target.name} is out of range`);
         target.currentCostume = MathUtil.clamp(target.currentCostume, 0, target.costumes.length - 1);
     }
-
     obj.currentCostume = target.currentCostume;
     obj.costumes = target.costumes.map(serializeCostume);
     obj.sounds = target.sounds.map(serializeSound);
+    obj.assets = target.assets.map(serializeAsset);
     if (Object.prototype.hasOwnProperty.call(target, 'volume')) obj.volume = target.volume;
     if (Object.prototype.hasOwnProperty.call(target, 'layerOrder')) obj.layerOrder = target.layerOrder;
     if (obj.isStage) { // Only the stage should have these properties
@@ -1186,7 +1174,69 @@ const parseScratchAssets = function (object, runtime, zip) {
         // process has been completed.
     });
 
+    assets.assetPromises = (object.assets || []).map(assetSource => {
+        const asset = {
+            assetId: assetSource.assetId,
+            dataFormat: assetSource.dataFormat,
+            contentType: assetSource.contentType,
+            name: assetSource.name,
+            lastModified: assetSource.lastModified,
+            md5: assetSource.md5ext,
+            data: null
+        };
+
+        return runtime.wrapAssetRequest(() => deserializeAsset(asset, runtime, zip));
+    });
+
     return assets;
+};
+
+/**
+ * Fix various backwards-incompatible changes that Scratch made in the spork migration.
+ * @param {object} blocks Blocks, mutated in-place.
+ */
+const fixSporkCompatibility = function (blocks) {
+    for (const blockId in blocks) {
+        if (!Object.prototype.hasOwnProperty.call(blocks, blockId)) continue;
+
+        const block = blocks[blockId];
+        const opcode = block.opcode;
+
+        switch (opcode) {
+        // Custom block definition prototype blocks used to be marked as shadow: true, but spork marks as shadow: false.
+        // Our scratch-blocks relies on it being shadow: true to prevent moving, so we'll force it to be that way.
+        case 'procedures_prototype':
+            block.shadow = true;
+            break;
+
+        // For completeness with the above, set the argument reporter generators to be shadow: true as well.
+        case 'argument_reporter_string_number':
+        case 'argument_reporter_boolean': {
+            const parent = blocks[block.parent];
+            if (parent && parent.opcode === 'procedures_prototype') {
+                block.shadow = true;
+            }
+            break;
+        }
+
+        // control_stop used to define a mutation for whether it has a connection below, which is what old
+        // scratch-blocks relies on to determine if there is another conneciton below or not. Spork does not define
+        // this mutation and relies only on the STOP_OPTION field. We will generate the mutation if it's missing so
+        // that a "stop other scripts in sprite" block doesn't cause the workspace to fail to load.
+        case 'control_stop': {
+            if (!block.mutation) {
+                const stopOption = block.fields?.STOP_OPTION?.value;
+                const hasNext = stopOption === 'other scripts in sprite' || stopOption === 'other scripts in stage';
+                block.mutation = {
+                    tagName: 'mutation',
+                    hasnext: hasNext ? 'true' : 'false',
+                    children: []
+                };
+            }
+            break;
+        }
+        }
+    }
 };
 
 /**
@@ -1229,11 +1279,15 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 extensions.extensionIDs.add(extensionID);
             }
         }
+        // Take a third pass to fix various things that spork broke.
+        fixSporkCompatibility(object.blocks);
     }
     // Costumes from JSON.
     const {costumePromises} = assets;
     // Sounds from JSON
     const {soundBank, soundPromises} = assets;
+    // Assets from JSON that are not a sound or a costume
+    const {assetPromises} = assets;
     // Create the first clone, and load its run-state from JSON.
     const target = sprite.createClone(object.isStage ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER);
     // Load target properties from JSON.
@@ -1377,7 +1431,10 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
         // Make sure if soundBank is undefined, sprite.soundBank is then null.
         sprite.soundBank = soundBank || null;
     });
-    return Promise.all(costumePromises.concat(soundPromises)).then(() => target);
+    Promise.all(assetPromises).then(_assets => {
+        sprite.assets = _assets;
+    });
+    return Promise.all(costumePromises.concat(soundPromises).concat(assetPromises)).then(() => target);
 };
 
 const deserializeMonitor = function (monitorData, runtime, targets, extensions) {
@@ -1553,7 +1610,7 @@ const checkPlatformCompatibility = (json, runtime) => {
     }
 
     const projectPlatform = json.meta.platform.name;
-    if (projectPlatform === runtime.platform.name) {
+    if (projectPlatform === runtime.platform.name || projectPlatform === 'TurboWarp') {
         return;
     }
 
@@ -1584,7 +1641,10 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
     await checkPlatformCompatibility(json, runtime);
 
     if (!isSingleSprite) {
-        runtime._storedProjectOptions = json.projectOptions ? ExtendedJSON.parse(json.projectOptions) : null;
+        const parsedProjectOptions = json.projectOptions ? ExtendedJSON.parse(json.projectOptions) : null;
+        if (typeof runtime._storedProjectOptions === 'undefined' || runtime._storedProjectOptions === null) {
+            runtime._storedProjectOptions = parsedProjectOptions;
+        }
     }
 
     const extensions = {

@@ -23,7 +23,8 @@ const newBlockIds = require('./util/new-block-ids');
 
 const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
-const {serializeSounds, serializeCostumes} = require('./serialization/serialize-assets');
+const {loadAsset} = require('./import/load-asset.js');
+const {serializeSounds, serializeCostumes, serializeSpriteAssets} = require('./serialization/serialize-assets');
 require('canvas-toBlob');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
 const Base64Util = require('./util/base64-util');
@@ -629,14 +630,15 @@ class VirtualMachine extends EventEmitter {
      * @type {Array<object>} Array of all assets currently in the runtime
      */
     get assets () {
-        const costumesAndSounds = this.runtime.targets.reduce((acc, target) => (
+        const costumesSoundsAndAssets = this.runtime.targets.reduce((acc, target) => (
             acc
                 .concat(target.sprite.sounds.map(sound => sound.asset))
                 .concat(target.sprite.costumes.map(costume => costume.asset))
+                .concat(target.sprite.assets.map(asset => asset.asset))
         ), []);
         const fonts = this.runtime.fontManager.serializeAssets();
         return [
-            ...costumesAndSounds,
+            ...costumesSoundsAndAssets,
             ...fonts
         ];
     }
@@ -648,6 +650,7 @@ class VirtualMachine extends EventEmitter {
     serializeAssets (targetId) {
         const costumeDescs = serializeCostumes(this.runtime, targetId);
         const soundDescs = serializeSounds(this.runtime, targetId);
+        const assetDescs = serializeSpriteAssets(this.runtime, targetId);
         const fontDescs = this.runtime.fontManager.serializeAssets().map(asset => ({
             fileName: `${asset.assetId}.${asset.dataFormat}`,
             fileContent: asset.data
@@ -655,6 +658,7 @@ class VirtualMachine extends EventEmitter {
         return [
             ...costumeDescs,
             ...soundDescs,
+            ...assetDescs,
             ...fontDescs
         ];
     }
@@ -1139,6 +1143,89 @@ class VirtualMachine extends EventEmitter {
             return restoreFun;
         }
         return null;
+    }
+
+    /**
+     * Add an asset to the current editing target.
+     * @param {!object} soundObject Object representing the asset.
+     * @param {string} optTargetId - the id of the target to add to, if not the editing target.
+     * @returns {?Promise} - a promise that resolves when the asset has been added
+     */
+    addAsset (assetObject, optTargetId) {
+        const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
+            this.editingTarget;
+        if (target) {
+            return loadAsset(assetObject, this.runtime).then(() => {
+                target.addAsset(assetObject);
+                this.emitTargetsUpdate();
+            });
+        }
+        // If the target cannot be found by id, return a rejected promise
+        return Promise.reject(new Error(`No target with ID: ${optTargetId}`));
+    }
+
+    /**
+     * Delete a asset from the current editing target.
+     * @param {int} assetIndex - the index of the asset to be removed.
+     * @return {?Function} A function to restore the asset that was deleted,
+     * or null, if no asset was deleted.
+     */
+    deleteAsset (assetIndex) {
+        const target = this.editingTarget;
+        const deletedAsset = this.editingTarget.deleteAsset(assetIndex);
+        if (deletedAsset) {
+            this.runtime.emitProjectChanged();
+            const restoreFun = () => {
+                target.addAsset(deletedAsset);
+                this.emitTargetsUpdate();
+            };
+            return restoreFun;
+        }
+        return null;
+    }
+
+    /**
+     * Reorder the assets of a target if it exists. Return whether it occured.
+     * @param {!string} targetId ID of the target which owns the assets.
+     * @param {!number} assetIndex index of the asset to move.
+     * @param {!number} newIndex index that the asset should be moved to.
+     * @returns {boolean} Whether an asset was reordered.
+     */
+    reorderAsset (targetId, assetIndex, newIndex) {
+        const target = this.runtime.getTargetById(targetId);
+        if (target) {
+            const reorderSuccessful = target.reorderAsset(assetIndex, newIndex);
+            if (reorderSuccessful) {
+                this.runtime.emitProjectChanged();
+            }
+            return reorderSuccessful;
+        }
+        return false;
+    }
+
+    /**
+     * Duplicate the asset at the given index. Add it at that index + 1.
+     * @param {!int} assetIndex Index of asset to duplicate
+     * @returns {?Promise} - a promise that resolves when the asset has been added
+     */
+    duplicateAsset (assetIndex) {
+        const originalAsset = this.editingTarget.getAssets()[assetIndex];
+        const clone = Object.assign({}, originalAsset);
+        return new Promise(resolve => {
+            this.editingTarget.addAsset(clone, assetIndex + 1);
+            this.emitTargetsUpdate();
+            resolve();
+        });
+    }
+
+    /**
+     * Rename an asset on the current editing target.
+     * @param {int} assetIndex - the index of the asset to be renamed.
+     * @param {string} newName - the desired new name of the asset (will be modified if already in use).
+     */
+    renameAsset (assetIndex, newName, extension) {
+        this.editingTarget.renameAsset(assetIndex, newName, extension);
+        this.emitTargetsUpdate();
     }
 
     /**
@@ -1640,6 +1727,24 @@ class VirtualMachine extends EventEmitter {
                 target.addSound(clone);
                 this.emitTargetsUpdate();
             }
+        });
+    }
+
+    /**
+     * Called when assets are dragged from editing target to another target.
+     * @param {!number} assetIndex Index of the asset of the editing target to share.
+     * @param {!string} targetId Id of target to add the asset.
+     * @return {Promise} Promise that resolves when the new asset has been loaded.
+     */
+    shareAssetToTarget (assetIndex, targetId) {
+        const originalAsset = this.editingTarget.getAssets()[assetIndex];
+        const clone = Object.assign({}, originalAsset);
+        const target = this.runtime.getTargetById(targetId);
+        return new Promise(resolve => {
+            if (target) {
+                target.addAsset(clone);
+            }
+            resolve();
         });
     }
 

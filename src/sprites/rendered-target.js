@@ -574,6 +574,74 @@ class RenderedTarget extends Target {
     }
 
     /**
+     * Add an asset, taking care to avoid duplicate names.
+     * @param {!object} assetObject Object representing the asset.
+     * @param {?int} index Index at which to add asset
+     */
+    addAsset (assetObject, index) {
+        const usedNames = this.sprite.assets.map(asset => asset.name);
+        assetObject.name = StringUtil.unusedName(assetObject.name, usedNames);
+        if (typeof index === 'number' && !isNaN(index)) {
+            this.sprite.assets.splice(index, 0, assetObject);
+        } else {
+            this.sprite.assets.push(assetObject);
+        }
+    }
+
+    /**
+     * Rename a asset, taking care to avoid duplicate names.
+     * @param {int} assetIndex - the index of the asset to be renamed.
+     * @param {string} newName - the desired new name of the asset (will be modified if already in use).
+     * @param {string} extension - the desired extension of the asset
+     */
+    renameAsset (assetIndex, newName, extension) {
+        const usedNames = this.sprite.assets
+            .filter((asset, index) => assetIndex !== index)
+            .map(asset => asset.name);
+        const oldName = this.sprite.assets[assetIndex].name;
+        const newUnusedName = StringUtil.unusedName(newName, usedNames);
+        const asset = this.sprite.assets[assetIndex];
+        asset.name = newUnusedName;
+        asset.dataFormat = extension;
+        this.blocks.updateAssetName(oldName, newUnusedName, 'asset');
+    }
+
+    /**
+     * Delete an asset by index.
+     * @param {number} index Asset index to be deleted
+     * @return {object} The deleted asset object, or null if no asset was deleted.
+     */
+    deleteAsset (index) {
+        // Make sure the asset index is not out of bounds
+        if (index < 0 || index >= this.sprite.assets.length) {
+            return null;
+        }
+        // Delete the asset at the given index
+        const deletedAsset = this.sprite.assets.splice(index, 1)[0];
+        this.runtime.requestTargetsUpdate(this);
+        return deletedAsset;
+    }
+
+
+    /**
+     * Reorder asset list by moving asset at assetIndex to newIndex.
+     * @param {!number} assetIndex Index of the asset to move.
+     * @param {!number} newIndex New index for that asset.
+     * @returns {boolean} If a change occurred (i.e. if the indices do not match)
+     */
+    reorderAsset (assetIndex, newIndex) {
+        newIndex = MathUtil.clamp(newIndex, 0, this.sprite.assets.length - 1);
+        assetIndex = MathUtil.clamp(assetIndex, 0, this.sprite.assets.length - 1);
+
+        if (newIndex === assetIndex) return false;
+
+        const asset = this.sprite.assets[assetIndex];
+        this.deleteAsset(assetIndex);
+        this.addAsset(asset, newIndex);
+        return true;
+    }
+
+    /**
      * Update the rotation style.
      * @param {!string} rotationStyle New rotation style.
      */
@@ -674,6 +742,14 @@ class RenderedTarget extends Target {
      */
     getSounds () {
         return this.sprite.sounds;
+    }
+
+    /** *
+     * Get full asset list
+     * @returns {object[]} list of assets
+     */
+    getAssets () {
+        return this.sprite.assets;
     }
 
     /**
@@ -796,7 +872,7 @@ class RenderedTarget extends Target {
     /**
      * Return whether touching any of a named sprite's clones.
      * @param {string} spriteName Name of the sprite.
-     * @return {boolean} True iff touching a clone of the sprite.
+     * @return {boolean} True if touching a clone of the sprite.
      */
     isTouchingSprite (spriteName) {
         spriteName = Cast.toString(spriteName);
@@ -811,6 +887,18 @@ class RenderedTarget extends Target {
             .map(clone => clone.drawableID);
         return this.renderer.isTouchingDrawables(
             this.drawableID, drawableCandidates);
+    }
+
+    /**
+     * Return whether touching a specific target instance.
+     * @param {Target} target The target instance.
+     * @return {boolean} True if touching the specific target.
+     */
+    isTouchingTarget (target) {
+        if (!target || !this.renderer || target.dragging) {
+            return false;
+        }
+        return this.renderer.isTouchingDrawables(this.drawableID, [target.drawableID]);
     }
 
     /**
@@ -1092,6 +1180,7 @@ class RenderedTarget extends Target {
             variables: this.variables,
             costumes: costumes,
             sounds: this.getSounds(),
+            assets: this.getAssets(),
             textToSpeechLanguage: this.textToSpeechLanguage,
             tempo: this.tempo,
             volume: this.volume,

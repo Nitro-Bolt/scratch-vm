@@ -88,7 +88,7 @@ class Blocks {
              * @type {object.<string, object>}
              */
             compiledScripts: {},
-            
+
             /**
              * tw: A cache of procedure code opcodes to a parsed intermediate representation
              * @type {object.<string, object>}
@@ -197,7 +197,7 @@ class Blocks {
         if (!branchNum) branchNum = 1;
 
         let inputName = Blocks.BRANCH_INPUT_PREFIX;
-        if (branchNum > 1) {
+        if (typeof branchNum === 'string' || branchNum > 1) {
             inputName += branchNum;
         }
 
@@ -330,9 +330,56 @@ class Blocks {
     }
 
     /**
+     * Normalize procedure defaults based on param types from the proccode.
+     * @param {string} proccode The procedure code string.
+     * @param {string[]} names Parameter names.
+     * @param {string[]} ids Parameter IDs.
+     * @param {Array} defaults Parameter defaults.
+     * @returns {Array} Normalized defaults.
+     */
+    static normalizeProcedureDefaults (proccode, names, ids, defaults) {
+        const paramTypes = [];
+        const regex = /%([snboa])/g;
+        let match;
+        while ((match = regex.exec(proccode)) !== null) {
+            paramTypes.push(match[1]);
+        }
+
+        const len = names.length;
+        const result = [];
+        for (let i = 0; i < len; i++) {
+            const type = paramTypes[i];
+            let def = i < defaults.length ? defaults[i] : null;
+
+            if (type === 'a') {
+                if (!Array.isArray(def)) {
+                    def = [];
+                }
+            } else if (type === 'o') {
+                if (typeof def !== 'object' || def === null || Array.isArray(def)) {
+                    def = {};
+                }
+            } else if (type === 'b') {
+                if (typeof def !== 'string' || (def !== 'true' && def !== 'false')) {
+                    def = 'false';
+                }
+            } else if (type === 'n') {
+                if (typeof def !== 'number') {
+                    def = 1;
+                }
+            } else if (typeof def === 'object') {
+                def = '';
+            }
+
+            result.push(def);
+        }
+        return result;
+    }
+
+    /**
      * Get names, ids, and defaults of parameters for the given procedure.
      * @param {?string} name Name of procedure to query.
-     * @return {?Array.<string>} List of param names for a procedure.
+     * @return {?Array} List of param names, ids, and defaults for a procedure.
      */
     getProcedureParamNamesIdsAndDefaults (name, requireGlobal) {
         const mustBeGlobal = !!requireGlobal;
@@ -355,7 +402,10 @@ class Blocks {
                 // tw: make sure that populateProcedureCache is kept up to date with this method
                 const names = JSON.parse(block.mutation.argumentnames);
                 const ids = JSON.parse(block.mutation.argumentids);
-                const defaults = JSON.parse(block.mutation.argumentdefaults);
+                const defaults = Blocks.normalizeProcedureDefaults(
+                    block.mutation.proccode, names, ids,
+                    JSON.parse(block.mutation.argumentdefaults)
+                );
 
                 if (!mustBeGlobal) {
                     this._cache.procedureParamNames[name] = [names, ids, defaults];
@@ -396,7 +446,10 @@ class Blocks {
                 if (!this._cache.procedureParamNames[name]) {
                     const names = JSON.parse(block.mutation.argumentnames);
                     const ids = JSON.parse(block.mutation.argumentids);
-                    const defaults = JSON.parse(block.mutation.argumentdefaults);
+                    const defaults = Blocks.normalizeProcedureDefaults(
+                        block.mutation.proccode, names, ids,
+                        JSON.parse(block.mutation.argumentdefaults)
+                    );
                     this._cache.procedureParamNames[name] = [names, ids, defaults];
                 }
                 continue;
@@ -718,7 +771,12 @@ class Blocks {
 
 
             // Update block value
-            if (!block.fields[args.name]) return;
+            if (!block.fields[args.name]) {
+                block.fields[args.name] = {
+                    name: args.name,
+                    value: args.value
+                };
+            }
             if (args.name === 'VARIABLE' ||
                 args.name === 'LIST' ||
                 args.name === 'TABLE' ||
@@ -1295,8 +1353,8 @@ class Blocks {
      * @param {string} oldName The old name of the asset that was renamed.
      * @param {string} newName The new name of the asset that was renamed.
      * @param {string} assetType String representation of the kind of asset
-     * that was renamed. This can be one of 'sprite','costume', 'sound', or
-     * 'backdrop'.
+     * that was renamed. This can be one of 'sprite','costume', 'sound',
+     * 'backdrop', or 'asset'.
      */
     updateAssetName (oldName, newName, assetType) {
         let getAssetField;
@@ -1304,6 +1362,8 @@ class Blocks {
             getAssetField = this._getCostumeField.bind(this);
         } else if (assetType === 'sound') {
             getAssetField = this._getSoundField.bind(this);
+        } else if (assetType === 'asset') {
+            getAssetField = this._getAssetField.bind(this);
         } else if (assetType === 'backdrop') {
             getAssetField = this._getBackdropField.bind(this);
         } else if (assetType === 'sprite') {
@@ -1374,6 +1434,21 @@ class Blocks {
         const block = this.getBlock(blockId);
         if (block && Object.prototype.hasOwnProperty.call(block.fields, 'SOUND_MENU')) {
             return block.fields.SOUND_MENU;
+        }
+        return null;
+    }
+
+    /**
+     * Helper function to retrieve an asset menu field from a block given its id.
+     * @param {string} blockId A unique identifier for a block
+     * @return {?object} The asset menu field of the block with the given block id.
+     * Null, if either a block with the given id doesn't exist or if an asset menu field
+     * does not exist on the block with the given id.
+     */
+    _getAssetField (blockId) {
+        const block = this.getBlock(blockId);
+        if (block && Object.prototype.hasOwnProperty.call(block.fields, 'ASSET_MENU')) {
+            return block.fields.ASSET_MENU;
         }
         return null;
     }
@@ -1465,23 +1540,6 @@ class Blocks {
         if (block.mutation) {
             xmlString += this.mutationToXML(block.mutation);
         }
-        // Add any inputs on this block.
-        for (const input in block.inputs) {
-            if (!Object.prototype.hasOwnProperty.call(block.inputs, input)) continue;
-            const blockInput = block.inputs[input];
-            // Only encode a value tag if the value input is occupied.
-            if (blockInput.block || blockInput.shadow) {
-                xmlString += `<value name="${xmlEscape(blockInput.name)}">`;
-                if (blockInput.block) {
-                    xmlString += this.blockToXML(blockInput.block, comments);
-                }
-                if (blockInput.shadow && blockInput.shadow !== blockInput.block) {
-                    // Obscured shadow.
-                    xmlString += this.blockToXML(blockInput.shadow, comments);
-                }
-                xmlString += '</value>';
-            }
-        }
         // Add any fields on this block.
         for (const field in block.fields) {
             if (!Object.prototype.hasOwnProperty.call(block.fields, field)) continue;
@@ -1500,6 +1558,23 @@ class Blocks {
                 value = xmlEscape(blockField.value);
             }
             xmlString += `>${value}</field>`;
+        }
+        // Add any inputs on this block.
+        for (const input in block.inputs) {
+            if (!Object.prototype.hasOwnProperty.call(block.inputs, input)) continue;
+            const blockInput = block.inputs[input];
+            // Only encode a value tag if the value input is occupied.
+            if (blockInput.block || blockInput.shadow) {
+                xmlString += `<value name="${xmlEscape(blockInput.name)}">`;
+                if (blockInput.block) {
+                    xmlString += this.blockToXML(blockInput.block, comments);
+                }
+                if (blockInput.shadow && blockInput.shadow !== blockInput.block) {
+                    // Obscured shadow.
+                    xmlString += this.blockToXML(blockInput.shadow, comments);
+                }
+                xmlString += '</value>';
+            }
         }
         // Add blocks connected to the next connection.
         if (block.next) {

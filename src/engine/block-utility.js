@@ -247,6 +247,58 @@ class BlockUtility {
     }
 
     /**
+     * Gets all arguments of a specific name in an extendable input in an args object as a nested array.
+     * @param {object} args The args object.
+     * @param {...string} path The sequence of argument names in the nested path.
+     * @returns {array} The nested array structure of retrieved values.
+     */
+    extendableToArray (args, ...path) {
+        if (!args || typeof args !== 'object' || path.length === 0) {
+            return [];
+        }
+
+        const retrieve = (prefix, pathIndex) => {
+            const currentArg = path[pathIndex];
+            const key = prefix ? `${prefix}_${currentArg}` : currentArg;
+
+            if (pathIndex === path.length - 1) {
+                return args[key];
+            }
+
+            let length = -1;
+            if (typeof args[key] !== 'undefined' && args[key] !== null) {
+                const parsed = Math.floor(Number(args[key]));
+                if (parsed >= 0) {
+                    length = parsed;
+                }
+            }
+
+            if (length === -1) {
+                const searchPrefix = `${key}_`;
+                let maxIndex = -1;
+                for (const k of Object.keys(args)) {
+                    if (k.startsWith(searchPrefix)) {
+                        const rest = k.slice(searchPrefix.length);
+                        const parts = rest.split('_');
+                        const index = Math.floor(Number(parts[0]));
+                        if (!isNaN(index) && index > maxIndex) {
+                            maxIndex = index;
+                        }
+                    }
+                }
+                length = maxIndex + 1;
+            }
+
+            const array = new Array(length);
+            for (let i = 0; i < length; i++) {
+                array[i] = retrieve(`${key}_${i}`, pathIndex + 1);
+            }
+            return array;
+        };
+        return retrieve('', 0);
+    }
+
+    /**
      * Start all relevant hats.
      * @param {!string} requestedHat Opcode of hats to start.
      * @param {object=} optMatchFields Optionally, fields to match on the hat.
