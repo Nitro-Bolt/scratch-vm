@@ -16,6 +16,7 @@ class Scratch3ProcedureBlocks {
             procedures_definition: this.definition,
             procedures_call: this.call,
             procedures_return: this.return,
+            procedures_set_param: this.setParam,
             argument_reporter_string_number: this.argumentReporterStringNumber,
             argument_reporter_boolean: this.argumentReporterBoolean,
             argument_reporter_object: this.argumentReporterObject,
@@ -30,6 +31,7 @@ class Scratch3ProcedureBlocks {
     call (args, util) {
         const stackFrame = util.stackFrame;
         const isReporter = !!args.mutation.return;
+        const isGlobal = args.mutation && (args.mutation.global === true || args.mutation.global === 'true');
 
         if (stackFrame.executed) {
             if (isReporter) {
@@ -46,7 +48,7 @@ class Scratch3ProcedureBlocks {
         }
 
         const procedureCode = args.mutation.proccode;
-        const paramNamesIdsAndDefaults = util.getProcedureParamNamesIdsAndDefaults(procedureCode);
+        const paramNamesIdsAndDefaults = util.getProcedureParamNamesIdsAndDefaults(procedureCode, isGlobal);
 
         // If null, procedure could not be found, which can happen if custom
         // block is dragged between sprites without the definition.
@@ -91,7 +93,7 @@ class Scratch3ProcedureBlocks {
             stackFrame.returnValue = '';
         }
 
-        util.startProcedure(procedureCode);
+        util.startProcedure(procedureCode, isGlobal);
     }
 
     return (args, util) {
@@ -100,6 +102,34 @@ class Scratch3ProcedureBlocks {
         if (util.thread.peekStackFrame()) {
             util.stackFrame.returnValue = args.VALUE;
         }
+    }
+
+    setParam (args, util) {
+        const activeStackFrame = util.thread.stackFrames[0];
+        if (!activeStackFrame || !activeStackFrame.params) return;
+
+        const currentBlock = util.target.blocks.getBlock(util.thread.peekStack());
+        const paramInput = currentBlock && currentBlock.inputs && currentBlock.inputs.PARAM;
+        if (!paramInput || !paramInput.block) return;
+
+        const paramReporterBlock = util.target.blocks.getBlock(paramInput.block);
+        if (!paramReporterBlock) return;
+
+        // Only allow argument reporter blocks
+        const opcode = paramReporterBlock.opcode;
+        const allowedOpcode = (
+            opcode === 'argument_reporter_string_number' ||
+            opcode === 'argument_reporter_boolean' ||
+            opcode === 'argument_reporter_array' ||
+            opcode === 'argument_reporter_object'
+        );
+        if (!allowedOpcode) return;
+
+        const paramFieldValue = paramReporterBlock.fields && paramReporterBlock.fields.VALUE;
+        const paramName = paramFieldValue && paramFieldValue.value;
+        if (typeof paramName === 'undefined') return;
+
+        activeStackFrame.params[paramName] = args.VALUE;
     }
 
     argumentReporterStringNumber (args, util) {

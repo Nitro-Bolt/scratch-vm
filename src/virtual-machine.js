@@ -23,7 +23,8 @@ const newBlockIds = require('./util/new-block-ids');
 
 const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
-const {serializeSounds, serializeCostumes} = require('./serialization/serialize-assets');
+const {loadAsset} = require('./import/load-asset.js');
+const {serializeSounds, serializeCostumes, serializeSpriteAssets} = require('./serialization/serialize-assets');
 require('canvas-toBlob');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
 const Base64Util = require('./util/base64-util');
@@ -123,8 +124,8 @@ class VirtualMachine extends EventEmitter {
         this.runtime.on(Runtime.BLOCK_DRAG_UPDATE, areBlocksOverGui => {
             this.emit(Runtime.BLOCK_DRAG_UPDATE, areBlocksOverGui);
         });
-        this.runtime.on(Runtime.BLOCK_DRAG_END, (blocks, topBlockId) => {
-            this.emit(Runtime.BLOCK_DRAG_END, blocks, topBlockId);
+        this.runtime.on(Runtime.BLOCK_DRAG_END, (blocks, topBlockId, group) => {
+            this.emit(Runtime.BLOCK_DRAG_END, blocks, topBlockId, group);
         });
         this.runtime.on(Runtime.EXTENSION_ADDED, categoryInfo => {
             this.emit(Runtime.EXTENSION_ADDED, categoryInfo);
@@ -629,14 +630,15 @@ class VirtualMachine extends EventEmitter {
      * @type {Array<object>} Array of all assets currently in the runtime
      */
     get assets () {
-        const costumesAndSounds = this.runtime.targets.reduce((acc, target) => (
+        const costumesSoundsAndAssets = this.runtime.targets.reduce((acc, target) => (
             acc
                 .concat(target.sprite.sounds.map(sound => sound.asset))
                 .concat(target.sprite.costumes.map(costume => costume.asset))
+                .concat(target.sprite.assets.map(asset => asset.asset))
         ), []);
         const fonts = this.runtime.fontManager.serializeAssets();
         return [
-            ...costumesAndSounds,
+            ...costumesSoundsAndAssets,
             ...fonts
         ];
     }
@@ -648,6 +650,7 @@ class VirtualMachine extends EventEmitter {
     serializeAssets (targetId) {
         const costumeDescs = serializeCostumes(this.runtime, targetId);
         const soundDescs = serializeSounds(this.runtime, targetId);
+        const assetDescs = serializeSpriteAssets(this.runtime, targetId);
         const fontDescs = this.runtime.fontManager.serializeAssets().map(asset => ({
             fileName: `${asset.assetId}.${asset.dataFormat}`,
             fileContent: asset.data
@@ -655,6 +658,7 @@ class VirtualMachine extends EventEmitter {
         return [
             ...costumeDescs,
             ...soundDescs,
+            ...assetDescs,
             ...fontDescs
         ];
     }
@@ -1083,7 +1087,7 @@ class VirtualMachine extends EventEmitter {
      * Update a sound buffer.
      * @param {int} soundIndex - the index of the sound to be updated.
      * @param {AudioBuffer} newBuffer - new audio buffer for the audio engine.
-     * @param {ArrayBuffer} soundEncoding - the new (wav) encoded sound to be stored
+     * @param {ArrayBuffer} soundEncoding - the new (mp3) encoded sound to be stored
      */
     updateSoundBuffer (soundIndex, newBuffer, soundEncoding) {
         const sound = this.editingTarget.sprite.sounds[soundIndex];
@@ -1103,13 +1107,13 @@ class VirtualMachine extends EventEmitter {
             const storage = this.runtime.storage;
             sound.asset = storage.createAsset(
                 storage.AssetType.Sound,
-                storage.DataFormat.WAV,
+                storage.DataFormat.MP3,
                 soundEncoding,
                 null,
                 true // generate md5
             );
             sound.assetId = sound.asset.assetId;
-            sound.dataFormat = storage.DataFormat.WAV;
+            sound.dataFormat = storage.DataFormat.MP3;
             sound.md5 = `${sound.assetId}.${sound.dataFormat}`;
             sound.sampleCount = newBuffer.length;
             sound.rate = newBuffer.sampleRate;
@@ -1139,6 +1143,89 @@ class VirtualMachine extends EventEmitter {
             return restoreFun;
         }
         return null;
+    }
+
+    /**
+     * Add an asset to the current editing target.
+     * @param {!object} soundObject Object representing the asset.
+     * @param {string} optTargetId - the id of the target to add to, if not the editing target.
+     * @returns {?Promise} - a promise that resolves when the asset has been added
+     */
+    addAsset (assetObject, optTargetId) {
+        const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
+            this.editingTarget;
+        if (target) {
+            return loadAsset(assetObject, this.runtime).then(() => {
+                target.addAsset(assetObject);
+                this.emitTargetsUpdate();
+            });
+        }
+        // If the target cannot be found by id, return a rejected promise
+        return Promise.reject(new Error(`No target with ID: ${optTargetId}`));
+    }
+
+    /**
+     * Delete a asset from the current editing target.
+     * @param {int} assetIndex - the index of the asset to be removed.
+     * @return {?Function} A function to restore the asset that was deleted,
+     * or null, if no asset was deleted.
+     */
+    deleteAsset (assetIndex) {
+        const target = this.editingTarget;
+        const deletedAsset = this.editingTarget.deleteAsset(assetIndex);
+        if (deletedAsset) {
+            this.runtime.emitProjectChanged();
+            const restoreFun = () => {
+                target.addAsset(deletedAsset);
+                this.emitTargetsUpdate();
+            };
+            return restoreFun;
+        }
+        return null;
+    }
+
+    /**
+     * Reorder the assets of a target if it exists. Return whether it occured.
+     * @param {!string} targetId ID of the target which owns the assets.
+     * @param {!number} assetIndex index of the asset to move.
+     * @param {!number} newIndex index that the asset should be moved to.
+     * @returns {boolean} Whether an asset was reordered.
+     */
+    reorderAsset (targetId, assetIndex, newIndex) {
+        const target = this.runtime.getTargetById(targetId);
+        if (target) {
+            const reorderSuccessful = target.reorderAsset(assetIndex, newIndex);
+            if (reorderSuccessful) {
+                this.runtime.emitProjectChanged();
+            }
+            return reorderSuccessful;
+        }
+        return false;
+    }
+
+    /**
+     * Duplicate the asset at the given index. Add it at that index + 1.
+     * @param {!int} assetIndex Index of asset to duplicate
+     * @returns {?Promise} - a promise that resolves when the asset has been added
+     */
+    duplicateAsset (assetIndex) {
+        const originalAsset = this.editingTarget.getAssets()[assetIndex];
+        const clone = Object.assign({}, originalAsset);
+        return new Promise(resolve => {
+            this.editingTarget.addAsset(clone, assetIndex + 1);
+            this.emitTargetsUpdate();
+            resolve();
+        });
+    }
+
+    /**
+     * Rename an asset on the current editing target.
+     * @param {int} assetIndex - the index of the asset to be renamed.
+     * @param {string} newName - the desired new name of the asset (will be modified if already in use).
+     */
+    renameAsset (assetIndex, newName, extension) {
+        this.editingTarget.renameAsset(assetIndex, newName, extension);
+        this.emitTargetsUpdate();
     }
 
     /**
@@ -1574,11 +1661,11 @@ class VirtualMachine extends EventEmitter {
      * shared from that target. This is needed for resolving any potential variable conflicts.
      * @return {!Promise} Promise that resolves when the extensions and blocks have been added.
      */
-    shareBlocksToTarget (blocks, targetId, optFromTargetId) {
+    shareBlocksToTarget (blocks, targetId, optFromTargetId, optGroup) {
         const sb3 = require('./serialization/sb3');
 
         const {blocks: copiedBlocks, extensionURLs} = sb3.deserializeStandaloneBlocks(blocks);
-        newBlockIds(copiedBlocks);
+        const blockIdMap = newBlockIds(copiedBlocks);
         const target = this.runtime.getTargetById(targetId);
 
         if (optFromTargetId) {
@@ -1599,6 +1686,12 @@ class VirtualMachine extends EventEmitter {
             copiedBlocks.forEach(block => {
                 target.blocks.createBlock(block);
             });
+            if (optGroup) {
+                target.createGroup(Object.assign({}, optGroup, {
+                    id: null,
+                    blocks: optGroup.blocks.map(id => blockIdMap[id]).filter(Boolean)
+                }));
+            }
             target.blocks.updateTargetSpecificBlocks(target.isStage);
         });
     }
@@ -1640,6 +1733,24 @@ class VirtualMachine extends EventEmitter {
                 target.addSound(clone);
                 this.emitTargetsUpdate();
             }
+        });
+    }
+
+    /**
+     * Called when assets are dragged from editing target to another target.
+     * @param {!number} assetIndex Index of the asset of the editing target to share.
+     * @param {!string} targetId Id of target to add the asset.
+     * @return {Promise} Promise that resolves when the new asset has been loaded.
+     */
+    shareAssetToTarget (assetIndex, targetId) {
+        const originalAsset = this.editingTarget.getAssets()[assetIndex];
+        const clone = Object.assign({}, originalAsset);
+        const target = this.runtime.getTargetById(targetId);
+        return new Promise(resolve => {
+            if (target) {
+                target.addAsset(clone);
+            }
+            resolve();
         });
     }
 
@@ -1735,6 +1846,7 @@ class VirtualMachine extends EventEmitter {
         const workspaceComments = Object.keys(this.editingTarget.comments)
             .map(k => this.editingTarget.comments[k])
             .filter(c => c.blockId === null);
+        const workspaceGroups = Object.values(this.editingTarget.groups || {});
 
         const xmlString = `<xml xmlns="http://www.w3.org/1999/xhtml">
                             <variables>
@@ -1742,6 +1854,7 @@ class VirtualMachine extends EventEmitter {
                                 ${localVariables.map(v => v.toXML(true)).join()}
                             </variables>
                             ${workspaceComments.map(c => c.toXML()).join()}
+                            ${workspaceGroups.map(g => g.toXML()).join()}
                             ${this.editingTarget.blocks.toXML(this.editingTarget.comments)}
                         </xml>`;
 

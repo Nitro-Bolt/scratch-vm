@@ -2,7 +2,6 @@ const BlockUtility = require('./block-utility');
 const BlocksExecuteCache = require('./blocks-execute-cache');
 const log = require('../util/log');
 const Thread = require('./thread');
-const {Map} = require('immutable');
 const cast = require('../util/cast');
 
 /**
@@ -100,11 +99,11 @@ const handleReport = function (resolvedValue, sequencer, thread, blockCached, la
                     // Target no longer exists
                     return;
                 }
-                sequencer.runtime.requestUpdateMonitor(Map({
+                sequencer.runtime.requestUpdateMonitor({
                     id: currentBlockId,
                     spriteName: targetId ? sequencer.runtime.getTargetById(targetId).getName() : null,
                     value: resolvedValue
-                }));
+                });
             }
         }
         // Finished any yields.
@@ -127,7 +126,7 @@ const handlePromiseResolution = (resolvedValue, sequencer, thread, blockCached, 
             if (popped === null) {
                 return;
             }
-            nextBlockId = thread.target.blocks.getNextBlock(popped);
+            nextBlockId = thread.blockContainer.getNextBlock(popped);
             if (nextBlockId !== null) {
                 // A next block exists so break out this loop
                 break;
@@ -316,11 +315,13 @@ class BlockCached {
             if (
                 fieldName === 'VARIABLE' ||
                 fieldName === 'LIST' ||
+                fieldName === 'TABLE' ||
                 fieldName === 'BROADCAST_OPTION'
             ) {
+                const fieldValue = fields[fieldName].value;
                 this._argValues[fieldName] = {
-                    id: fields[fieldName].id,
-                    name: fields[fieldName].value
+                    id: fields[fieldName].id || null,
+                    name: (typeof fieldValue === 'undefined' || fieldValue === null) ? '' : fieldValue
                 };
             } else {
                 this._argValues[fieldName] = fields[fieldName].value;

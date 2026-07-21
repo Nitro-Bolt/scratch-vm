@@ -3,5 +3,5 @@
 
 module.exports = {
     name: 'NitroBolt',
-    url: 'https://github.com/Nitro-Bolt/'
+    url: 'https://nitrobolt.org/'
 };

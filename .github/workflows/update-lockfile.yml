@@ -1,0 +1,19 @@
+name: Update lock file
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: git config user.name "GitHub Action"
+      - run: git config user.email "action@github.com"
+      - run: npm install
+      - run: git diff --quiet package-lock.json || (git add package-lock.json && git commit -m "Update package-lock.json" && git push)

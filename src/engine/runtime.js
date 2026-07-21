@@ -1,5 +1,4 @@
 const EventEmitter = require('events');
-const {OrderedMap} = require('immutable');
 const ExtendedJSON = require('@turbowarp/json');
 const uuid = require('uuid');
 
@@ -23,6 +22,8 @@ const ScratchLinkWebSocket = require('../util/scratch-link-websocket');
 const FontManager = require('./tw-font-manager');
 const fetchWithTimeout = require('../util/fetch-with-timeout');
 const platform = require('./tw-platform.js');
+const safeStringify = require('../util/tw-safe-stringify.js');
+const MonitorState = require('./tw-monitor-state.js');
 
 // Virtual I/O devices.
 const Clock = require('../io/clock');
@@ -43,20 +44,20 @@ const defaultBlockPackages = {
     scratch3_motion: require('../blocks/scratch3_motion'),
     scratch3_operators: require('../blocks/scratch3_operators'),
     scratch3_sound: require('../blocks/scratch3_sound'),
+    scratch3_assets: require('../blocks/scratch3_assets'),
     scratch3_sensing: require('../blocks/scratch3_sensing'),
     scratch3_data: require('../blocks/scratch3_data'),
     scratch3_json: require('../blocks/scratch3_json'),
-    scratch3_procedures: require('../blocks/scratch3_procedures'),
-    scratch3_comments: require('../blocks/scratch3_comments')
+    scratch3_procedures: require('../blocks/scratch3_procedures')
 };
 
 const interpolate = require('./tw-interpolate');
 const FrameLoop = require('./tw-frame-loop');
-const Cast = require('../util/cast.js');
+const MonitorRecord = require('./monitor-record.js');
 
 const defaultExtensionColors = ['#0FBD8C', '#0DA57A', '#0B8E69'];
 
-const COMMENT_CONFIG_MAGIC = ' // _nbconfig_';
+const COMMENT_CONFIG_MAGIC = ' // _twconfig_';
 
 /**
  * Information used for converting Scratch argument types into scratch-blocks data.
@@ -121,6 +122,11 @@ const ArgumentTypeMap = (() => {
         // They are more analagous to the label on a block.
         fieldType: 'field_image'
     };
+    map[ArgumentType.EXTENDABLE] = {
+        // Also not an "argument" in the traditional sense,
+        // but it makes more sense to count it as one.
+        fieldType: 'extendable'
+    };
     map[ArgumentType.COSTUME] = {
         shadow: {
             type: 'looks_costume',
@@ -132,6 +138,26 @@ const ArgumentTypeMap = (() => {
             type: 'sound_sounds_menu',
             fieldName: 'SOUND_MENU'
         }
+    };
+    map[ArgumentType.VARIABLE] = {
+        fieldType: 'field_variable',
+        variableTypes: [''],
+        allowEmpty: true
+    };
+    map[ArgumentType.LIST] = {
+        fieldType: 'field_variable',
+        variableTypes: ['list'],
+        allowEmpty: true
+    };
+    map[ArgumentType.TABLE] = {
+        fieldType: 'field_variable',
+        variableTypes: ['table'],
+        allowEmpty: true
+    };
+    map[ArgumentType.BROADCAST] = {
+        fieldType: 'field_variable',
+        variableTypes: ['broadcast_msg'],
+        allowEmpty: true
     };
     return map;
 })();
@@ -270,7 +296,6 @@ class Runtime extends EventEmitter {
         /**
          * Map to look up all block information by extended opcode.
          * @type {Array.<CategoryInfo>}
-         * @private
          */
         this._blockInfo = [];
 
@@ -328,14 +353,9 @@ class Runtime extends EventEmitter {
         this.monitorBlockInfo = {};
 
         /**
-         * Ordered map of all monitors, which are MonitorReporter objects.
+         * Ordered map of all monitors, which are MonitorRecord objects.
          */
-        this._monitorState = OrderedMap({});
-
-        /**
-         * Monitor state from last tick
-         */
-        this._prevMonitorState = OrderedMap({});
+        this._monitorState = new MonitorState();
 
         /**
          * Whether the project is in "turbo mode."
@@ -484,6 +504,13 @@ class Runtime extends EventEmitter {
         this._defaultStoredSettings = this._generateAllProjectOptions();
 
         /**
+         * Project options loaded from serialized project.json.
+         * If null, parseProjectOptions() falls back to legacy comment storage.
+         * @type {?object}
+         */
+        this._storedProjectOptions = null;
+
+        /**
          * TW: We support a "packaged runtime" mode. This can be used when:
          *  - there will never be an editor attached such as scratch-gui or scratch-blocks
          *  - the project will never be exported with saveProjectSb3()
@@ -516,6 +543,12 @@ class Runtime extends EventEmitter {
          * Do not update this directly. Use Runtime.setEnforcePrivacy() instead.
          */
         this.enforcePrivacy = true;
+
+        /**
+         * If true, an external communication method exists and enforcePrivacy is enabled.
+         * Do not update this directly. Must be changed via public functions that call Runtime.updatePrivacy().
+         */
+        this.privacyRestrictionsActive = false;
 
         /**
          * Internal map of opaque identifiers to the callback to run that function.
@@ -920,6 +953,22 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Event name when _step() has been called.
+     * @const {string}
+     */
+    static get RUNTIME_STEP_START () {
+        return 'RUNTIME_STEP_START';
+    }
+
+    /**
+     * Event name when _step() has finished all processing within the function.
+     * @const {string}
+     */
+    static get RUNTIME_STEP_END () {
+        return 'RUNTIME_STEP_END';
+    }
+
+    /**
      * Event name for reporting that a block was updated and needs to be rerendered.
      * @const {string}
      */
@@ -1298,14 +1347,14 @@ class Runtime extends EventEmitter {
                 type: menuId,
                 inputsInline: true,
                 output: 'String',
-                colour: categoryInfo.color1,
-                colourSecondary: categoryInfo.color2,
-                colourTertiary: categoryInfo.color3,
+                colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
+                colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
+                colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
                 outputShape: menuInfo.acceptReporters ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
-                        type: 'field_dropdown',
+                        type: menuInfo.acceptText ? 'field_textdropdown' : 'field_dropdown',
                         name: menuName,
                         options: menuItems
                     }
@@ -1409,7 +1458,8 @@ class Runtime extends EventEmitter {
             extensions: [],
             colour: blockInfo.color1 ?? categoryInfo.color1,
             colourSecondary: blockInfo.color2 ?? categoryInfo.color2,
-            colourTertiary: blockInfo.color3 ?? categoryInfo.color3
+            colourTertiary: blockInfo.color3 ?? categoryInfo.color3,
+            tooltip: blockInfo.tooltip
         };
         const context = {
             // TODO: store this somewhere so that we can map args appropriately after translation.
@@ -1430,6 +1480,17 @@ class Runtime extends EventEmitter {
 
         // All extension blocks have from_extension
         blockJSON.extensions.push('from_extension');
+
+        // nb: Adds support for block switches
+        if (blockInfo.switches) {
+            blockJSON.switches = blockInfo.switches.map(switchData => {
+                const data = typeof switchData === 'string' ? {opcode: switchData, rawId: false} : {...switchData};
+                if (data.rawId !== true) {
+                    data.opcode = `${categoryInfo.id}_${data.opcode}`;
+                }
+                return data;
+            });
+        }
 
         // Allow easily detecting which blocks use default colors
         if (
@@ -1470,10 +1531,12 @@ class Runtime extends EventEmitter {
         case BlockType.REPORTER:
             blockJSON.output = blockInfo.allowDropAnywhere ? null : 'String'; // TODO: distinguish number & string here?
             blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_ROUND;
+            blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.BOOLEAN:
             blockJSON.output = 'Boolean';
             blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_HEXAGONAL;
+            blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.HAT:
         case BlockType.EVENT:
@@ -1496,10 +1559,12 @@ class Runtime extends EventEmitter {
         case BlockType.OBJECT:
             blockJSON.output = 'Object';
             blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_OBJECT;
+            blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.ARRAY:
             blockJSON.output = 'Array';
             blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE;
+            blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         }
 
@@ -1586,7 +1651,6 @@ class Runtime extends EventEmitter {
     /**
      * Generate a separator between blocks categories or sub-categories.
      * @param {ExtensionBlockMetadata} blockInfo - the block to convert
-     * @param {CategoryInfo} categoryInfo - the category for this block
      * @returns {ConvertedBlockInfo} - the converted & original block information
      * @private
      */
@@ -1609,7 +1673,7 @@ class Runtime extends EventEmitter {
             xml: `<label text="${xmlEscape(blockInfo.text)}"></label>`
         };
     }
-    
+
     /**
      * Convert a button for scratch-blocks. A button has no opcode but specifies a callback name in the `func` field.
      * @param {ExtensionBlockMetadata} buttonInfo - the button to convert
@@ -1655,7 +1719,7 @@ class Runtime extends EventEmitter {
     /**
      * Helper for _convertPlaceholdes which handles inline images which are a specialized case of block "arguments".
      * @param {object} argInfo Metadata about the inline image as specified by the extension
-     * @return {object} JSON blob for a scratch-blocks image field.
+     * @returns {object} JSON blob for a scratch-blocks image field.
      * @private
      */
     _constructInlineImageJson (argInfo) {
@@ -1676,39 +1740,63 @@ class Runtime extends EventEmitter {
     }
 
     /**
-     * Helper for _convertForScratchBlocks which handles linearization of argument placeholders. Called as a callback
-     * from string#replace. In addition to the return value the JSON and XML items in the context will be filled.
+     * Converts an argument into Blockly JSON.
+     * @param {string} name
+     * @param {oject} argInfo - information about the argument.
      * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
-     * @param {string} match - the overall string matched by the placeholder regex, including brackets: '[FOO]'.
-     * @param {string} placeholder - the name of the placeholder being matched: 'FOO'.
-     * @return {string} scratch-blocks placeholder for the argument: '%1'.
-     * @private
+     * @param {boolean} generateXml - do we generate the XML for this argument?
+     * @returns {object}
      */
-    _convertPlaceholders (context, match, placeholder) {
-        // Determine whether the argument type is one of the known standard field types
-        const argInfo = context.blockInfo.arguments[placeholder] || {};
-        let argTypeInfo = ArgumentTypeMap[argInfo.type] || {};
+    _convertArgument (name, argInfo, context, generateXml = false) {
+        let argTypeInfo = ArgumentTypeMap[argInfo.type];
 
-        // Field type not a standard field type, see if extension has registered custom field type
-        if (!ArgumentTypeMap[argInfo.type] && context.categoryInfo.customFieldTypes[argInfo.type]) {
-            argTypeInfo = context.categoryInfo.customFieldTypes[argInfo.type].argumentTypeInfo;
+        if (!argTypeInfo) {
+            if (context && argInfo.type &&
+                context.categoryInfo.customFieldTypes[argInfo.type]) {
+                argTypeInfo = context.categoryInfo.customFieldTypes[argInfo.type].argumentTypeInfo;
+            } else {
+                argTypeInfo = {};
+            }
         }
 
-        // Start to construct the scratch-blocks style JSON defining how the block should be
-        // laid out
         let argJSON;
 
-        // Most field types are inputs (slots on the block that can have other blocks plugged into them)
-        // check if this is not one of those cases. E.g. an inline image on a block.
         if (argTypeInfo.fieldType === 'field_image') {
             argJSON = this._constructInlineImageJson(argInfo);
+        } else if (argTypeInfo.fieldType) {
+            argJSON = {
+                type: argTypeInfo.fieldType,
+                name
+            };
+
+            if (argInfo.type === ArgumentType.EXTENDABLE) {
+                argJSON = {
+                    type: 'extendable',
+                    name,
+                    args: this._convertExtendableArgs(
+                        argInfo,
+                        context
+                    ),
+                    defaultInputs: argInfo.defaultInputs || 0,
+                    minInputs: argInfo.minInputs || 0,
+                    maxInputs: argInfo.maxInputs || Infinity,
+                    separator: argInfo.separator || ''
+                };
+            }
+
+            if (argTypeInfo.variableTypes) {
+                argJSON.variableTypes = argTypeInfo.variableTypes;
+            }
+            if (argTypeInfo.allowEmpty) {
+                argJSON.allowEmpty = true;
+            }
         } else {
             // Construct input value
 
             // Layout a block argument (e.g. an input slot on the block)
             argJSON = {
                 type: 'input_value',
-                name: placeholder
+                name
             };
 
             const defaultValue =
@@ -1728,47 +1816,140 @@ class Runtime extends EventEmitter {
             if (argInfo.menu) {
                 const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
                 if (menuInfo.acceptReporters) {
-                    valueName = placeholder;
-                    shadowType = this._makeExtensionMenuId(argInfo.menu, context.categoryInfo.id);
+                    valueName = name;
+                    shadowType = this._makeExtensionMenuId(
+                        argInfo.menu,
+                        context.categoryInfo.id
+                    );
                     fieldName = argInfo.menu;
                 } else {
-                    argJSON.type = 'field_dropdown';
+                    if (menuInfo.acceptText) {
+                        argJSON.type = 'field_textdropdown';
+                        argJSON.text = defaultValue || '';
+                    } else {
+                        argJSON.type = 'field_dropdown';
+                    }
                     argJSON.options = this._convertMenuItems(menuInfo.items);
                     valueName = null;
                     shadowType = null;
-                    fieldName = placeholder;
+                    fieldName = name;
                 }
             } else {
-                valueName = placeholder;
+                valueName = name;
                 shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
                 fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+
+                if (typeof argInfo.shadow === 'string') {
+                    shadowType = `${context.categoryInfo.id}_${argInfo.shadow}`;
+                    fieldName = null;
+                }
+
+                if (!shadowType && defaultValue !== null && argInfo.type === ArgumentType.BOOLEAN) {
+                    shadowType = 'checkbox';
+                    fieldName = 'CHECKBOX';
+                }
             }
 
-            // <value> is the ScratchBlocks name for a block input.
-            if (valueName) {
-                context.inputList.push(`<value name="${xmlEscape(placeholder)}">`);
+            if (generateXml) {
+                if (valueName) {
+                    context.inputList.push(
+                        `<value name="${xmlEscape(name)}">`
+                    );
+                }
+                if (shadowType) {
+                    context.inputList.push(
+                        `<shadow type="${xmlEscape(shadowType)}">`
+                    );
+                }
+                if (defaultValue !== null && fieldName) {
+                    context.inputList.push(
+                        `<field name="${xmlEscape(fieldName)}">${xmlEscape(defaultValue)}</field>`
+                    );
+                }
+                if (shadowType) {
+                    context.inputList.push('</shadow>');
+                }
+                if (valueName) {
+                    context.inputList.push('</value>');
+                }
             }
 
-            // The <shadow> is a placeholder for a reporter and is visible when there's no reporter in this input.
-            // Boolean inputs don't need to specify a shadow in the XML.
-            if (shadowType) {
-                context.inputList.push(`<shadow type="${xmlEscape(shadowType)}">`);
-            }
-
-            // A <field> displays a dynamic value: a user-editable text field, a drop-down menu, etc.
-            // Leave out the field if defaultValue or fieldName are not specified
-            if (defaultValue !== null && fieldName) {
-                context.inputList.push(`<field name="${xmlEscape(fieldName)}">${xmlEscape(defaultValue)}</field>`);
-            }
-
-            if (shadowType) {
-                context.inputList.push('</shadow>');
-            }
-
-            if (valueName) {
-                context.inputList.push('</value>');
+            if (!generateXml && shadowType) {
+                argJSON.shadowOpcode = shadowType;
+                argJSON.shadowFieldName = fieldName;
+                argJSON.shadowFieldValue = defaultValue;
             }
         }
+
+        return argJSON;
+    }
+
+    _convertExtendableArgs (argInfo, context) {
+        const text = String(argInfo.text || '');
+        const args = argInfo.arguments || {};
+        const elements = [];
+
+        const re = /\[(.+?)\]/g;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = re.exec(text))) {
+            const literal = text.slice(lastIndex, match.index);
+            if (literal) {
+                elements.push({
+                    type: 'field_label',
+                    text: literal
+                });
+            }
+
+            const argName = match[1];
+            const innerArgInfo = args[argName] || {};
+            elements.push(
+                this._convertArgument(argName, innerArgInfo, context, false)
+            );
+
+            lastIndex = re.lastIndex;
+        }
+
+        const tail = text.slice(lastIndex);
+        if (tail) {
+            elements.push({
+                type: 'field_label',
+                text: tail
+            });
+        }
+
+        return elements;
+    }
+
+    /**
+     * Helper for _convertForScratchBlocks which handles linearization of argument placeholders. Called as a callback
+     * from string#replace. In addition to the return value the JSON and XML items in the context will be filled.
+     * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
+     * @param {string} match - the overall string matched by the placeholder regex, including brackets: '[FOO]'.
+     * @param {string} placeholder - the name of the placeholder being matched: 'FOO'.
+     * @returns {string} scratch-blocks placeholder for the argument: '%1'.
+     * @private
+     */
+    _convertPlaceholders (context, match, placeholder) {
+        // Determine whether the argument type is one of the known standard field types
+        const argInfo = context.blockInfo.arguments[placeholder] || {};
+        /*
+        let argTypeInfo = ArgumentTypeMap[argInfo.type] || {};
+
+        // Field type not a standard field type, see if extension has registered custom field type
+        if (!ArgumentTypeMap[argInfo.type] && context.categoryInfo.customFieldTypes[argInfo.type]) {
+            argTypeInfo = context.categoryInfo.customFieldTypes[argInfo.type].argumentTypeInfo;
+        }*/
+
+        // Start to construct the scratch-blocks style JSON defining how the block should be
+        // laid out
+        const argJSON = this._convertArgument(
+            placeholder,
+            argInfo,
+            context,
+            true
+        );
 
         const argsName = `args${context.outLineNum}`;
         const blockArgs = (context.blockJSON[argsName] = context.blockJSON[argsName] || []);
@@ -2182,7 +2363,11 @@ class Runtime extends EventEmitter {
         // Remove any existing thread.
         for (let i = 0; i < this.threads.length; i++) {
             // Toggling a script that's already running turns it off
-            if (this.threads[i].topBlock === topBlockId && this.threads[i].status !== Thread.STATUS_DONE) {
+            if (
+                this.threads[i].target === opts.target &&
+                this.threads[i].topBlock === topBlockId &&
+                this.threads[i].status !== Thread.STATUS_DONE
+            ) {
                 const blockContainer = opts.target.blocks;
                 const opcode = blockContainer.getOpcode(blockContainer.getBlock(topBlockId));
 
@@ -2358,10 +2543,9 @@ class Runtime extends EventEmitter {
         this.targets.map(this.disposeTarget, this);
         this.extensionStorage = {};
         // tw: explicitly emit a MONITORS_UPDATE instead of relying on implicit behavior of _step()
-        const emptyMonitorState = OrderedMap({});
-        if (!emptyMonitorState.equals(this._monitorState)) {
-            this._monitorState = emptyMonitorState;
-            this.emit(Runtime.MONITORS_UPDATE, this._monitorState);
+        if (!this._monitorState.empty()) {
+            this._monitorState = new MonitorState();
+            this.emit(Runtime.MONITORS_UPDATE, this._monitorState.shallowClone());
         }
         this.emit(Runtime.RUNTIME_DISPOSED);
         this.ioDevices.clock.resetProjectTimer();
@@ -2581,6 +2765,11 @@ class Runtime extends EventEmitter {
      * inactive threads after each iteration.
      */
     _step () {
+        // RUNTIME_STEP_START runs before BEFORE_EXECUTE
+        // this runs before any processing of this new step
+        this.frameLoop._stepCounter++;
+        this.emit(Runtime.RUNTIME_STEP_START);
+
         if (this.interpolationEnabled) {
             interpolate.setupInitialState(this);
         }
@@ -2651,9 +2840,9 @@ class Runtime extends EventEmitter {
             this._refreshTargets = false;
         }
 
-        if (!this._prevMonitorState.equals(this._monitorState)) {
-            this.emit(Runtime.MONITORS_UPDATE, this._monitorState);
-            this._prevMonitorState = this._monitorState;
+        if (this._monitorState.dirty) {
+            this.emit(Runtime.MONITORS_UPDATE, this._monitorState.shallowClone());
+            this._monitorState.dirty = false;
         }
 
         if (this.profiler !== null) {
@@ -2664,6 +2853,9 @@ class Runtime extends EventEmitter {
         if (this.interpolationEnabled) {
             this._lastStepTime = Date.now();
         }
+
+        // RUNTIME_STEP_END runs after AFTER_EXECUTE
+        this.emit(Runtime.RUNTIME_STEP_END);
     }
 
     /**
@@ -2684,6 +2876,10 @@ class Runtime extends EventEmitter {
      * Queue monitor blocks to sequencer to be run.
      */
     _pushMonitors () {
+        if (this.targets.length === 0) {
+            // Project is not loaded yet, but monitors might be. Don't try to start anything.
+            return;
+        }
         this.monitorBlocks.runAllMonitored(this);
     }
 
@@ -2780,12 +2976,13 @@ class Runtime extends EventEmitter {
                 const offsetX = deltaX / 2;
                 const offsetY = deltaY / 2;
                 for (const monitor of this._monitorState.valueSeq()) {
-                    const newMonitor = monitor
-                        .set('x', monitor.get('x') + offsetX)
-                        .set('y', monitor.get('y') + offsetY);
-                    this.requestUpdateMonitor(newMonitor);
+                    this.requestUpdateMonitor({
+                        id: monitor.id,
+                        x: monitor.get('x') + offsetX,
+                        y: monitor.get('y') + offsetY
+                    });
                 }
-                this.emit(Runtime.MONITORS_UPDATE, this._monitorState);
+                this.emit(Runtime.MONITORS_UPDATE, this._monitorState.shallowClone());
             }
 
             this.stageWidth = width;
@@ -2911,24 +3108,29 @@ class Runtime extends EventEmitter {
     }
 
     parseProjectOptions () {
-        const comment = this.findProjectOptionsComment();
-        if (!comment) return;
-        const lineWithMagic = comment.text.split('\n').find(i => i.endsWith(COMMENT_CONFIG_MAGIC));
-        if (!lineWithMagic) {
-            log.warn('Config comment does not contain valid line');
-            return;
-        }
+        let parsed = this._storedProjectOptions;
+        this._storedProjectOptions = null;
 
-        const jsonText = lineWithMagic.substr(0, lineWithMagic.length - COMMENT_CONFIG_MAGIC.length);
-        let parsed;
-        try {
-            parsed = ExtendedJSON.parse(jsonText);
-            if (!parsed || typeof parsed !== 'object') {
-                throw new Error('Invalid object');
+        // Backwards compatibility: fall back to legacy comment-based storage.
+        if (!parsed) {
+            const comment = this.findProjectOptionsComment();
+            if (!comment) return;
+            const lineWithMagic = comment.text.split('\n').find(i => i.endsWith(COMMENT_CONFIG_MAGIC));
+            if (!lineWithMagic) {
+                log.warn('Config comment does not contain valid line');
+                return;
             }
-        } catch (e) {
-            log.warn('Config comment has invalid JSON', e);
-            return;
+
+            const jsonText = lineWithMagic.substr(0, lineWithMagic.length - COMMENT_CONFIG_MAGIC.length);
+            try {
+                parsed = ExtendedJSON.parse(jsonText);
+                if (!parsed || typeof parsed !== 'object') {
+                    throw new Error('Invalid object');
+                }
+            } catch (e) {
+                log.warn('Config comment has invalid JSON', e);
+                return;
+            }
         }
 
         if (typeof parsed.framerate === 'number') {
@@ -2987,17 +3189,8 @@ class Runtime extends EventEmitter {
     }
 
     storeProjectOptions () {
-        const options = this.generateDifferingProjectOptions();
-        // TODO: translate
-        const text = `Configuration for https://github.com/Nitro-Bolt/\nYou can move, resize, and minimize this comment, but don't edit it by hand. This comment can be deleted to remove the stored settings.\n${ExtendedJSON.stringify(options)}${COMMENT_CONFIG_MAGIC}`;
-        const existingComment = this.findProjectOptionsComment();
-        if (existingComment) {
-            existingComment.text = text;
-        } else {
-            const target = this.getTargetForStage();
-            // TODO: smarter position logic
-            target.createComment(uid(), null, text, 50, 50, 350, 170, false);
-        }
+        this._storedProjectOptions = this.generateDifferingProjectOptions();
+
         this.emitProjectChanged();
     }
 
@@ -3146,8 +3339,8 @@ class Runtime extends EventEmitter {
      * @param {Array.<object>} blocks The set of blocks dragged to the GUI
      * @param {string} topBlockId The original id of the top block being dragged
      */
-    emitBlockEndDrag (blocks, topBlockId) {
-        this.emit(Runtime.BLOCK_DRAG_END, blocks, topBlockId);
+    emitBlockEndDrag (blocks, topBlockId, group) {
+        this.emit(Runtime.BLOCK_DRAG_END, blocks, topBlockId, group);
     }
 
     /**
@@ -3155,44 +3348,44 @@ class Runtime extends EventEmitter {
      * @param {Target} target The target that the block was run in.
      * @param {string} blockId ID for the block.
      * @param {string} value Value to show associated with the block.
+     * @param {boolean?} error Is the thing being reported an error?
+     * @param {string} html HTML to show in the reporter bubble.
      */
-    visualReport (target, blockId, value) {
+    visualReport (target, blockId, value, error = false, html) {
         if (target === this.getEditingTarget()) {
-            this.emit(Runtime.VISUAL_REPORT, {id: blockId, value: Cast.toString(value)});
+            this.emit(Runtime.VISUAL_REPORT, {
+                id: blockId,
+                value: safeStringify(value),
+                error,
+                html: html ? safeStringify(html) : null
+            });
         }
     }
 
     /**
      * Add a monitor to the state. If the monitor already exists in the state,
      * updates those properties that are defined in the given monitor record.
-     * @param {!MonitorRecord} monitor Monitor to add.
+     * @param {import('./monitor-record.js')} monitor Monitor to add.
      */
     requestAddMonitor (monitor) {
-        const id = monitor.get('id');
         if (!this.requestUpdateMonitor(monitor)) { // update monitor if it exists in the state
             // if the monitor did not exist in the state, add it
-            this._monitorState = this._monitorState.set(id, monitor);
+            this._monitorState.set(monitor.id, monitor);
         }
     }
 
     /**
      * Update a monitor in the state and report success/failure of update.
-     * @param {!Map} monitor Monitor values to update. Values on the monitor with overwrite
-     *     values on the old monitor with the same ID. If a value isn't defined on the new monitor,
+     * @param {import('./monitor-record.js').ExternalDelta} delta Monitor values to update. Values on the monitor will
+     *     overwrite values on the old monitor with the same ID. If a value isn't defined on the new monitor,
      *     the old monitor will keep its old value.
      * @return {boolean} true if monitor exists in the state and was updated, false if it did not exist.
      */
-    requestUpdateMonitor (monitor) {
-        const id = monitor.get('id');
+    requestUpdateMonitor (delta) {
+        delta = MonitorRecord.externalDeltaToJS(delta);
+        const id = delta.id;
         if (this._monitorState.has(id)) {
-            this._monitorState =
-                // Use mergeWith here to prevent undefined values from overwriting existing ones
-                this._monitorState.set(id, this._monitorState.get(id).mergeWith((prev, next) => {
-                    if (typeof next === 'undefined' || next === null) {
-                        return prev;
-                    }
-                    return next;
-                }, monitor));
+            this._monitorState.set(id, delta);
             return true;
         }
         return false;
@@ -3204,7 +3397,7 @@ class Runtime extends EventEmitter {
      * @param {!string} monitorId ID of the monitor to remove.
      */
     requestRemoveMonitor (monitorId) {
-        this._monitorState = this._monitorState.delete(monitorId);
+        this._monitorState.delete(monitorId);
     }
 
     /**
@@ -3213,10 +3406,10 @@ class Runtime extends EventEmitter {
      * @return {boolean} true if monitor exists and was updated, false otherwise
      */
     requestHideMonitor (monitorId) {
-        return this.requestUpdateMonitor(new Map([
-            ['id', monitorId],
-            ['visible', false]
-        ]));
+        return this.requestUpdateMonitor({
+            id: monitorId,
+            visible: false
+        });
     }
 
     /**
@@ -3226,10 +3419,10 @@ class Runtime extends EventEmitter {
      * @return {boolean} true if monitor exists and was updated, false otherwise
      */
     requestShowMonitor (monitorId) {
-        return this.requestUpdateMonitor(new Map([
-            ['id', monitorId],
-            ['visible', true]
-        ]));
+        return this.requestUpdateMonitor({
+            id: monitorId,
+            visible: true
+        });
     }
 
     /**
@@ -3238,7 +3431,7 @@ class Runtime extends EventEmitter {
      * @param {!string} targetId Remove all monitors with given target ID.
      */
     requestRemoveMonitorByTargetId (targetId) {
-        this._monitorState = this._monitorState.filterNot(value => value.targetId === targetId);
+        this._monitorState.filter(value => value.targetId !== targetId);
     }
 
     /**
@@ -3357,6 +3550,70 @@ class Runtime extends EventEmitter {
      */
     getEditingTarget () {
         return this._editingTarget;
+    }
+
+    /**
+     * Get mutation data for globally scoped procedure prototypes from all
+     * original targets except an optional excluded target.
+     * @param {?string} excludeTargetId Target ID to exclude from results.
+     * @returns {Array<object>} Procedure mutation data objects.
+     */
+    getGlobalProcedureMutationData (excludeTargetId) {
+        const byProcCode = Object.create(null);
+        const result = [];
+
+        for (const target of this.targets) {
+            if (!target || !target.isOriginal || !target.blocks) {
+                continue;
+            }
+            if (excludeTargetId && target.id === excludeTargetId) {
+                continue;
+            }
+
+            const blocks = target.blocks._blocks;
+            for (const blockId in blocks) {
+                if (!Object.prototype.hasOwnProperty.call(blocks, blockId)) continue;
+                const block = blocks[blockId];
+                if (!block || block.opcode !== 'procedures_prototype' || !block.mutation) {
+                    continue;
+                }
+                const mutation = block.mutation;
+                const isGlobal = mutation.global === true || mutation.global === 'true';
+                const procCode = mutation.proccode;
+                if (!isGlobal || !procCode || Object.prototype.hasOwnProperty.call(byProcCode, procCode)) {
+                    continue;
+                }
+                byProcCode[procCode] = true;
+                result.push(Object.assign({}, mutation));
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Synchronize a global procedure mutation across all original targets.
+     * @param {?string} sourceTargetId Target where the change originated.
+     * @param {!object} nextMutation Next mutation state.
+     * @param {?object} prevMutation Previous mutation state.
+     */
+    syncGlobalProcedureMutation (sourceTargetId, nextMutation, prevMutation) {
+        let didChange = false;
+        for (const target of this.targets) {
+            if (!target || !target.isOriginal || !target.blocks) {
+                continue;
+            }
+            if (sourceTargetId && target.id === sourceTargetId) {
+                continue;
+            }
+            if (target.blocks.syncGlobalProcedureMutation(nextMutation, prevMutation)) {
+                didChange = true;
+            }
+        }
+
+        if (didChange) {
+            this.emitProjectChanged();
+        }
     }
 
     getAllVarNamesOfType (varType) {
@@ -3501,12 +3758,12 @@ class Runtime extends EventEmitter {
     }
 
     updatePrivacy () {
-        const enforceRestrictions = (
+        this.privacyRestrictionsActive = (
             this.enforcePrivacy &&
             Object.values(this.externalCommunicationMethods).some(i => i)
         );
         if (this.renderer && this.renderer.setPrivateSkinAccess) {
-            this.renderer.setPrivateSkinAccess(!enforceRestrictions);
+            this.renderer.setPrivateSkinAccess(!this.privacyRestrictionsActive);
         }
     }
 
