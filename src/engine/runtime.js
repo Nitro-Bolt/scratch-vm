@@ -1843,6 +1843,11 @@ class Runtime extends EventEmitter {
                     shadowType = `${context.categoryInfo.id}_${argInfo.shadow}`;
                     fieldName = null;
                 }
+
+                if (!shadowType && defaultValue !== null && argInfo.type === ArgumentType.BOOLEAN) {
+                    shadowType = 'checkbox';
+                    fieldName = 'CHECKBOX';
+                }
             }
 
             if (generateXml) {
