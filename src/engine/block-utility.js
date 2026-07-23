@@ -72,7 +72,7 @@ class BlockUtility {
      * @type {number}
      */
     get iterationNumber () {
-        if (typeof this.stackFrame.index !== 'undefined') this.stackFrame.index = 0;
+        if (typeof this.stackFrame.index === 'undefined') this.stackFrame.index = 0;
         return this.stackFrame.index;
     }
 

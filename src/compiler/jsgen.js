@@ -1338,10 +1338,6 @@ class JSGenerator {
             }
             this.source += args.join(',');
             this.source += `);\n`;
-            const thisData = this.ir.procedures[this.script.procedureVariant];
-            if (thisData && !thisData.returns) {
-                this.source += `if (${outputVariable} !== undefined) { return ${outputVariable}; };\n`
-            }
             break;
         }
         case StackOpcode.PROCEDURE_SET_PARAM: {
