@@ -15,6 +15,7 @@ class Group {
         this.y = Number(state.y) || 0;
         this.width = Math.max(Number(state.width) || 360, 160);
         this.height = Math.max(Number(state.height) || 240, 96);
+        this.expandedWidth = Math.max(Number(state.expandedWidth) || this.width, 160);
         this.expandedHeight = Math.max(Number(state.expandedHeight) || this.height, 96);
         this.collapsed = state.collapsed === true;
         this.blocks = Array.isArray(state.blocks) ? state.blocks.slice() : [];
@@ -24,7 +25,8 @@ class Group {
     toXML () {
         return `<group id="${this.id}" title="${xmlEscape(this.title)}" colour="${this.colour || ''}" ` +
             `x="${this.x}" y="${this.y}" ` +
-            `width="${this.width}" height="${this.height}" expandedHeight="${this.expandedHeight}" ` +
+            `width="${this.width}" height="${this.height}" expandedWidth="${this.expandedWidth}" ` +
+            `expandedHeight="${this.expandedHeight}" ` +
             `collapsed="${this.collapsed}" blocks="${this.blocks.join(' ')}"></group>`;
     }
 }

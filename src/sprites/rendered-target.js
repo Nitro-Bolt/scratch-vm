@@ -1107,6 +1107,7 @@ class RenderedTarget extends Target {
                     y: group.y,
                     width: group.width,
                     height: group.height,
+                    expandedWidth: group.expandedWidth,
                     expandedHeight: group.expandedHeight,
                     collapsed: group.collapsed,
                     blocks: group.blocks.map(id => blockIds[id]).filter(Boolean)
