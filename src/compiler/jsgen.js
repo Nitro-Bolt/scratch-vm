@@ -654,7 +654,7 @@ class JSGenerator {
                     this.isWarp = procedureData.isWarp;
                     const oldReturns = this.allowReturns;
                     this.allowReturns = true;
-                    this.descendStack(input);
+                    this.descendStack(input, new Frame(false));
                     this.source += `}`;
                     args.push(this.source);
                     this.allowReturns = oldReturns;
@@ -1326,7 +1326,7 @@ class JSGenerator {
                     this.isWarp = procedureData.isWarp;
                     const oldReturns = this.allowReturns;
                     this.allowReturns = true;
-                    this.descendStack(input);
+                    this.descendStack(input, new Frame(false));
                     this.source += `}`;
                     args.push(this.source);
                     this.allowReturns = oldReturns;
