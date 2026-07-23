@@ -566,6 +566,7 @@ const serializeComments = function (comments) {
         serializedComment.width = comment.width;
         serializedComment.height = comment.height;
         serializedComment.minimized = comment.minimized;
+        serializedComment.colour = comment.colour;
 
         if (comment.text.length > UPSTREAM_MAX_COMMENT_LENGTH) {
             // Upstream's scratch-parser will refuse to load projects if the text is too long, so to maximize
@@ -589,6 +590,7 @@ const serializeGroups = function (groups) {
         const group = groups[groupId];
         obj[groupId] = {
             title: group.title,
+            colour: group.colour,
             x: group.x,
             y: group.y,
             width: group.width,
@@ -1398,7 +1400,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 comment.y,
                 comment.width,
                 comment.height,
-                comment.minimized
+                comment.minimized,
+                comment.colour
             );
             if (comment.blockId) {
                 newComment.blockId = comment.blockId;

@@ -318,10 +318,10 @@ class Target extends EventEmitter {
      * @param {number} height The height of the comment when it is full size
      * @param {boolean} minimized Whether the comment is minimized.
      */
-    createComment (id, blockId, text, x, y, width, height, minimized) {
+    createComment (id, blockId, text, x, y, width, height, minimized, colour) {
         if (!Object.prototype.hasOwnProperty.call(this.comments, id)) {
             const newComment = new Comment(id, text, x, y,
-                width, height, minimized);
+                width, height, minimized, colour);
             if (blockId) {
                 newComment.blockId = blockId;
                 const blockWithComment = this.blocks.getBlock(blockId);

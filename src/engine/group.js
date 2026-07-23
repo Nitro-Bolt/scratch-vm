@@ -10,6 +10,7 @@ class Group {
 
     apply (state) {
         this.title = typeof state.title === 'string' ? state.title : 'Group';
+        this.colour = typeof state.colour === 'string' ? state.colour : null;
         this.x = Number(state.x) || 0;
         this.y = Number(state.y) || 0;
         this.width = Math.max(Number(state.width) || 360, 160);
@@ -21,7 +22,8 @@ class Group {
     }
 
     toXML () {
-        return `<group id="${this.id}" title="${xmlEscape(this.title)}" x="${this.x}" y="${this.y}" ` +
+        return `<group id="${this.id}" title="${xmlEscape(this.title)}" colour="${this.colour || ''}" ` +
+            `x="${this.x}" y="${this.y}" ` +
             `width="${this.width}" height="${this.height}" expandedHeight="${this.expandedHeight}" ` +
             `collapsed="${this.collapsed}" blocks="${this.blocks.join(' ')}"></group>`;
     }

@@ -639,7 +639,7 @@ class Blocks {
             if (this.runtime.getEditingTarget()) {
                 const currTarget = this.runtime.getEditingTarget();
                 currTarget.createComment(e.commentId, e.blockId, e.text,
-                    e.xy.x, e.xy.y, e.width, e.height, e.minimized);
+                    e.xy.x, e.xy.y, e.width, e.height, e.minimized, e.colour);
 
                 if (currTarget.comments[e.commentId].x === null &&
                     currTarget.comments[e.commentId].y === null) {
@@ -675,6 +675,9 @@ class Blocks {
                 }
                 if (Object.prototype.hasOwnProperty.call(change, 'text')) {
                     comment.text = change.text;
+                }
+                if (Object.prototype.hasOwnProperty.call(change, 'colour')) {
+                    comment.colour = change.colour;
                 }
                 this.emitProjectChanged();
             }

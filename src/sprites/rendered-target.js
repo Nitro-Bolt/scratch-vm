@@ -1096,11 +1096,13 @@ class RenderedTarget extends Target {
             for (const comment of Object.values(this.comments)) {
                 const blockId = comment.blockId ? blockIds[comment.blockId] : null;
                 newTarget.createComment(uid(), blockId, comment.text, comment.x,
-                    comment.y, comment.width, comment.height, comment.minimized);
+                    comment.y, comment.width, comment.height, comment.minimized,
+                    comment.colour);
             }
             for (const group of Object.values(this.groups)) {
                 newTarget.createGroup({
                     title: group.title,
+                    colour: group.colour,
                     x: group.x,
                     y: group.y,
                     width: group.width,
