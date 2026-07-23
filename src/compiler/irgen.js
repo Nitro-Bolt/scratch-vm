@@ -1063,6 +1063,7 @@ class ScriptTreeGenerator {
             // see argument_reporter_string_number above
             const name = block.fields.VALUE.value;
             const index = this.script.arguments.lastIndexOf(name);
+            this.script.yields = true;
             return new IntermediateStackBlock(StackOpcode.PROCEDURE_BRANCH, {index});
         }
 
