@@ -75,7 +75,8 @@ class Scratch3ProcedureBlocks {
             }
         }
 
-        const currentBlock = util.target.blocks.getBlock(util.thread.peekStack());
+        const callerBlockContainer = util.thread.blockContainer || util.target.blocks;
+        const currentBlock = callerBlockContainer.getBlock(util.thread.peekStack());
         if (currentBlock && currentBlock.inputs) {
             let branchIndex = 0;
             const branchParamMap = {};
@@ -91,7 +92,7 @@ class Scratch3ProcedureBlocks {
             if (branchIndex > 0) {
                 util.pushParam('__branchCount', branchIndex);
                 util.pushParam('__branchParamMap', branchParamMap);
-                util.pushParam('__callerBlockContainer', util.target.blocks);
+                util.pushParam('__callerBlockContainer', callerBlockContainer);
                 util.pushParam('__definitionBlockContainer', util.thread.blockContainer);
             }
         }
@@ -204,7 +205,7 @@ class Scratch3ProcedureBlocks {
 
     argumentReporterStatement (args, util) {
         const currentBlockId = util.thread.peekStack();
-        const currentBlock = util.target.blocks.getBlock(currentBlockId);
+        const currentBlock = util.thread.blockContainer.getBlock(currentBlockId);
         if (!currentBlock) return;
 
         const paramName = currentBlock.fields && currentBlock.fields.VALUE &&
@@ -228,7 +229,7 @@ class Scratch3ProcedureBlocks {
         }
 
         util.thread.pushStack(branchBlockId);
-        util.thread.peekStackFrame().pendingBlockContainerRestore = definitionBlockContainer;
+        util.thread.peekStackFrame().returnToBlockContainer = definitionBlockContainer;
     }
 }
 
