@@ -20,7 +20,8 @@ class Scratch3ProcedureBlocks {
             argument_reporter_string_number: this.argumentReporterStringNumber,
             argument_reporter_boolean: this.argumentReporterBoolean,
             argument_reporter_object: this.argumentReporterObject,
-            argument_reporter_array: this.argumentReporterArray
+            argument_reporter_array: this.argumentReporterArray,
+            argument_reporter_statement: this.argumentReporterStatement
         };
     }
 
@@ -71,6 +72,27 @@ class Scratch3ProcedureBlocks {
                 util.pushParam(paramNames[i], args[paramIds[i]]);
             } else {
                 util.pushParam(paramNames[i], paramDefaults[i]);
+            }
+        }
+
+        const currentBlock = util.target.blocks.getBlock(util.thread.peekStack());
+        if (currentBlock && currentBlock.inputs) {
+            let branchIndex = 0;
+            const branchParamMap = {};
+            for (let i = 0; i < paramIds.length; i++) {
+                if (paramIds[i].startsWith('SUBSTACK')) {
+                    const input = currentBlock.inputs[paramIds[i]];
+                    const branchBlockId = (input && input.block) ? input.block : null;
+                    util.pushParam(`__branch_${branchIndex}`, branchBlockId);
+                    branchParamMap[paramNames[i]] = branchIndex;
+                    branchIndex++;
+                }
+            }
+            if (branchIndex > 0) {
+                util.pushParam('__branchCount', branchIndex);
+                util.pushParam('__branchParamMap', branchParamMap);
+                util.pushParam('__callerBlockContainer', util.target.blocks);
+                util.pushParam('__definitionBlockContainer', util.thread.blockContainer);
             }
         }
 
@@ -178,6 +200,35 @@ class Scratch3ProcedureBlocks {
             return 0;
         }
         return value;
+    }
+
+    argumentReporterStatement (args, util) {
+        const currentBlockId = util.thread.peekStack();
+        const currentBlock = util.target.blocks.getBlock(currentBlockId);
+        if (!currentBlock) return;
+
+        const paramName = currentBlock.fields && currentBlock.fields.VALUE &&
+            currentBlock.fields.VALUE.value;
+        if (typeof paramName === 'undefined') return;
+
+        const branchParamMap = util.getParam('__branchParamMap');
+        if (!branchParamMap) return;
+
+        const branchIndex = branchParamMap[paramName];
+        if (typeof branchIndex === 'undefined') return;
+
+        const branchBlockId = util.getParam(`__branch_${branchIndex}`);
+        if (branchBlockId === null) return;
+
+        const definitionBlockContainer = util.thread.blockContainer;
+
+        const callerBlocks = util.getParam('__callerBlockContainer');
+        if (callerBlocks) {
+            util.thread.blockContainer = callerBlocks;
+        }
+
+        util.thread.pushStack(branchBlockId);
+        util.thread.peekStackFrame().pendingBlockContainerRestore = definitionBlockContainer;
     }
 }
 

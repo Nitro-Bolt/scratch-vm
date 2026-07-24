@@ -649,7 +649,7 @@ class JSGenerator {
             for (const input of node.arguments) {
                 if (input instanceof IntermediateStack) {
                     const oldSource = this.source;
-                    this.source = "function*(thread, target, runtime, stage) {\n";
+                    this.source = 'function*(thread, target, runtime, stage) {\n';
                     const oldWarp = this.isWarp;
                     this.isWarp = procedureData.isWarp;
                     const oldReturns = this.allowReturns;
@@ -1308,7 +1308,7 @@ class JSGenerator {
                 // Direct yields.
                 this.yieldNotWarp();
             }
-            let outputVariable = this.localVariables.next();
+            const outputVariable = this.localVariables.next();
             this.source += `let ${outputVariable} = `;
             if (procedureData.yields) {
                 this.source += 'yield* ';
@@ -1321,7 +1321,7 @@ class JSGenerator {
             for (const input of node.arguments) {
                 if (input instanceof IntermediateStack) {
                     const oldSource = this.source;
-                    this.source = "function*(thread, target, runtime, stage) {\n";
+                    this.source = 'function*(thread, target, runtime, stage) {\n';
                     const oldWarp = this.isWarp;
                     this.isWarp = procedureData.isWarp;
                     const oldReturns = this.allowReturns;
@@ -1352,11 +1352,11 @@ class JSGenerator {
             break;
         case StackOpcode.PROCEDURE_BRANCH:
             if (node.index !== -1) {
-                let outputVariable = this.localVariables.next();
+                const outputVariable = this.localVariables.next();
                 this.source += `let ${outputVariable} = yield* (p${node.index} || function*(){})(thread, target, runtime, stage);\n`;
                 this.source += `if (${outputVariable} !== undefined) {\n`;
                 this.stopScriptAndReturn(outputVariable);
-                this.source += `};\n`
+                this.source += '};\n';
             }
             break;
 
