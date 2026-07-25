@@ -988,6 +988,7 @@ class Blocks {
                 block.mutation.argumentids = nextMutation.argumentids;
                 block.mutation.argumentnames = nextMutation.argumentnames;
                 block.mutation.argumentdefaults = nextMutation.argumentdefaults;
+                block.mutation.argumentdropdowns = nextMutation.argumentdropdowns;
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
                 block.mutation.colour = nextMutation.colour;
@@ -1003,6 +1004,7 @@ class Blocks {
             if (block.opcode === 'procedures_call') {
                 block.mutation.proccode = nextProcCode;
                 block.mutation.argumentids = nextMutation.argumentids;
+                block.mutation.argumentdropdowns = nextMutation.argumentdropdowns;
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
                 block.mutation.colour = nextMutation.colour;
@@ -1043,8 +1045,15 @@ class Blocks {
             return;
         }
 
+        let argumentDropdowns;
+        try {
+            argumentDropdowns = JSON.parse(mutation.argumentdropdowns || '[]');
+        } catch (e) {
+            argumentDropdowns = [];
+        }
+
         const argumentTypes = [];
-        const argumentPattern = /(?:^|[^\\])%([nboas])/g;
+        const argumentPattern = /(?:^|[^\\])%([nbdoas])/g;
         let match;
         while ((match = argumentPattern.exec(mutation.proccode || ''))) {
             argumentTypes.push(match[1]);
@@ -1070,14 +1079,58 @@ class Blocks {
             delete block.inputs[inputId];
         }
 
+        let dropdownIndex = 0;
         for (let i = 0; i < argumentIds.length; i++) {
             const argumentId = argumentIds[i];
             const argumentType = argumentTypes[i];
-            if (block.inputs[argumentId] || (argumentType !== 's' && argumentType !== 'n')) {
+            const dropdownOptions = argumentType === 'd' ?
+                (argumentDropdowns[dropdownIndex++] || []) : null;
+            const existingInput = block.inputs[argumentId];
+
+            if (existingInput) {
+                if (argumentType === 'd' && existingInput.block === existingInput.shadow) {
+                    const shadow = this._blocks[existingInput.shadow];
+                    if (shadow && shadow.opcode === 'procedures_dropdown') {
+                        const values = dropdownOptions.length > 0 ? dropdownOptions : [''];
+                        const field = shadow.fields && shadow.fields.DROPDOWN_VALUE;
+                        if (field && !values.includes(field.value)) {
+                            field.value = values[0];
+                        }
+                    }
+                }
+                continue;
+            }
+
+            if (argumentType !== 's' && argumentType !== 'n' && argumentType !== 'd') {
                 continue;
             }
 
             const shadowId = uid();
+            if (argumentType === 'd') {
+                const value = dropdownOptions.length > 0 ? dropdownOptions[0] : '';
+                this._blocks[shadowId] = {
+                    id: shadowId,
+                    opcode: 'procedures_dropdown',
+                    inputs: {},
+                    fields: {
+                        DROPDOWN_VALUE: {
+                            name: 'DROPDOWN_VALUE',
+                            value
+                        }
+                    },
+                    next: null,
+                    topLevel: false,
+                    parent: block.id,
+                    shadow: true
+                };
+                block.inputs[argumentId] = {
+                    name: argumentId,
+                    block: shadowId,
+                    shadow: shadowId
+                };
+                continue;
+            }
+
             const isNumber = argumentType === 'n';
             const fieldName = isNumber ? 'NUM' : 'TEXT';
             this._blocks[shadowId] = {
