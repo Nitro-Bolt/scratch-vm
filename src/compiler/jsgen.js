@@ -811,7 +811,7 @@ class JSGenerator {
             if (blockType === BlockType.COMMAND || blockType === BlockType.HAT) {
                 this.source += `${this.generateCompatibilityLayerCall(node, isLastInLoop)};\n`;
             } else if (blockType === BlockType.CONDITIONAL || blockType === BlockType.LOOP ||
-                blockType === BlockType.REPORTER) {
+                blockType === BlockType.REPORTER || blockType === BlockType.OBJECT || blockType === BlockType.ARRAY) {
                 const branchVariable = this.localVariables.next();
                 this.source += `const ${branchVariable} = createBranchInfo(${blockType === BlockType.LOOP});\n`;
                 this.source += `while (${branchVariable}.branch = +(${this.generateCompatibilityLayerCall(node, false, branchVariable)})) {\n`;
