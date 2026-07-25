@@ -112,6 +112,7 @@ class JSGenerator {
         this.isWarp = script.isWarp;
         this.isProcedure = script.isProcedure;
         this.warpTimer = script.warpTimer;
+        this.allowReturns = false;
 
         /**
          * Stack of frames, most recent is last item.
@@ -646,7 +647,22 @@ class JSGenerator {
             const procedureReference = `thread.procedures["${sanitize(procedureVariant)}"]`;
             const args = [];
             for (const input of node.arguments) {
-                args.push(this.descendInput(input));
+                if (input instanceof IntermediateStack) {
+                    const oldSource = this.source;
+                    this.source = 'function*(thread, target, runtime, stage) {\n';
+                    const oldWarp = this.isWarp;
+                    this.isWarp = procedureData.isWarp;
+                    const oldReturns = this.allowReturns;
+                    this.allowReturns = true;
+                    this.descendStack(input, new Frame(false));
+                    this.source += `}`;
+                    args.push(this.source);
+                    this.allowReturns = oldReturns;
+                    this.isWarp = oldWarp;
+                    this.source = oldSource;
+                } else {
+                    args.push(this.descendInput(input));
+                }
             }
             const joinedArgs = args.join(',');
 
@@ -794,7 +810,8 @@ class JSGenerator {
             const blockType = node.blockType;
             if (blockType === BlockType.COMMAND || blockType === BlockType.HAT) {
                 this.source += `${this.generateCompatibilityLayerCall(node, isLastInLoop)};\n`;
-            } else if (blockType === BlockType.CONDITIONAL || blockType === BlockType.LOOP) {
+            } else if (blockType === BlockType.CONDITIONAL || blockType === BlockType.LOOP ||
+                blockType === BlockType.REPORTER) {
                 const branchVariable = this.localVariables.next();
                 this.source += `const ${branchVariable} = createBranchInfo(${blockType === BlockType.LOOP});\n`;
                 this.source += `while (${branchVariable}.branch = +(${this.generateCompatibilityLayerCall(node, false, branchVariable)})) {\n`;
@@ -1292,6 +1309,8 @@ class JSGenerator {
                 // Direct yields.
                 this.yieldNotWarp();
             }
+            const outputVariable = this.localVariables.next();
+            this.source += `let ${outputVariable} = `;
             if (procedureData.yields) {
                 this.source += 'yield* ';
                 if (!this.script.yields) {
@@ -1301,7 +1320,22 @@ class JSGenerator {
             this.source += `thread.procedures["${sanitize(procedureVariant)}"](`;
             const args = [];
             for (const input of node.arguments) {
-                args.push(this.descendInput(input));
+                if (input instanceof IntermediateStack) {
+                    const oldSource = this.source;
+                    this.source = 'function*(thread, target, runtime, stage) {\n';
+                    const oldWarp = this.isWarp;
+                    this.isWarp = procedureData.isWarp;
+                    const oldReturns = this.allowReturns;
+                    this.allowReturns = true;
+                    this.descendStack(input, new Frame(false));
+                    this.source += `}`;
+                    args.push(this.source);
+                    this.allowReturns = oldReturns;
+                    this.isWarp = oldWarp;
+                    this.source = oldSource;
+                } else {
+                    args.push(this.descendInput(input));
+                }
             }
             this.source += args.join(',');
             this.source += `);\n`;
@@ -1316,6 +1350,15 @@ class JSGenerator {
 
         case StackOpcode.PROCEDURE_RETURN:
             this.stopScriptAndReturn(this.descendInput(node.value));
+            break;
+        case StackOpcode.PROCEDURE_BRANCH:
+            if (node.index !== -1) {
+                const outputVariable = this.localVariables.next();
+                this.source += `let ${outputVariable} = yield* (p${node.index} || function*(){})(thread, target, runtime, stage);\n`;
+                this.source += `if (${outputVariable} !== undefined) {\n`;
+                this.stopScriptAndReturn(outputVariable);
+                this.source += '};\n';
+            }
             break;
 
         case StackOpcode.SENSING_TIMER_RESET:
@@ -1554,7 +1597,7 @@ class JSGenerator {
      * @param {string} valueJS JS code of value to return.
      */
     stopScriptAndReturn (valueJS) {
-        if (this.isProcedure) {
+        if (this.isProcedure || this.allowReturns) {
             this.source += `return ${valueJS};\n`;
         } else {
             this.retire();

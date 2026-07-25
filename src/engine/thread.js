@@ -323,8 +323,8 @@ class Thread {
      */
     popStack () {
         const frame = this.stackFrames.pop();
-        if (frame && frame.returnToTarget) {
-            this.target = frame.returnToTarget;
+        if (frame && (frame.returnToTarget || frame.returnToBlockContainer)) {
+            this.target = frame.returnToTarget || this.target;
             this.blockContainer = frame.returnToBlockContainer || this.target.blocks;
         }
         _StackFrame.release(frame);
