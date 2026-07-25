@@ -210,7 +210,8 @@ const StackOpcode = {
 
     PROCEDURE_SET_PARAM: 'procedures.setParam',
     PROCEDURE_RETURN: 'procedures.return',
-    PROCEDURE_CALL: 'procedures.call'
+    PROCEDURE_CALL: 'procedures.call',
+    PROCEDURE_BRANCH: 'procedures.branch'
 };
 
 /**

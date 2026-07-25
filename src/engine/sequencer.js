@@ -266,6 +266,14 @@ class Sequencer {
                 }
 
                 const stackFrame = thread.peekStackFrame();
+
+                // Restore blockContainer if this frame was left a pending restore
+                // by argument_reporter_statement
+                if (stackFrame.pendingBlockContainerRestore) {
+                    thread.blockContainer = stackFrame.pendingBlockContainerRestore;
+                    stackFrame.pendingBlockContainerRestore = null;
+                }
+
                 isWarpMode = stackFrame.warpMode;
 
                 if (stackFrame.isLoop) {
