@@ -1542,7 +1542,14 @@ class ScriptTreeGenerator {
                     if (type === BlockType.COMMAND || type === BlockType.CONDITIONAL || type === BlockType.LOOP) {
                         return this.descendCompatLayerStack(block);
                     }
-                    if (type === BlockType.REPORTER && blockInfo.info?.branchCount > 0) {
+                    if (
+                        (
+                            type === BlockType.REPORTER ||
+                            type === BlockType.OBJECT ||
+                            type === BlockType.ARRAY
+                        ) &&
+                        blockInfo.info?.branchCount > 0
+                    ) {
                         return this.descendCompatLayerStack(block);
                     }
                 }
@@ -1929,8 +1936,13 @@ class ScriptTreeGenerator {
         const blockType = (blockInfo && blockInfo.info && blockInfo.info.blockType) || BlockType.COMMAND;
         /** @type {Record<number, IntermediateStack>} */
         const substacks = {};
-        if (blockType === BlockType.CONDITIONAL || blockType === BlockType.LOOP ||
-            blockType === BlockType.REPORTER) {
+        if (
+            blockType === BlockType.CONDITIONAL ||
+            blockType === BlockType.LOOP ||
+            blockType === BlockType.REPORTER ||
+            blockType === BlockType.OBJECT ||
+            blockType === BlockType.ARRAY
+        ) {
             for (const inputName in block.inputs) {
                 if (!inputName.startsWith('SUBSTACK')) continue;
                 const branchNum = inputName === 'SUBSTACK' ? 1 : +inputName.substring('SUBSTACK'.length);
