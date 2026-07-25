@@ -1542,6 +1542,9 @@ class ScriptTreeGenerator {
                     if (type === BlockType.COMMAND || type === BlockType.CONDITIONAL || type === BlockType.LOOP) {
                         return this.descendCompatLayerStack(block);
                     }
+                    if (type === BlockType.REPORTER && blockInfo.info?.branchCount > 0) {
+                        return this.descendCompatLayerStack(block);
+                    }
                 }
             }
 
@@ -1926,7 +1929,8 @@ class ScriptTreeGenerator {
         const blockType = (blockInfo && blockInfo.info && blockInfo.info.blockType) || BlockType.COMMAND;
         /** @type {Record<number, IntermediateStack>} */
         const substacks = {};
-        if (blockType === BlockType.CONDITIONAL || blockType === BlockType.LOOP) {
+        if (blockType === BlockType.CONDITIONAL || blockType === BlockType.LOOP ||
+            blockType === BlockType.REPORTER) {
             for (const inputName in block.inputs) {
                 if (!inputName.startsWith('SUBSTACK')) continue;
                 const branchNum = inputName === 'SUBSTACK' ? 1 : +inputName.substring('SUBSTACK'.length);
