@@ -45,6 +45,10 @@ class Sprite {
         */
         this.sounds = [];
         /**
+         * List of assets for this sprite.
+         */
+        this.assets = [];
+        /**
          * List of clones for this sprite, including the original.
          * @type {Array.<!RenderedTarget>}
          */
@@ -140,7 +144,7 @@ class Sprite {
         const blocksContainer = this.blocks._blocks;
         const originalBlocks = Object.keys(blocksContainer).map(key => blocksContainer[key]);
         const copiedBlocks = JSON.parse(JSON.stringify(originalBlocks));
-        newBlockIds(copiedBlocks);
+        newSprite._duplicateBlockIdMap = newBlockIds(copiedBlocks);
         copiedBlocks.forEach(block => {
             newSprite.blocks.createBlock(block);
         });

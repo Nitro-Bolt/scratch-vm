@@ -9,6 +9,7 @@ const Blocks = require('../engine/blocks');
 const Sprite = require('../sprites/sprite');
 const Variable = require('../engine/variable');
 const Comment = require('../engine/comment');
+const Group = require('../engine/group');
 const MonitorRecord = require('../engine/monitor-record');
 const StageLayering = require('../engine/stage-layering');
 const log = require('../util/log');
@@ -16,11 +17,12 @@ const uid = require('../util/uid');
 const MathUtil = require('../util/math-util');
 const StringUtil = require('../util/string-util');
 const VariableUtil = require('../util/variable-util');
+const ExtendedJSON = require('@turbowarp/json');
 const compress = require('./tw-compress-sb3');
 
 const {loadCostume} = require('../import/load-costume.js');
 const {loadSound} = require('../import/load-sound.js');
-const {deserializeCostume, deserializeSound} = require('./deserialize-assets.js');
+const {deserializeCostume, deserializeSound, deserializeAsset} = require('./deserialize-assets.js');
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
@@ -45,6 +47,7 @@ const INPUT_DIFF_BLOCK_SHADOW = 3; // obscured shadow
 // Constants used during deserialization of an SB3 file
 const CORE_EXTENSIONS = [
     'argument',
+    'assets',
     'colour',
     'control',
     'data',
@@ -56,8 +59,7 @@ const CORE_EXTENSIONS = [
     'operator',
     'procedures',
     'sensing',
-    'sound',
-    'comments'
+    'sound'
 ];
 
 // Constants referring to 'primitive' blocks that are usually shadows,
@@ -82,6 +84,8 @@ const BROADCAST_PRIMITIVE = 11;
 const VAR_PRIMITIVE = 12;
 // data_listcontents
 const LIST_PRIMITIVE = 13;
+// data_tablecontents
+const TABLE_PRIMITIVE = 14;
 
 // Map block opcodes to the above primitives and the name of the field we can use
 // to find the value of the field
@@ -95,7 +99,8 @@ const primitiveOpcodeInfoMap = {
     text: [TEXT_PRIMITIVE, 'TEXT'],
     event_broadcast_menu: [BROADCAST_PRIMITIVE, 'BROADCAST_OPTION'],
     data_variable: [VAR_PRIMITIVE, 'VARIABLE'],
-    data_listcontents: [LIST_PRIMITIVE, 'LIST']
+    data_listcontents: [LIST_PRIMITIVE, 'LIST'],
+    data_tablecontents: [TABLE_PRIMITIVE, 'TABLE']
 };
 
 // We don't enforce this limit, but Scratch does, so we need to handle it for compatibility.
@@ -118,7 +123,11 @@ const serializePrimitiveBlock = function (block) {
         const primitiveDesc = [primitiveConstant, field.value];
         if (block.opcode === 'event_broadcast_menu') {
             primitiveDesc.push(field.id);
-        } else if (block.opcode === 'data_variable' || block.opcode === 'data_listcontents') {
+        } else if (
+            block.opcode === 'data_variable' ||
+            block.opcode === 'data_listcontents' ||
+            block.opcode === 'data_tablecontents'
+        ) {
             primitiveDesc.push(field.id);
             if (block.topLevel) {
                 primitiveDesc.push(block.x ? Math.round(block.x) : 0);
@@ -220,6 +229,9 @@ const serializeBlock = function (block) {
     }
     if (block.comment) {
         obj.comment = block.comment;
+    }
+    if (block.collapsed) {
+        obj.collapsed = true;
     }
     return obj;
 };
@@ -483,37 +495,20 @@ const serializeSound = function (sound) {
     return obj;
 };
 
-// Using some bugs, it can be possible to get values like undefined, null, or complex objects into
-// variables or lists. This will cause make the project unusable after exporting without JSON editing
-// as it will fail validation in scratch-parser.
-// To avoid this, we'll convert those objects to strings before saving them.
-const isVariableValueSafeForJSON = value => (
-    typeof value === 'number' ||
-    typeof value === 'string' ||
-    typeof value === 'boolean' ||
-    typeof value === 'object'
-);
-const makeSafeForJSON = value => {
-    if (Array.isArray(value)) {
-        let copy = null;
-        for (let i = 0; i < value.length; i++) {
-            if (!isVariableValueSafeForJSON(value[i])) {
-                if (!copy) {
-                    // Only copy the list when needed
-                    copy = value.slice();
-                }
-                copy[i] = `${copy[i]}`;
-            }
-        }
-        if (copy) {
-            return copy;
-        }
-        return value;
-    }
-    if (isVariableValueSafeForJSON(value)) {
-        return value;
-    }
-    return `${value}`;
+/**
+ * Serialize the given asset.
+ * @param {object} asset The asset to be serialized.
+ * @returns {object} A serialized representation of the asset.
+ */
+const serializeAsset = function (asset) {
+    const obj = Object.create(null);
+    obj.name = asset.name;
+    obj.lastModified = asset.lastModified;
+    obj.dataFormat = asset.dataFormat.toLowerCase();
+    obj.assetId = asset.assetId;
+    obj.md5ext = asset.md5;
+    obj.contentType = asset.asset.assetType.contentType;
+    return obj;
 };
 
 /**
@@ -529,6 +524,7 @@ const serializeVariables = function (variables) {
     // keep track of a type for each
     obj.variables = Object.create(null);
     obj.lists = Object.create(null);
+    obj.tables = Object.create(null);
     obj.broadcasts = Object.create(null);
     for (const varId in variables) {
         const v = variables[varId];
@@ -537,12 +533,20 @@ const serializeVariables = function (variables) {
             continue;
         }
         if (v.type === Variable.LIST_TYPE) {
-            obj.lists[varId] = [v.name, makeSafeForJSON(v.value)];
+            obj.lists[varId] = [v.name, v.value];
+            continue;
+        }
+        if (v.type === Variable.TABLE_TYPE) {
+            obj.tables[varId] = [v.name, v.value];
+            continue;
+        }
+        if (v.type === Variable.TABLE_TYPE) {
+            obj.tables[varId] = [v.name, v.value];
             continue;
         }
 
         // otherwise should be a scalar type
-        obj.variables[varId] = [v.name, makeSafeForJSON(v.value)];
+        obj.variables[varId] = [v.name, v.value];
         // only scalar vars have the potential to be cloud vars
         if (v.isCloud) obj.variables[varId].push(true);
     }
@@ -562,6 +566,7 @@ const serializeComments = function (comments) {
         serializedComment.width = comment.width;
         serializedComment.height = comment.height;
         serializedComment.minimized = comment.minimized;
+        serializedComment.colour = comment.colour;
 
         if (comment.text.length > UPSTREAM_MAX_COMMENT_LENGTH) {
             // Upstream's scratch-parser will refuse to load projects if the text is too long, so to maximize
@@ -574,6 +579,27 @@ const serializeComments = function (comments) {
         }
 
         obj[commentId] = serializedComment;
+    }
+    return obj;
+};
+
+const serializeGroups = function (groups) {
+    const obj = Object.create(null);
+    for (const groupId in groups) {
+        if (!Object.prototype.hasOwnProperty.call(groups, groupId)) continue;
+        const group = groups[groupId];
+        obj[groupId] = {
+            title: group.title,
+            colour: group.colour,
+            x: group.x,
+            y: group.y,
+            width: group.width,
+            height: group.height,
+            expandedWidth: group.expandedWidth,
+            expandedHeight: group.expandedHeight,
+            collapsed: group.collapsed,
+            blocks: group.blocks.slice()
+        };
     }
     return obj;
 };
@@ -593,19 +619,21 @@ const serializeTarget = function (target, extensions) {
     const vars = serializeVariables(target.variables);
     obj.variables = vars.variables;
     obj.lists = vars.lists;
+    obj.tables = vars.tables;
     obj.broadcasts = vars.broadcasts;
     [obj.blocks, targetExtensions] = serializeBlocks(target.blocks);
     obj.comments = serializeComments(target.comments);
+    obj.groups = serializeGroups(target.groups);
 
     // TODO remove this check/patch when (#1901) is fixed
     if (target.currentCostume < 0 || target.currentCostume >= target.costumes.length) {
         log.warn(`currentCostume property for target ${target.name} is out of range`);
         target.currentCostume = MathUtil.clamp(target.currentCostume, 0, target.costumes.length - 1);
     }
-
     obj.currentCostume = target.currentCostume;
     obj.costumes = target.costumes.map(serializeCostume);
     obj.sounds = target.sounds.map(serializeSound);
+    obj.assets = target.assets.map(serializeAsset);
     if (Object.prototype.hasOwnProperty.call(target, 'volume')) obj.volume = target.volume;
     if (Object.prototype.hasOwnProperty.call(target, 'layerOrder')) obj.layerOrder = target.layerOrder;
     if (obj.isStage) { // Only the stage should have these properties
@@ -696,16 +724,13 @@ const serializeMonitors = function (monitors, runtime, extensions) {
                 y: monitorData.y - yOffset,
                 visible: monitorData.visible
             };
-            if (monitorData.mode !== 'list') {
+            if (monitorData.mode !== 'list' && monitorData.mode !== 'table') {
                 serializedMonitor.sliderMin = monitorData.sliderMin;
                 serializedMonitor.sliderMax = monitorData.sliderMax;
                 serializedMonitor.isDiscrete = monitorData.isDiscrete;
             }
             return serializedMonitor;
-        })
-        // By default the sequence is lazily evaluated, but we want it to be evaluated right
-        // now to update the used extension list.
-        .toArray();
+        });
 };
 
 /**
@@ -782,6 +807,11 @@ const serialize = function (runtime, targetId, {allowOptimization = true} = {}) 
 
     if (fonts) {
         obj.customFonts = fonts;
+    }
+
+    const projectOptions = runtime.generateDifferingProjectOptions();
+    if (Object.keys(projectOptions).length > 0) {
+        obj.projectOptions = ExtendedJSON.stringify(projectOptions);
     }
 
     // Assemble metadata
@@ -956,6 +986,23 @@ const deserializeInputDesc = function (inputDescOrId, parentId, isShadow, blocks
         }
         break;
     }
+    case TABLE_PRIMITIVE: {
+        primitiveObj.opcode = 'data_tablecontents';
+        primitiveObj.fields = {
+            TABLE: {
+                name: 'TABLE',
+                value: inputDescOrId[1],
+                id: inputDescOrId[2],
+                variableType: Variable.TABLE_TYPE
+            }
+        };
+        if (inputDescOrId.length > 3) {
+            primitiveObj.topLevel = true;
+            primitiveObj.x = inputDescOrId[3];
+            primitiveObj.y = inputDescOrId[4];
+        }
+        break;
+    }
     default: {
         log.error(`Found unknown primitive type during deserialization: ${JSON.stringify(inputDescOrId)}`);
         return null;
@@ -1030,6 +1077,8 @@ const deserializeFields = function (fields) {
             obj[fieldName].variableType = Variable.SCALAR_TYPE;
         } else if (fieldName === 'LIST') {
             obj[fieldName].variableType = Variable.LIST_TYPE;
+        } else if (fieldName === 'TABLE') {
+            obj[fieldName].variableType = Variable.TABLE_TYPE;
         }
     }
     return obj;
@@ -1149,7 +1198,69 @@ const parseScratchAssets = function (object, runtime, zip) {
         // process has been completed.
     });
 
+    assets.assetPromises = (object.assets || []).map(assetSource => {
+        const asset = {
+            assetId: assetSource.assetId,
+            dataFormat: assetSource.dataFormat,
+            contentType: assetSource.contentType,
+            name: assetSource.name,
+            lastModified: assetSource.lastModified,
+            md5: assetSource.md5ext,
+            data: null
+        };
+
+        return runtime.wrapAssetRequest(() => deserializeAsset(asset, runtime, zip));
+    });
+
     return assets;
+};
+
+/**
+ * Fix various backwards-incompatible changes that Scratch made in the spork migration.
+ * @param {object} blocks Blocks, mutated in-place.
+ */
+const fixSporkCompatibility = function (blocks) {
+    for (const blockId in blocks) {
+        if (!Object.prototype.hasOwnProperty.call(blocks, blockId)) continue;
+
+        const block = blocks[blockId];
+        const opcode = block.opcode;
+
+        switch (opcode) {
+        // Custom block definition prototype blocks used to be marked as shadow: true, but spork marks as shadow: false.
+        // Our scratch-blocks relies on it being shadow: true to prevent moving, so we'll force it to be that way.
+        case 'procedures_prototype':
+            block.shadow = true;
+            break;
+
+        // For completeness with the above, set the argument reporter generators to be shadow: true as well.
+        case 'argument_reporter_string_number':
+        case 'argument_reporter_boolean': {
+            const parent = blocks[block.parent];
+            if (parent && parent.opcode === 'procedures_prototype') {
+                block.shadow = true;
+            }
+            break;
+        }
+
+        // control_stop used to define a mutation for whether it has a connection below, which is what old
+        // scratch-blocks relies on to determine if there is another conneciton below or not. Spork does not define
+        // this mutation and relies only on the STOP_OPTION field. We will generate the mutation if it's missing so
+        // that a "stop other scripts in sprite" block doesn't cause the workspace to fail to load.
+        case 'control_stop': {
+            if (!block.mutation) {
+                const stopOption = block.fields?.STOP_OPTION?.value;
+                const hasNext = stopOption === 'other scripts in sprite' || stopOption === 'other scripts in stage';
+                block.mutation = {
+                    tagName: 'mutation',
+                    hasnext: hasNext ? 'true' : 'false',
+                    children: []
+                };
+            }
+            break;
+        }
+        }
+    }
 };
 
 /**
@@ -1192,11 +1303,15 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 extensions.extensionIDs.add(extensionID);
             }
         }
+        // Take a third pass to fix various things that spork broke.
+        fixSporkCompatibility(object.blocks);
     }
     // Costumes from JSON.
     const {costumePromises} = assets;
     // Sounds from JSON
     const {soundBank, soundPromises} = assets;
+    // Assets from JSON that are not a sound or a costume
+    const {assetPromises} = assets;
     // Create the first clone, and load its run-state from JSON.
     const target = sprite.createClone(object.isStage ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER);
     // Set the blocks target to the target just created.
@@ -1250,6 +1365,19 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
             target.variables[newList.id] = newList;
         }
     }
+    if (Object.prototype.hasOwnProperty.call(object, 'tables')) {
+        for (const tableId in object.tables) {
+            const table = object.tables[tableId];
+            const newTable = new Variable(
+                tableId,
+                table[0],
+                Variable.TABLE_TYPE,
+                false
+            );
+            newTable.value = table[1];
+            target.variables[newTable.id] = newTable;
+        }
+    }
     if (Object.prototype.hasOwnProperty.call(object, 'broadcasts')) {
         for (const broadcastId in object.broadcasts) {
             const broadcast = object.broadcasts[broadcastId];
@@ -1275,12 +1403,19 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 comment.y,
                 comment.width,
                 comment.height,
-                comment.minimized
+                comment.minimized,
+                comment.colour
             );
             if (comment.blockId) {
                 newComment.blockId = comment.blockId;
             }
             target.comments[newComment.id] = newComment;
+        }
+    }
+    if (Object.prototype.hasOwnProperty.call(object, 'groups')) {
+        for (const groupId in object.groups) {
+            const newGroup = new Group(Object.assign({id: groupId}, object.groups[groupId]));
+            target.groups[newGroup.id] = newGroup;
         }
     }
     if (Object.prototype.hasOwnProperty.call(object, 'x')) {
@@ -1329,7 +1464,10 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
         // Make sure if soundBank is undefined, sprite.soundBank is then null.
         sprite.soundBank = soundBank || null;
     });
-    return Promise.all(costumePromises.concat(soundPromises)).then(() => target);
+    Promise.all(assetPromises).then(_assets => {
+        sprite.assets = _assets;
+    });
+    return Promise.all(costumePromises.concat(soundPromises).concat(assetPromises)).then(() => target);
 };
 
 const deserializeMonitor = function (monitorData, runtime, targets, extensions) {
@@ -1370,6 +1508,16 @@ const deserializeMonitor = function (monitorData, runtime, targets, extensions) 
         ) {
             monitorData.params.LIST = listTarget.variables[monitorData.id].name;
         }
+    } else if (monitorData.opcode === 'data_tablecontents') {
+        const tableTarget = monitorData.targetId ?
+            targets.find(t => t.id === monitorData.targetId) :
+            targets.find(t => t.isStage);
+        if (
+            tableTarget &&
+            Object.prototype.hasOwnProperty.call(tableTarget.variables, monitorData.id)
+        ) {
+            monitorData.params.TABLE = tableTarget.variables[monitorData.id].name;
+        }
     }
 
     // Convert the serialized monitorData params into the block fields structure
@@ -1385,7 +1533,10 @@ const deserializeMonitor = function (monitorData, runtime, targets, extensions) 
     // Variables, lists, and non-sprite-specific monitors, including any extension
     // monitors should already have the correct monitor ID serialized in the monitorData,
     // find the correct id for all other monitors.
-    if (monitorData.opcode !== 'data_variable' && monitorData.opcode !== 'data_listcontents' &&
+    if (
+        monitorData.opcode !== 'data_variable' &&
+        monitorData.opcode !== 'data_listcontents' &&
+        monitorData.opcode !== 'data_tablecontents' &&
         monitorBlockInfo && monitorBlockInfo.isSpriteSpecific) {
         monitorData.id = monitorBlockInfo.getId(
             monitorData.targetId, fields);
@@ -1434,6 +1585,10 @@ const deserializeMonitor = function (monitorData, runtime, targets, extensions) 
             const field = monitorBlock.fields.LIST;
             field.id = monitorData.id;
             field.variableType = Variable.LIST_TYPE;
+        } else if (monitorData.opcode === 'data_tablecontents') {
+            const field = monitorBlock.fields.TABLE;
+            field.id = monitorData.id;
+            field.variableType = Variable.TABLE_TYPE;
         }
 
         runtime.monitorBlocks.createBlock(monitorBlock);
@@ -1445,7 +1600,7 @@ const deserializeMonitor = function (monitorData, runtime, targets, extensions) 
         }
     }
 
-    runtime.requestAddMonitor(MonitorRecord(monitorData));
+    runtime.requestAddMonitor(new MonitorRecord(monitorData));
 };
 
 // Replace variable IDs throughout the project with
@@ -1488,7 +1643,7 @@ const checkPlatformCompatibility = (json, runtime) => {
     }
 
     const projectPlatform = json.meta.platform.name;
-    if (projectPlatform === runtime.platform.name) {
+    if (projectPlatform === runtime.platform.name || projectPlatform === 'TurboWarp') {
         return;
     }
 
@@ -1517,6 +1672,13 @@ const checkPlatformCompatibility = (json, runtime) => {
  */
 const deserialize = async function (json, runtime, zip, isSingleSprite) {
     await checkPlatformCompatibility(json, runtime);
+
+    if (!isSingleSprite) {
+        const parsedProjectOptions = json.projectOptions ? ExtendedJSON.parse(json.projectOptions) : null;
+        if (typeof runtime._storedProjectOptions === 'undefined' || runtime._storedProjectOptions === null) {
+            runtime._storedProjectOptions = parsedProjectOptions;
+        }
+    }
 
     const extensions = {
         extensionIDs: new Set(),
