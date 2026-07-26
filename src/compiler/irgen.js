@@ -1019,6 +1019,23 @@ class ScriptTreeGenerator {
                 // It might be an extension block.
                 const blockInfo = this.getBlockInfo(block.opcode);
                 if (blockInfo) {
+                    // nb: it might be a compiled extension block.
+                    if (typeof this.runtime._compilerInterfaces[block.opcode] === 'function') {
+                        const inputs = Object.fromEntries(Object.keys(block.inputs)
+                            .map((input) =>
+                                [input, this.descendInputOfBlock(block, input)]
+                        ));
+                        const fields = Object.fromEntries(Object.entries(block.fields)
+                            .map(([name, field]) => [name, this.createConstantInput(field.value)]
+                        ));
+
+                        return new IntermediateInput(StackOpcode.EXT_COMPILED_BLOCK, InputType.ANY, {
+                            func: this.runtime._compilerInterfaces[block.opcode],
+                            ...inputs,
+                            ...fields
+                        });
+                    }
+
                     const type = blockInfo.info.blockType;
                     if (
                         type === BlockType.REPORTER ||
@@ -1539,6 +1556,36 @@ class ScriptTreeGenerator {
                 const blockInfo = this.getBlockInfo(block.opcode);
                 if (blockInfo) {
                     const type = blockInfo.info.blockType;
+
+                    // nb: it might be a compiled extension block.
+                    if (typeof this.runtime._compilerInterfaces[block.opcode] === 'function') {
+                        if (
+                            type === BlockType.REPORTER ||
+                            type === BlockType.BOOLEAN ||
+                            type === BlockType.OBJECT ||
+                            type === BlockType.ARRAY
+                        ) {
+                            const visualReport = this.descendVisualReport(block);
+                            if (visualReport) {
+                                return visualReport;
+                            }
+                        }
+
+                        const inputs = Object.fromEntries(Object.keys(block.inputs)
+                            .map((input) =>
+                                [input, this.descendInputOfBlock(block, input)]
+                        ));
+                        const fields = Object.fromEntries(Object.entries(block.fields)
+                            .map(([name, field]) => [name, this.createConstantInput(field.value)]
+                        ));
+
+                        return new IntermediateStackBlock(StackOpcode.EXT_COMPILED_BLOCK, {
+                            func: this.runtime._compilerInterfaces[block.opcode],
+                            ...inputs,
+                            ...fields
+                        });
+                    }
+
                     if (type === BlockType.COMMAND || type === BlockType.CONDITIONAL || type === BlockType.LOOP) {
                         return this.descendCompatLayerStack(block);
                     }

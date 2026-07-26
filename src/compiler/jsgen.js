@@ -224,6 +224,23 @@ class JSGenerator {
         case InputOpcode.OLD_COMPILER_COMPATIBILITY_LAYER:
             return this.oldCompilerStub.descendInputFromNewCompiler(block);
 
+        case InputOpcode.EXT_COMPILED_BLOCK: {
+            const compileCall = node.func;
+            delete node.func;
+            console.log(node);
+
+            const args = Object.fromEntries(
+                Object.entries(node).map(([name, input]) => {
+                    if (input instanceof IntermediateInput) {
+                        return [name, this.descendInput(input)];
+                    }
+                    return [name, input];
+                }
+            ));
+
+            return compileCall(args);
+        }
+
         case InputOpcode.CONSTANT:
             if (block.isAlwaysType(InputType.NUMBER)) {
                 if (typeof node.value !== 'number') throw new Error(`JS: '${block.type}' type constant had ${typeof node.value} type value. Expected number.`);
@@ -838,6 +855,24 @@ class JSGenerator {
 
         case InputOpcode.OLD_COMPILER_COMPATIBILITY_LAYER:
             return this.oldCompilerStub.descendStackedBlockFromNewCompiler(block);
+
+        case StackOpcode.EXT_COMPILED_BLOCK: {
+            const compileCall = node.func;
+            delete node.func;
+            console.log(node);
+
+            const args = Object.fromEntries(
+                Object.entries(node).map(([name, input]) => {
+                    if (input instanceof IntermediateInput) {
+                        return [name, this.descendInput(input)];
+                    }
+                    return [name, input];
+                }
+            ));
+
+            this.source += compileCall(args);
+            break;
+        }
 
         case StackOpcode.HAT_EDGE:
             this.isInHat = true;
