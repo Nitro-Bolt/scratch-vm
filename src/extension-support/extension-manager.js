@@ -200,6 +200,10 @@ class ExtensionManager {
         const serviceName = this._registerInternalExtension(extensionInstance);
         this._loadedExtensions.set(extensionId, serviceName);
         this.runtime.compilerRegisterExtension(extensionId, extensionInstance);
+        this.vm.emit('EXTENSION_MUTATION', {
+            action: 'load',
+            source: extensionId
+        });
     }
 
     addBuiltinExtension (extensionId, extensionClass) {
@@ -263,6 +267,11 @@ class ExtensionManager {
             }
 
             this._finishedLoadingExtensionScript();
+            this.vm.emit('EXTENSION_MUTATION', {
+                action: 'load',
+                source: extensionURL,
+                sandboxMode
+            });
             return;
         }
 
@@ -280,7 +289,15 @@ class ExtensionManager {
         return new Promise((resolve, reject) => {
             this.pendingExtensions.push({extensionURL: rewritten, resolve, reject});
             dispatch.addWorker(new ExtensionWorker());
-        }).catch(error => this._failedLoadingExtensionScript(error));
+        }).then(result => {
+            this.vm.emit('EXTENSION_MUTATION', {
+                action: 'load',
+                source: extensionURL,
+                sandboxMode
+            });
+            return result;
+        })
+            .catch(error => this._failedLoadingExtensionScript(error));
     }
 
     /**
@@ -301,6 +318,11 @@ class ExtensionManager {
         this._loadedExtensions = new Map(extensions.map(extension => [extension[0], extension[1]]));
         dispatch.call('runtime', '_reorderExtensionPrimitive', extensionIndex, reorderIndex);
         this.refreshBlocks();
+        this.vm.emit('EXTENSION_MUTATION', {
+            action: 'reorder',
+            extensionIndex,
+            reorderIndex
+        });
     }
 
     /**
@@ -322,6 +344,10 @@ class ExtensionManager {
         delete this.workerURLs[workerId];
         dispatch.call('runtime', '_removeExtensionPrimitive', extensionURL);
         this.refreshBlocks();
+        this.vm.emit('EXTENSION_MUTATION', {
+            action: 'remove',
+            extensionId: extensionURL
+        });
     }
 
     /**

@@ -1260,13 +1260,37 @@ class VirtualMachine extends EventEmitter {
      * @param {string} optTargetId - the id of the target to add to, if not the editing target.
      * @returns {?Promise} - a promise that resolves when the asset has been added
      */
-    addAsset (assetObject, optTargetId) {
-        const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
-            this.editingTarget;
+    addAsset (assetObject, optTargetId, emit = true, target = null) {
+        target = target || (optTargetId ?
+            this.runtime.getTargetById(optTargetId) :
+            this.editingTarget);
+        if (assetObject.asset && !(assetObject.asset instanceof this.runtime.storage.Asset)) {
+            const storage = this.runtime.storage;
+            assetObject.asset = storage.createAsset(
+                storage.AssetType.Asset,
+                assetObject.asset.dataFormat,
+                new Uint8Array(assetObject.asset.data),
+                assetObject.asset.assetId,
+                false
+            );
+        }
         if (target) {
             return loadAsset(assetObject, this.runtime).then(() => {
                 target.addAsset(assetObject);
                 this.emitTargetsUpdate();
+                const serializedAsset = Object.assign({}, assetObject, {
+                    asset: {
+                        assetId: assetObject.asset.assetId,
+                        dataFormat: assetObject.asset.dataFormat,
+                        data: Array.from(assetObject.asset.data)
+                    }
+                });
+                this.emitProjectMutationEvent(
+                    'addAsset',
+                    [serializedAsset, null],
+                    emit,
+                    target
+                );
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -1279,15 +1303,15 @@ class VirtualMachine extends EventEmitter {
      * @return {?Function} A function to restore the asset that was deleted,
      * or null, if no asset was deleted.
      */
-    deleteAsset (assetIndex) {
-        const target = this.editingTarget;
-        const deletedAsset = this.editingTarget.deleteAsset(assetIndex);
+    deleteAsset (assetIndex, emit = true, target = this.editingTarget) {
+        const deletedAsset = target.deleteAsset(assetIndex);
         if (deletedAsset) {
             this.runtime.emitProjectChanged();
             const restoreFun = () => {
                 target.addAsset(deletedAsset);
                 this.emitTargetsUpdate();
             };
+            this.emitProjectMutationEvent('deleteAsset', [assetIndex], emit, target);
             return restoreFun;
         }
         return null;
@@ -1300,12 +1324,18 @@ class VirtualMachine extends EventEmitter {
      * @param {!number} newIndex index that the asset should be moved to.
      * @returns {boolean} Whether an asset was reordered.
      */
-    reorderAsset (targetId, assetIndex, newIndex) {
-        const target = this.runtime.getTargetById(targetId);
+    reorderAsset (targetId, assetIndex, newIndex, emit = true, target = null) {
+        target = target || this.runtime.getTargetById(targetId);
         if (target) {
             const reorderSuccessful = target.reorderAsset(assetIndex, newIndex);
             if (reorderSuccessful) {
                 this.runtime.emitProjectChanged();
+                this.emitProjectMutationEvent(
+                    'reorderAsset',
+                    [null, assetIndex, newIndex],
+                    emit,
+                    target
+                );
             }
             return reorderSuccessful;
         }
@@ -1317,12 +1347,13 @@ class VirtualMachine extends EventEmitter {
      * @param {!int} assetIndex Index of asset to duplicate
      * @returns {?Promise} - a promise that resolves when the asset has been added
      */
-    duplicateAsset (assetIndex) {
-        const originalAsset = this.editingTarget.getAssets()[assetIndex];
+    duplicateAsset (assetIndex, emit = true, target = this.editingTarget) {
+        const originalAsset = target.getAssets()[assetIndex];
         const clone = Object.assign({}, originalAsset);
         return new Promise(resolve => {
-            this.editingTarget.addAsset(clone, assetIndex + 1);
+            target.addAsset(clone, assetIndex + 1);
             this.emitTargetsUpdate();
+            this.emitProjectMutationEvent('duplicateAsset', [assetIndex], emit, target);
             resolve();
         });
     }
@@ -1332,9 +1363,42 @@ class VirtualMachine extends EventEmitter {
      * @param {int} assetIndex - the index of the asset to be renamed.
      * @param {string} newName - the desired new name of the asset (will be modified if already in use).
      */
-    renameAsset (assetIndex, newName, extension) {
-        this.editingTarget.renameAsset(assetIndex, newName, extension);
+    renameAsset (assetIndex, newName, extension, emit = true, target = this.editingTarget) {
+        target.renameAsset(assetIndex, newName, extension);
         this.emitTargetsUpdate();
+        this.emitProjectMutationEvent(
+            'renameAsset',
+            [assetIndex, newName, extension],
+            emit,
+            target
+        );
+    }
+
+    /**
+     * Update the text data stored in an asset.
+     * @param {int} assetIndex - the index of the asset to update.
+     * @param {string} value - the new text content.
+     * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
+     */
+    updateTextAsset (assetIndex, value, emit = true, target = this.editingTarget) {
+        const assetObject = target.getAssets()[assetIndex];
+        if (!assetObject || !assetObject.asset ||
+            typeof assetObject.asset.encodeTextData !== 'function') {
+            return;
+        }
+        const extension = assetObject.dataFormat || 'txt';
+        assetObject.asset.encodeTextData(value, extension, true);
+        assetObject.md5 = `${assetObject.asset.assetId}.${extension}`;
+        assetObject.assetId = assetObject.asset.assetId;
+        this.runtime.emitProjectChanged();
+        this.emitTargetsUpdate();
+        this.emitProjectMutationEvent(
+            'updateTextAsset',
+            [assetIndex, value],
+            emit,
+            target
+        );
     }
 
     /**
@@ -1869,7 +1933,12 @@ class VirtualMachine extends EventEmitter {
             }
             target.blocks.updateTargetSpecificBlocks(target.isStage);
 
-            this.emitProjectMutationEvent('shareBlocksToTarget', [blocks, null, null, null, null], emit, target);
+            this.emitProjectMutationEvent(
+                'shareBlocksToTarget',
+                [blocks, null, null, optGroup ? structuredClone(optGroup) : null, null],
+                emit,
+                target
+            );
         });
     }
 
@@ -1906,7 +1975,12 @@ class VirtualMachine extends EventEmitter {
                     target.getCostumes().length - 1
                 );
 
-                this.emitProjectMutationEvent('shareCostumeToTarget', [costumeIndex, targetId], emit);
+                this.emitProjectMutationEvent(
+                    'shareCostumeToTarget',
+                    [costumeIndex, targetId],
+                    emit,
+                    fromTarget
+                );
             }
         });
     }
@@ -1916,10 +1990,11 @@ class VirtualMachine extends EventEmitter {
      * @param {!number} soundIndex Index of the sound of the editing target to share.
      * @param {!string} targetId Id of target to add the sound.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} fromTarget Target to copy the sound from.
      * @return {Promise} Promise that resolves when the new sound has been loaded.
      */
-    shareSoundToTarget (soundIndex, targetId, emit = true) {
-        const originalSound = this.editingTarget.getSounds()[soundIndex];
+    shareSoundToTarget (soundIndex, targetId, emit = true, fromTarget = this.editingTarget) {
+        const originalSound = fromTarget.getSounds()[soundIndex];
         const clone = Object.assign({}, originalSound);
         const target = this.runtime.getTargetById(targetId);
         return loadSound(clone, this.runtime, target.sprite.soundBank).then(() => {
@@ -1927,7 +2002,12 @@ class VirtualMachine extends EventEmitter {
                 target.addSound(clone);
                 this.emitTargetsUpdate();
 
-                this.emitProjectMutationEvent('shareSoundToTarget', [soundIndex, targetId], emit);
+                this.emitProjectMutationEvent(
+                    'shareSoundToTarget',
+                    [soundIndex, targetId],
+                    emit,
+                    fromTarget
+                );
             }
         });
     }
@@ -1936,15 +2016,24 @@ class VirtualMachine extends EventEmitter {
      * Called when assets are dragged from editing target to another target.
      * @param {!number} assetIndex Index of the asset of the editing target to share.
      * @param {!string} targetId Id of target to add the asset.
+     * @param {Boolean} emit Emit toggle.
+     * @param {Target} fromTarget Target to copy the asset from.
      * @return {Promise} Promise that resolves when the new asset has been loaded.
      */
-    shareAssetToTarget (assetIndex, targetId) {
-        const originalAsset = this.editingTarget.getAssets()[assetIndex];
+    shareAssetToTarget (assetIndex, targetId, emit = true, fromTarget = this.editingTarget) {
+        const originalAsset = fromTarget.getAssets()[assetIndex];
         const clone = Object.assign({}, originalAsset);
         const target = this.runtime.getTargetById(targetId);
         return new Promise(resolve => {
             if (target) {
                 target.addAsset(clone);
+                this.emitTargetsUpdate();
+                this.emitProjectMutationEvent(
+                    'shareAssetToTarget',
+                    [assetIndex, targetId],
+                    emit,
+                    fromTarget
+                );
             }
             resolve();
         });
@@ -2077,9 +2166,10 @@ class VirtualMachine extends EventEmitter {
      * Reorder target by index. Return whether a change was made.
      * @param {!string} targetIndex Index of the target.
      * @param {!number} newIndex index that the target should be moved to.
+     * @param {Boolean} emit Emit toggle.
      * @returns {boolean} Whether a target was reordered.
      */
-    reorderTarget (targetIndex, newIndex) {
+    reorderTarget (targetIndex, newIndex, emit = true) {
         let targets = this.runtime.targets;
         targetIndex = MathUtil.clamp(targetIndex, 0, targets.length - 1);
         newIndex = MathUtil.clamp(newIndex, 0, targets.length - 1);
@@ -2089,6 +2179,7 @@ class VirtualMachine extends EventEmitter {
         targets.splice(newIndex, 0, target);
         this.runtime.targets = targets;
         this.emitTargetsUpdate();
+        this.emitProjectMutationEvent('reorderTarget', [targetIndex, newIndex], emit);
         return true;
     }
 
@@ -2097,14 +2188,22 @@ class VirtualMachine extends EventEmitter {
      * @param {!string} targetId ID of the target which owns the costumes.
      * @param {!number} costumeIndex index of the costume to move.
      * @param {!number} newIndex index that the costume should be moved to.
+     * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target whose costumes should be reordered.
      * @returns {boolean} Whether a costume was reordered.
      */
-    reorderCostume (targetId, costumeIndex, newIndex) {
-        const target = this.runtime.getTargetById(targetId);
+    reorderCostume (targetId, costumeIndex, newIndex, emit = true, target = null) {
+        target = target || this.runtime.getTargetById(targetId);
         if (target) {
             const reorderSuccessful = target.reorderCostume(costumeIndex, newIndex);
             if (reorderSuccessful) {
                 this.runtime.emitProjectChanged();
+                this.emitProjectMutationEvent(
+                    'reorderCostume',
+                    [null, costumeIndex, newIndex],
+                    emit,
+                    target
+                );
             }
             return reorderSuccessful;
         }
@@ -2116,14 +2215,22 @@ class VirtualMachine extends EventEmitter {
      * @param {!string} targetId ID of the target which owns the sounds.
      * @param {!number} soundIndex index of the sound to move.
      * @param {!number} newIndex index that the sound should be moved to.
+     * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target whose sounds should be reordered.
      * @returns {boolean} Whether a sound was reordered.
      */
-    reorderSound (targetId, soundIndex, newIndex) {
-        const target = this.runtime.getTargetById(targetId);
+    reorderSound (targetId, soundIndex, newIndex, emit = true, target = null) {
+        target = target || this.runtime.getTargetById(targetId);
         if (target) {
             const reorderSuccessful = target.reorderSound(soundIndex, newIndex);
             if (reorderSuccessful) {
                 this.runtime.emitProjectChanged();
+                this.emitProjectMutationEvent(
+                    'reorderSound',
+                    [null, soundIndex, newIndex],
+                    emit,
+                    target
+                );
             }
             return reorderSuccessful;
         }
@@ -2161,9 +2268,9 @@ class VirtualMachine extends EventEmitter {
      * Post/edit sprite info for the current editing target or the drag target.
      * @param {object} data An object with sprite info data to set.
      * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target whose sprite information should be updated.
      */
-    postSpriteInfo (data, emit = true) {
-        const target = this._dragTarget || this.editingTarget;
+    postSpriteInfo (data, emit = true, target = this._dragTarget || this.editingTarget) {
         target.postSpriteInfo(data);
         // Post sprite info means the gui has changed something about a sprite,
         // either through the sprite info pane fields (e.g. direction, size) or
