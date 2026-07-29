@@ -529,6 +529,19 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
+     * Check that an asynchronously captured target still belongs to the
+     * currently loaded project. Project replacement may reuse a target ID, so
+     * comparing IDs alone is not sufficient.
+     * @param {?Target} target target captured before asynchronous work started.
+     * @returns {boolean} whether the exact target is still registered.
+     * @private
+     */
+    _isCurrentProjectTarget (target) {
+        return Boolean(target &&
+            this.runtime.getTargetById(target.id) === target);
+    }
+
+    /**
      * Post I/O data to the virtual devices.
      * @param {?string} device Name of virtual I/O device.
      * @param {object} data Any data object to post to the I/O device.
@@ -584,9 +597,10 @@ class VirtualMachine extends EventEmitter {
     /**
      * Load a Scratch project from a .sb, .sb2, .sb3 or json string.
      * @param {string | object} input A json string, object, or ArrayBuffer representing the project to load.
+     * @param {boolean} emitExtensionMutations Whether imported extensions emit mutations.
      * @return {!Promise} Promise that resolves after targets are installed.
      */
-    loadProject (input) {
+    loadProject (input, emitExtensionMutations = true) {
         if (typeof input === 'object' && !(input instanceof ArrayBuffer) &&
           !ArrayBuffer.isView(input)) {
             // If the input is an object and not any ArrayBuffer
@@ -636,7 +650,11 @@ class VirtualMachine extends EventEmitter {
             });
 
         return validationPromise
-            .then(validatedInput => this.deserializeProject(validatedInput[0], validatedInput[1]))
+            .then(validatedInput => this.deserializeProject(
+                validatedInput[0],
+                validatedInput[1],
+                emitExtensionMutations
+            ))
             .then(() => this.runtime.handleProjectLoaded())
             .catch(error => {
                 // Intentionally rejecting here (want errors to be handled by caller)
@@ -855,9 +873,10 @@ class VirtualMachine extends EventEmitter {
      * Load a project from a Scratch JSON representation.
      * @param {string} projectJSON JSON string representing a project.
      * @param {?JSZip} zip Optional zipped project containing assets to be loaded.
+     * @param {boolean} emitExtensionMutations Whether imported extensions emit mutations.
      * @returns {Promise} Promise that resolves after the project has loaded
      */
-    deserializeProject (projectJSON, zip) {
+    deserializeProject (projectJSON, zip, emitExtensionMutations = true) {
         // Clear the current runtime
         this.clear();
 
@@ -894,7 +913,13 @@ class VirtualMachine extends EventEmitter {
                         log.error(e);
                     }
                 }
-                return this.installTargets(targets, extensions, true);
+                return this.installTargets(
+                    targets,
+                    extensions,
+                    true,
+                    false,
+                    emitExtensionMutations
+                );
             });
     }
 
@@ -1133,6 +1158,7 @@ class VirtualMachine extends EventEmitter {
 
         if (target) {
             return loadCostume(md5ext, costumeObject, this.runtime, optVersion).then(() => {
+                if (!this._isCurrentProjectTarget(target)) return;
                 target.addCostume(costumeObject);
                 target.setCostume(
                     target.getCostumes().length - 1
@@ -1213,6 +1239,7 @@ class VirtualMachine extends EventEmitter {
         const clone = Object.assign({}, originalCostume);
         const md5ext = `${clone.assetId}.${clone.dataFormat}`;
         return loadCostume(md5ext, clone, this.runtime).then(() => {
+            if (!this._isCurrentProjectTarget(target)) return;
             target.addCostume(clone, costumeIndex + 1);
             target.setCostume(costumeIndex + 1);
             this.emitTargetsUpdate();
@@ -1232,6 +1259,7 @@ class VirtualMachine extends EventEmitter {
         const originalSound = target.getSounds()[soundIndex];
         const clone = Object.assign({}, originalSound);
         return loadSound(clone, this.runtime, target.sprite.soundBank).then(() => {
+            if (!this._isCurrentProjectTarget(target)) return;
             target.addSound(clone, soundIndex + 1);
             this.emitTargetsUpdate();
 
@@ -1299,6 +1327,7 @@ class VirtualMachine extends EventEmitter {
         
         if (target) {
             return loadSound(soundObject, this.runtime, target.sprite.soundBank).then(() => {
+                if (!this._isCurrentProjectTarget(target)) return;
                 target.addSound(soundObject);
                 this.emitTargetsUpdate();
 
@@ -1449,6 +1478,7 @@ class VirtualMachine extends EventEmitter {
         }
         if (target) {
             return loadAsset(assetObject, this.runtime).then(() => {
+                if (!this._isCurrentProjectTarget(target)) return;
                 target.addAsset(assetObject);
                 this.emitTargetsUpdate();
                 const serializedAsset = Object.assign({}, assetObject, {
@@ -1901,6 +1931,7 @@ class VirtualMachine extends EventEmitter {
             throw new Error('No sprite associated with this target.');
         }
         return target.duplicate(optX, optY).then(newTarget => {
+            if (!this._isCurrentProjectTarget(target)) return null;
             this.runtime.addTarget(newTarget);
             newTarget.goBehindOther(target);
             if (emit) this.setEditingTarget(newTarget.id);
@@ -2067,8 +2098,12 @@ class VirtualMachine extends EventEmitter {
      * @param {!Blockly.Event} e Any Blockly event.
      */
     blockListener (e) {
-        if (this.editingTarget) {
-            this.editingTarget.blocks.blocklyListen(e);
+        const hasEventTarget = e && typeof e.targetId === 'string';
+        const target = hasEventTarget ?
+            this.runtime.getTargetById(e.targetId) :
+            this.editingTarget;
+        if (target) {
+            target.blocks.blocklyListen(e);
         }
     }
 
@@ -2390,6 +2425,7 @@ class VirtualMachine extends EventEmitter {
         const md5ext = costume.md5 || `${costume.assetId}.${costume.dataFormat}`;
 
         return loadCostume(md5ext, costume, this.runtime).then(() => {
+            if (!this._isCurrentProjectTarget(target)) return null;
             target.addCostume(costume);
             target.setCostume(target.getCostumes().length - 1);
             this._rememberSharedMediaTransfer(payload.transferId);
@@ -2455,6 +2491,7 @@ class VirtualMachine extends EventEmitter {
         );
 
         return loadSound(sound, this.runtime, target.sprite.soundBank).then(() => {
+            if (!this._isCurrentProjectTarget(target)) return null;
             target.addSound(sound);
             this.emitTargetsUpdate();
             this._rememberSharedMediaTransfer(payload.transferId);
@@ -2519,6 +2556,7 @@ class VirtualMachine extends EventEmitter {
         );
 
         return loadAsset(asset, this.runtime).then(() => {
+            if (!this._isCurrentProjectTarget(target)) return null;
             target.addAsset(asset);
             this.emitTargetsUpdate();
             this._rememberSharedMediaTransfer(payload.transferId);

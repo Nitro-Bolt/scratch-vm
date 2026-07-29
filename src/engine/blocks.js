@@ -7,7 +7,6 @@ const BlocksExecuteCache = require('./blocks-execute-cache');
 const BlocksRuntimeCache = require('./blocks-runtime-cache');
 const log = require('../util/log');
 const Variable = require('./variable');
-const Target = require('./target');
 const getMonitorIdForBlockWithArgs = require('../util/get-monitor-id');
 const uid = require('../util/uid');
 
@@ -524,6 +523,21 @@ class Blocks {
             // A create event can create many blocks. Add them all.
             for (let i = 0; i < newBlocks.length; i++) {
                 this.createBlock(newBlocks[i]);
+            }
+            if (editingTarget) {
+                for (const comment of newBlocks.comments) {
+                    editingTarget.createComment(
+                        comment.id,
+                        comment.blockId,
+                        comment.text,
+                        comment.x,
+                        comment.y,
+                        comment.width,
+                        comment.height,
+                        comment.minimized,
+                        comment.colour
+                    );
+                }
             }
             break;
         }
@@ -1334,6 +1348,21 @@ class Blocks {
 
         // Delete block itself.
         delete this._blocks[blockId];
+
+        if (this._target) {
+            for (const commentId of Object.keys(this._target.comments)) {
+                const comment = this._target.comments[commentId];
+                if (commentId === block.comment ||
+                    (comment && comment.blockId === blockId)) {
+                    delete this._target.comments[commentId];
+                }
+            }
+            for (const group of Object.values(this._target.groups)) {
+                if (group && Array.isArray(group.blocks)) {
+                    group.blocks = group.blocks.filter(id => id !== blockId);
+                }
+            }
+        }
 
         this.resetCache();
         this.emitProjectChanged();

@@ -11,7 +11,7 @@ const uid = require('../util/uid');
  * @param {?string} parent Parent block ID.
  * @return {undefined}
  */
-const domToBlock = function (blockDOM, blocks, isTopBlock, parent) {
+const domToBlock = function (blockDOM, blocks, comments, isTopBlock, parent) {
     if (!blockDOM.attribs.id) {
         blockDOM.attribs.id = uid();
     }
@@ -90,16 +90,42 @@ const domToBlock = function (blockDOM, blocks, isTopBlock, parent) {
         case 'comment':
         {
             block.comment = xmlChild.attribs.id;
+            const parseCoordinate = value => {
+                if (typeof value !== 'string' || value === '') return null;
+                const number = Number(value);
+                return Number.isFinite(number) ? number : null;
+            };
+            const parseSize = value => {
+                const number = Number(value);
+                return Number.isFinite(number) ? number : 200;
+            };
+            comments.push({
+                id: block.comment,
+                blockId: block.id,
+                text: xmlChild.children
+                    .map(child => (
+                        typeof child.data === 'string' ? child.data : ''
+                    ))
+                    .join(''),
+                x: parseCoordinate(xmlChild.attribs.x),
+                y: parseCoordinate(xmlChild.attribs.y),
+                width: parseSize(xmlChild.attribs.w),
+                height: parseSize(xmlChild.attribs.h),
+                minimized: xmlChild.attribs.minimized === 'true',
+                colour: xmlChild.attribs.colour &&
+                    xmlChild.attribs.colour !== 'null' ?
+                    xmlChild.attribs.colour : null
+            });
             break;
         }
         case 'value':
         case 'statement':
         {
             // Recursively generate block structure for input block.
-            domToBlock(childBlockNode, blocks, false, block.id);
+            domToBlock(childBlockNode, blocks, comments, false, block.id);
             if (childShadowNode && childBlockNode !== childShadowNode) {
                 // Also generate the shadow block.
-                domToBlock(childShadowNode, blocks, false, block.id);
+                domToBlock(childShadowNode, blocks, comments, false, block.id);
             }
             // Link this block's input to the child block.
             const inputName = xmlChild.attribs.name;
@@ -117,7 +143,7 @@ const domToBlock = function (blockDOM, blocks, isTopBlock, parent) {
                 continue;
             }
             // Recursively generate block structure for next block.
-            domToBlock(childBlockNode, blocks, false, block.id);
+            domToBlock(childBlockNode, blocks, comments, false, block.id);
             // Link next block to this block.
             block.next = childBlockNode.attribs.id;
             break;
@@ -141,6 +167,7 @@ const domToBlock = function (blockDOM, blocks, isTopBlock, parent) {
 const domToBlocks = function (blocksDOM) {
     // At this level, there could be multiple blocks adjacent in the DOM tree.
     const blocks = {};
+    const comments = [];
     for (let i = 0; i < blocksDOM.length; i++) {
         const block = blocksDOM[i];
         if (!block.name || !block.attribs) {
@@ -148,7 +175,7 @@ const domToBlocks = function (blocksDOM) {
         }
         const tagName = block.name.toLowerCase();
         if (tagName === 'block' || tagName === 'shadow') {
-            domToBlock(block, blocks, true, null);
+            domToBlock(block, blocks, comments, true, null);
         }
     }
     // Flatten blocks object into a list.
@@ -157,6 +184,9 @@ const domToBlocks = function (blocksDOM) {
         if (!Object.prototype.hasOwnProperty.call(blocks, b)) continue;
         blocksList.push(blocks[b]);
     }
+    Object.defineProperty(blocksList, 'comments', {
+        value: comments
+    });
     return blocksList;
 };
 

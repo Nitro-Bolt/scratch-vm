@@ -38,12 +38,17 @@ const loadVector_ = function (costume, runtime, rotationCenter, optVersion) {
         // undefined here
         costume.skinId = runtime.renderer.createSVGSkin(svgString, rotationCenter);
         costume.size = runtime.renderer.getSkinSize(costume.skinId);
+        // SVG costumes always use resolution 1. Some valid imported sprite
+        // payloads omit this field when they already provide a rotation center,
+        // so normalize it before the target is exposed to editor consumers.
+        if (typeof costume.bitmapResolution !== 'number') {
+            costume.bitmapResolution = 1;
+        }
         // Now we should have a rotationCenter even if we didn't before
         if (!rotationCenter) {
             rotationCenter = runtime.renderer.getSkinRotationCenter(costume.skinId);
             costume.rotationCenterX = rotationCenter[0];
             costume.rotationCenterY = rotationCenter[1];
-            costume.bitmapResolution = 1;
         }
 
         if (runtime.isPackaged) {
