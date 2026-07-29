@@ -20,6 +20,7 @@ const formatMessage = require('format-message');
 
 const Variable = require('./engine/variable');
 const newBlockIds = require('./util/new-block-ids');
+const uid = require('./util/uid');
 
 const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
@@ -28,10 +29,106 @@ const {serializeSounds, serializeCostumes, serializeSpriteAssets} = require('./s
 require('canvas-toBlob');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
 const Base64Util = require('./util/base64-util');
-const { TargetType } = require('./extension-support/tw-extension-api-common.js');
 const Target = require('./engine/target.js');
 
 const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
+const MAX_APPLIED_MEDIA_TRANSFERS = 2048;
+
+/**
+ * Clone collaboration payload data without retaining references to live VM models.
+ * Project mutation payloads only contain JSON-compatible values.
+ * @param {*} value Value to clone.
+ * @returns {*} cloned value.
+ */
+const cloneProjectMutationValue = value => {
+    if (typeof value === 'undefined') return value;
+    return JSON.parse(JSON.stringify(value));
+};
+
+/**
+ * Convert a scratch-storage asset into data which can safely cross the collaboration wire.
+ * Renderer- and audio-engine-specific IDs are deliberately omitted by the item serializer.
+ * @param {?object} asset scratch-storage asset.
+ * @returns {?object} serialized asset.
+ */
+const serializeStorageAssetForMutation = asset => {
+    if (!asset) return null;
+    let data = asset.data || [];
+    if (data instanceof ArrayBuffer) {
+        data = new Uint8Array(data);
+    } else if (ArrayBuffer.isView(data)) {
+        data = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    }
+    return {
+        assetId: asset.assetId,
+        dataFormat: asset.dataFormat,
+        data: Array.from(data)
+    };
+};
+
+/**
+ * Serialize a costume, sound, or project asset for collaboration.
+ * @param {!object} item media item.
+ * @returns {!object} serialized item.
+ */
+const serializeMediaItemForMutation = item => {
+    const serialized = Object.assign({}, item);
+    delete serialized.skinId;
+    delete serialized.soundId;
+    if (item.asset) {
+        serialized.asset = serializeStorageAssetForMutation(item.asset);
+    }
+    if (item.broken) {
+        serialized.broken = Object.assign({}, item.broken);
+        if (item.broken.asset) {
+            serialized.broken.asset = serializeStorageAssetForMutation(item.broken.asset);
+        }
+    }
+    return cloneProjectMutationValue(serialized);
+};
+
+/**
+ * Recreate scratch-storage assets from collaboration payload data.
+ * @param {!Runtime} runtime VM runtime.
+ * @param {!object} item serialized media item.
+ * @param {!object} assetType scratch-storage asset type.
+ * @returns {!object} hydrated media item.
+ */
+const hydrateMediaItemFromMutation = (runtime, item, assetType) => {
+    const hydrated = cloneProjectMutationValue(item);
+    const storage = runtime.storage;
+    if (!storage || !hydrated.asset ||
+        (storage.Asset && hydrated.asset instanceof storage.Asset)) {
+        return hydrated;
+    }
+    const serializedAsset = hydrated.asset;
+    hydrated.asset = storage.createAsset(
+        assetType,
+        serializedAsset.dataFormat,
+        new Uint8Array(serializedAsset.data),
+        serializedAsset.assetId,
+        false
+    );
+    return hydrated;
+};
+
+/**
+ * Serialize file descriptors without exposing mutable asset buffers.
+ * @param {!Array<object>} fileDescs VM asset file descriptors.
+ * @returns {!Array<object>} collaboration-safe file descriptors.
+ */
+const serializeFileDescsForMutation = fileDescs => fileDescs.map(fileDesc => {
+    let data = fileDesc.fileContent;
+    if (data instanceof ArrayBuffer) {
+        data = new Uint8Array(data);
+    } else if (ArrayBuffer.isView(data)) {
+        data = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    }
+    return {
+        fileName: fileDesc.fileName,
+        data: Array.from(data || [])
+    };
+});
 
 const CORE_EXTENSIONS = [
     // 'motion',
@@ -88,6 +185,12 @@ class VirtualMachine extends EventEmitter {
          * @type {Target}
          */
         this._dragTarget = null;
+
+        /**
+         * IDs of canonical media transfers already applied by this VM.
+         * @type {Set<string>}
+         */
+        this._appliedSharedMediaTransfers = new Set();
 
         // Runtime emits are passed along as VM emits.
         this.runtime.on(Runtime.SCRIPT_GLOW_ON, glowData => {
@@ -381,6 +484,7 @@ class VirtualMachine extends EventEmitter {
     clear () {
         this.runtime.dispose();
         this.editingTarget = null;
+        this._appliedSharedMediaTransfers.clear();
         this.emitTargetsUpdate(false /* Don't emit project change */);
     }
 
@@ -407,20 +511,20 @@ class VirtualMachine extends EventEmitter {
      * @param {Function} fn The function to emit.
      * @param {*} args Arguments of said function.
      * @param {Boolean} emit Emit toggle.
-     * @param {Target | string} target Target or target name to execute said function.
+     * @param {Target | undefined} target Target which owns the mutation, if applicable.
      * @returns Returns if not an emit.
      */
     emitProjectMutationEvent (fn, args, emit = true, target) {
         if (!emit) return;
-        console.log('SENDING PROJECT MUTATION: ', fn, args);
         try {
+            const isTarget = target instanceof Target;
             this.emit('PROJECT_MUTATION', {
                 fn,
                 args,
-                sprite: target instanceof Target ? (target.isStage ? '_stage_' : target.getName()) : target
+                targetId: isTarget ? target.id : null
             });
         } catch (e) {
-            console.error('Failed to emit PROJECT_MUTATION', e);
+            log.error('Failed to emit PROJECT_MUTATION', e);
         }
     }
 
@@ -797,8 +901,9 @@ class VirtualMachine extends EventEmitter {
     /**
      * @param {string[]} extensionIDs The IDs of the extensions
      * @param {Map<string, string>} extensionURLs A map of extension ID to URL
+     * @param {boolean} emit Whether extension loads should emit collaboration mutations.
      */
-    async _loadExtensions (extensionIDs, extensionURLs = new Map()) {
+    async _loadExtensions (extensionIDs, extensionURLs = new Map(), emit = true) {
         const defaultExtensionURLs = require('./extension-support/tw-default-extension-urls');
         const extensionPromises = [];
         for (const extensionID of extensionIDs) {
@@ -806,7 +911,7 @@ class VirtualMachine extends EventEmitter {
                 // Already loaded
             } else if (this.extensionManager.isBuiltinExtension(extensionID)) {
                 // Builtin extension
-                this.extensionManager.loadExtensionIdSync(extensionID);
+                this.extensionManager.loadExtensionIdSync(extensionID, emit);
             } else {
                 // Custom extension
                 let url = extensionURLs.get(extensionID);
@@ -817,7 +922,7 @@ class VirtualMachine extends EventEmitter {
                     throw new Error(`Unknown extension: ${extensionID}`);
                 }
                 if (await this.securityManager.canLoadExtensionFromProject(url)) {
-                    extensionPromises.push(this.extensionManager.loadExtensionURL(url));
+                    extensionPromises.push(this.extensionManager.loadExtensionURL(url, emit));
                 } else {
                     throw new Error(`Permission to load extension denied: ${extensionID}`);
                 }
@@ -832,14 +937,25 @@ class VirtualMachine extends EventEmitter {
      * @param {ImportedExtensionsInfo} extensions - metadata about extensions used by these targets
      * @param {boolean} wholeProject - set to true if installing a whole project, as opposed to a single sprite.
      * @param {boolean} keepEditingTarget - editing target will not change if set to true.
+     * @param {boolean} emitExtensionMutations - whether imported extensions emit collaboration mutations.
      * @returns {Promise} resolved once targets have been installed
      */
-    async installTargets (targets, extensions, wholeProject, keepEditingTarget) {
+    async installTargets (
+        targets,
+        extensions,
+        wholeProject,
+        keepEditingTarget,
+        emitExtensionMutations = true
+    ) {
         await this.extensionManager.allAsyncExtensionsLoaded();
 
         targets = targets.filter(target => !!target);
 
-        return this._loadExtensions(extensions.extensionIDs, extensions.extensionURLs).then(() => {
+        return this._loadExtensions(
+            extensions.extensionIDs,
+            extensions.extensionURLs,
+            emitExtensionMutations
+        ).then(() => {
             targets.forEach(target => {
                 this.runtime.addTarget(target);
                 (/** @type RenderedTarget */ target).updateAllDrawableProperties();
@@ -863,7 +979,7 @@ class VirtualMachine extends EventEmitter {
             }
 
             if (!wholeProject) {
-                this.editingTarget.fixUpVariableReferences();
+                targets[0].fixUpVariableReferences();
             }
 
             if (wholeProject) {
@@ -873,7 +989,6 @@ class VirtualMachine extends EventEmitter {
             // Update the VM user's knowledge of targets and blocks on the workspace.
             this.emitTargetsUpdate(false /* Don't emit project change */);
             this.emitWorkspaceUpdate();
-            console.log(keepEditingTarget);
             if (!keepEditingTarget) this.runtime.setEditingTarget(this.editingTarget);
             this.runtime.ioDevices.cloud.setStage(this.runtime.getTargetForStage());
         });
@@ -914,10 +1029,10 @@ class VirtualMachine extends EventEmitter {
             .then(validatedInput => {
                 const projectVersion = validatedInput[0].projectVersion;
                 if (projectVersion === 2) {
-                    return this._addSprite2(validatedInput[0], validatedInput[1], !emit);
+                    return this._addSprite2(validatedInput[0], validatedInput[1], !emit, emit);
                 }
                 if (projectVersion === 3) {
-                    return this._addSprite3(validatedInput[0], validatedInput[1], !emit);
+                    return this._addSprite3(validatedInput[0], validatedInput[1], !emit, emit);
                 }
                 // TODO: reject with an Error (possible breaking API change!)
                 // eslint-disable-next-line prefer-promise-reject-errors
@@ -943,15 +1058,22 @@ class VirtualMachine extends EventEmitter {
      * @param {object} sprite Object representing 2.0 sprite to be added.
      * @param {?ArrayBuffer} zip Optional zip of assets being referenced by json
      * @param {boolean} keepEditingTarget Editing target will not change if set to true.
+     * @param {boolean} emitExtensionMutations Whether imported extensions emit mutations.
      * @returns {Promise} Promise that resolves after the sprite is added
      */
-    _addSprite2 (sprite, zip, keepEditingTarget) {
+    _addSprite2 (sprite, zip, keepEditingTarget, emitExtensionMutations = true) {
         // Validate & parse
 
         const sb2 = require('./serialization/sb2');
         return sb2.deserialize(sprite, this.runtime, true, zip)
             .then(({targets, extensions}) =>
-                this.installTargets(targets, extensions, false, keepEditingTarget));
+                this.installTargets(
+                    targets,
+                    extensions,
+                    false,
+                    keepEditingTarget,
+                    emitExtensionMutations
+                ));
     }
 
     /**
@@ -959,14 +1081,21 @@ class VirtualMachine extends EventEmitter {
      * @param {object} sprite Object rperesenting 3.0 sprite to be added.
      * @param {?ArrayBuffer} zip Optional zip of assets being referenced by target json
      * @param {boolean} keepEditingTarget Editing target will not change if set to true.
+     * @param {boolean} emitExtensionMutations Whether imported extensions emit mutations.
      * @returns {Promise} Promise that resolves after the sprite is added
      */
-    _addSprite3 (sprite, zip, keepEditingTarget) {
+    _addSprite3 (sprite, zip, keepEditingTarget, emitExtensionMutations = true) {
         // Validate & parse
         const sb3 = require('./serialization/sb3');
         return sb3
             .deserialize(sprite, this.runtime, zip, true)
-            .then(({targets, extensions}) => this.installTargets(targets, extensions, false, keepEditingTarget));
+            .then(({targets, extensions}) => this.installTargets(
+                targets,
+                extensions,
+                false,
+                keepEditingTarget,
+                emitExtensionMutations
+            ));
     }
 
     /**
@@ -983,13 +1112,17 @@ class VirtualMachine extends EventEmitter {
      * @param {Target} target Target to run mutation in. Editing target if none.
      * @returns {?Promise} - a promise that resolves when the costume has been added
      */
-    addCostume (md5ext, costumeObject, optTargetId, optVersion, emit = true, target = this.editingTarget) {
-        if (optTargetId && target !== this.editingTarget) target = this.runtime.getTargetById(optTargetId);
+    addCostume (md5ext, costumeObject, optTargetId, optVersion, emit = true, target = null) {
+        target = target || (optTargetId ?
+            this.runtime.getTargetById(optTargetId) :
+            this.editingTarget);
         
         if (costumeObject.asset && !(costumeObject.asset instanceof this.runtime.storage.Asset)) {
             const storage = this.runtime.storage;
             costumeObject.asset = storage.createAsset(
-                costumeObject.asset.dataFormat === 'svg' ? storage.AssetType.ImageVector : storage.AssetType.ImageBitmap,
+                costumeObject.asset.dataFormat === 'svg' ?
+                    storage.AssetType.ImageVector :
+                    storage.AssetType.ImageBitmap,
                 costumeObject.asset.dataFormat,
                 new Uint8Array(costumeObject.asset.data),
                 costumeObject.asset.assetId,
@@ -1006,7 +1139,12 @@ class VirtualMachine extends EventEmitter {
                 );
                 this.runtime.emitProjectChanged();
 
-                this.emitProjectMutationEvent('addCostume', [md5ext, structuredClone(costumeObject), optTargetId, optVersion], emit, target);
+                this.emitProjectMutationEvent(
+                    'addCostume',
+                    [md5ext, structuredClone(costumeObject), optTargetId, optVersion],
+                    emit,
+                    target
+                );
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -1030,8 +1168,37 @@ class VirtualMachine extends EventEmitter {
     addCostumeFromLibrary (md5ext, costumeObject, emit = true, target = this.editingTarget) {
         // TODO: reject with an Error (possible breaking API change!)
         // eslint-disable-next-line prefer-promise-reject-errors
-        if (!this.editingTarget) return Promise.reject();
-        return this.addCostume(md5ext, costumeObject, target.id, 2 /* optVersion */, emit);
+        if (!target) return Promise.reject();
+        return this.addCostume(
+            md5ext,
+            costumeObject,
+            target.id,
+            2 /* optVersion */,
+            emit,
+            target
+        );
+    }
+
+    /**
+     * Select a costume on an explicitly identified target.
+     * @param {!int} costumeIndex Index of costume to select.
+     * @param {Boolean} emit Emit toggle.
+     * @param {Target} target Target to run mutation in. Editing target if none.
+     * @returns {number} normalized selected costume index.
+     */
+    setCostume (costumeIndex, emit = true, target = this.editingTarget) {
+        if (!target) {
+            throw new Error('No target available to select a costume.');
+        }
+        target.setCostume(costumeIndex);
+        this.emitTargetsUpdate();
+        this.emitProjectMutationEvent(
+            'setCostume',
+            [target.currentCostume],
+            emit,
+            target
+        );
+        return target.currentCostume;
     }
 
     /**
@@ -1115,10 +1282,10 @@ class VirtualMachine extends EventEmitter {
      * @param {Target} target Target to run mutation in. Editing target if none.
      * @returns {?Promise} - a promise that resolves when the sound has been decoded and added
      */
-    addSound (soundObject, optTargetId, emit = true, target = this.editingTarget) {
-        if (optTargetId && target !== this.editingTarget) target = this.runtime.getTargetById(optTargetId);
-        console.log(soundObject);
-
+    addSound (soundObject, optTargetId, emit = true, target = null) {
+        target = target || (optTargetId ?
+            this.runtime.getTargetById(optTargetId) :
+            this.editingTarget);
         if (soundObject.asset && !(soundObject.asset instanceof this.runtime.storage.Asset)) {
             const storage = this.runtime.storage;
             soundObject.asset = storage.createAsset(
@@ -1135,7 +1302,12 @@ class VirtualMachine extends EventEmitter {
                 target.addSound(soundObject);
                 this.emitTargetsUpdate();
 
-                this.emitProjectMutationEvent('addSound', [structuredClone(soundObject), optTargetId], emit);
+                this.emitProjectMutationEvent(
+                    'addSound',
+                    [structuredClone(soundObject), optTargetId],
+                    emit,
+                    target
+                );
             });
         }
         // If the target cannot be found by id, return a rejected promise
@@ -1159,12 +1331,13 @@ class VirtualMachine extends EventEmitter {
     /**
      * Get a sound buffer from the audio engine.
      * @param {int} soundIndex - the index of the sound to be got.
+     * @param {Target} target Target containing the sound. Editing target if none.
      * @return {AudioBuffer} the sound's audio buffer.
      */
-    getSoundBuffer (soundIndex) {
-        const id = this.editingTarget.sprite.sounds[soundIndex].soundId;
+    getSoundBuffer (soundIndex, target = this.editingTarget) {
+        const id = target.sprite.sounds[soundIndex].soundId;
         if (id && this.runtime && this.runtime.audioEngine) {
-            return this.editingTarget.sprite.soundBank.getSoundPlayer(id).buffer;
+            return target.sprite.soundBank.getSoundPlayer(id).buffer;
         }
         return null;
     }
@@ -1224,7 +1397,7 @@ class VirtualMachine extends EventEmitter {
             {
                 _ab: true,
                 sampleRate: newBuffer.sampleRate,
-                length: newBuffer.length,
+                length: newBuffer.length
             },
             soundEncoding
         ], emit, target);
@@ -1404,11 +1577,12 @@ class VirtualMachine extends EventEmitter {
     /**
      * Get a string representation of the image from storage.
      * @param {int} costumeIndex - the index of the costume to be got.
+     * @param {Target} target Target containing the costume. Editing target if none.
      * @return {string} the costume's SVG string if it's SVG,
      *     a dataURI if it's a PNG or JPG, or null if it couldn't be found or decoded.
      */
-    getCostume (costumeIndex) {
-        const asset = this.editingTarget.getCostumes()[costumeIndex].asset;
+    getCostume (costumeIndex, target = this.editingTarget) {
+        const asset = target.getCostumes()[costumeIndex].asset;
         if (!asset || !this.runtime || !this.runtime.storage) return null;
         const format = asset.dataFormat;
         if (format === this.runtime.storage.DataFormat.SVG) {
@@ -1449,14 +1623,22 @@ class VirtualMachine extends EventEmitter {
      * @param {!number} bitmapResolution 1 for bitmaps that have 1 pixel per unit of stage,
      *     2 for double-resolution bitmaps
      */
-    updateBitmap (costumeIndex, bitmap, rotationCenterX, rotationCenterY, bitmapResolution, emit = true, target = this.editingTarget) {
+    updateBitmap (
+        costumeIndex,
+        bitmap,
+        rotationCenterX,
+        rotationCenterY,
+        bitmapResolution,
+        emit = true,
+        target = this.editingTarget
+    ) {
         return this._updateBitmap(
             target.getCostumes()[costumeIndex],
             bitmap,
             rotationCenterX,
             rotationCenterY,
             bitmapResolution,
-            emit,
+            emit
         );
     }
 
@@ -1470,7 +1652,7 @@ class VirtualMachine extends EventEmitter {
                 new Uint8ClampedArray(bitmap.data),
                 bitmap.width,
                 bitmap.height
-            )
+            );
         }
 
         costume.rotationCenterX = rotationCenterX;
@@ -1523,8 +1705,13 @@ class VirtualMachine extends EventEmitter {
                         data: bitmap.data.buffer,
                         width: bitmap.width,
                         height: bitmap.height
-                    }
-                    this.emitProjectMutationEvent('updateBitmap', [costumeIndex, serializedBitmap, rotationCenterX, rotationCenterY, bitmapResolution], emit, target);
+                    };
+                    this.emitProjectMutationEvent(
+                        'updateBitmap',
+                        [costumeIndex, serializedBitmap, rotationCenterX, rotationCenterY, bitmapResolution],
+                        emit,
+                        target
+                    );
                 }
             });
             // Bitmaps with a zero width or height return null for their blob
@@ -1602,7 +1789,7 @@ class VirtualMachine extends EventEmitter {
             stage.setCostume(stage.getCostumes().length - 1);
             this.runtime.emitProjectChanged();
 
-            this.emitProjectMutationEvent('addBackdrop', [md5ext, backdropObject], emit);
+            this.emitProjectMutationEvent('addBackdrop', [md5ext, backdropObject], emit, stage);
         });
     }
 
@@ -1640,7 +1827,7 @@ class VirtualMachine extends EventEmitter {
 
                 if (newUnusedName !== oldName) this.emitTargetsUpdate();
 
-                this.emitProjectMutationEvent('renameSprite', [targetId, newUnusedName], emit, oldName);
+                this.emitProjectMutationEvent('renameSprite', [targetId, newUnusedName], emit, target);
             }
         } else {
             throw new Error('No target with the provided id.');
@@ -1654,7 +1841,7 @@ class VirtualMachine extends EventEmitter {
      * @param {Target} target Target to run mutation in. Editing target if none.
      * @return {Function} Returns a function to restore the sprite that was deleted
      */
-    deleteSprite (targetId, emit, target = this.runtime.getTargetById(targetId)) {
+    deleteSprite (targetId, emit = true, target = this.runtime.getTargetById(targetId)) {
         if (target) {
             const targetIndexBeforeDelete = this.runtime.targets.map(t => t.id).indexOf(target.id);
             if (!target.isSprite()) {
@@ -1688,14 +1875,6 @@ class VirtualMachine extends EventEmitter {
             this.emitTargetsUpdate();
 
             this.emitProjectMutationEvent('deleteSprite', [targetId], emit, target);
-            /*
-            spritePromise.then(spriteBuffer => {
-                const arr = Array.from(new Uint8Array(spriteBuffer));
-                this.emitProjectMutationEvent('deleteSprite', [targetId, arr], true);
-            }).catch(e => {
-                this.emitProjectMutationEvent('deleteSprite', [targetId], true);
-            });
-            */
 
             return restoreSprite;
         }
@@ -1726,8 +1905,94 @@ class VirtualMachine extends EventEmitter {
             newTarget.goBehindOther(target);
             if (emit) this.setEditingTarget(newTarget.id);
 
-            this.emitProjectMutationEvent('duplicateSprite', [targetId, newTarget.x, newTarget.y], emit, target);
+            const payload = {
+                operationId: uid(),
+                sourceTargetId: target.id,
+                targetId: newTarget.id,
+                targetIndex: this.runtime.targets.indexOf(newTarget),
+                spriteJson: this.toJSON(newTarget.id),
+                assetFiles: serializeFileDescsForMutation(this.serializeAssets(newTarget.id))
+            };
+            this.emitProjectMutationEvent(
+                'applyDuplicatedSprite',
+                [payload],
+                emit,
+                target
+            );
+            return newTarget;
         });
+    }
+
+    /**
+     * Apply a canonical duplicated-sprite payload. The serialized sprite already
+     * contains the originator's block, comment, and group IDs, so receivers must
+     * not run Sprite#duplicate independently.
+     * @param {!object} payload canonical duplicated sprite data.
+     * @param {Boolean} emit Emit toggle.
+     * @param {?Target} sourceTarget Source target, if already resolved.
+     * @returns {!Promise<Target>} resolves to the existing or newly imported target.
+     */
+    applyDuplicatedSprite (payload, emit = false, sourceTarget = null) {
+        if (!payload || typeof payload.targetId !== 'string' ||
+            typeof payload.spriteJson !== 'string' || !Array.isArray(payload.assetFiles)) {
+            return Promise.reject(new Error('Invalid duplicated sprite payload.'));
+        }
+
+        const existingTarget = this.runtime.getTargetById(payload.targetId);
+        if (existingTarget) {
+            return Promise.resolve(existingTarget);
+        }
+
+        let spriteJson;
+        try {
+            spriteJson = JSON.parse(payload.spriteJson);
+        } catch (e) {
+            return Promise.reject(new Error('Invalid duplicated sprite JSON.'));
+        }
+
+        const zip = new JSZip();
+        zip.file('sprite.json', payload.spriteJson);
+        for (const file of payload.assetFiles) {
+            if (!file || typeof file.fileName !== 'string' || !Array.isArray(file.data)) {
+                return Promise.reject(new Error('Invalid duplicated sprite asset file.'));
+            }
+            zip.file(file.fileName, new Uint8Array(file.data));
+        }
+
+        const sb3 = require('./serialization/sb3');
+        return sb3.deserialize(spriteJson, this.runtime, zip, true)
+            .then(({targets, extensions}) => {
+                const newTarget = targets[0];
+                if (!newTarget) {
+                    throw new Error('Duplicated sprite payload did not contain a target.');
+                }
+                newTarget.id = payload.targetId;
+                return this.installTargets(
+                    targets,
+                    extensions,
+                    false,
+                    true,
+                    false
+                ).then(() => {
+                    if (sourceTarget) {
+                        newTarget.goBehindOther(sourceTarget);
+                    }
+                    if (typeof payload.targetIndex === 'number') {
+                        const currentIndex = this.runtime.targets.indexOf(newTarget);
+                        if (currentIndex !== payload.targetIndex) {
+                            this.reorderTarget(currentIndex, payload.targetIndex, false);
+                        }
+                    }
+                    this.runtime.emitProjectChanged();
+                    this.emitProjectMutationEvent(
+                        'applyDuplicatedSprite',
+                        [cloneProjectMutationValue(payload)],
+                        emit,
+                        sourceTarget
+                    );
+                    return newTarget;
+                });
+            });
     }
 
     /**
@@ -1908,37 +2173,154 @@ class VirtualMachine extends EventEmitter {
         const {blocks: copiedBlocks, extensionURLs} = sb3.deserializeStandaloneBlocks(blocks);
         const blockIdMap = newBlockIds(copiedBlocks);
 
+        if (!target) {
+            return Promise.reject(new Error(`No target with ID: ${targetId}`));
+        }
+
+        const variableIdsBeforeSharing = new Set(Object.keys(target.variables));
         if (optFromTarget) {
             // If the blocks are being shared from another target,
             // resolve any possible variable conflicts that may arise.
             optFromTarget.resolveVariableSharingConflictsWithTarget(copiedBlocks, target);
         }
 
-        // Create a unique set of extensionIds that are not yet loaded
+        let xOffset = 0;
+        let yOffset = 0;
+        if (optFromTarget) {
+            for (const oldBlockId of Object.keys(blockIdMap)) {
+                const copiedBlock = copiedBlocks.find(block => block.id === blockIdMap[oldBlockId]);
+                const sourceBlock = optFromTarget.blocks.getBlock(oldBlockId);
+                if (copiedBlock && copiedBlock.topLevel && sourceBlock) {
+                    xOffset = Number(copiedBlock.x) - Number(sourceBlock.x);
+                    yOffset = Number(copiedBlock.y) - Number(sourceBlock.y);
+                    if (!Number.isFinite(xOffset)) xOffset = 0;
+                    if (!Number.isFinite(yOffset)) yOffset = 0;
+                    break;
+                }
+            }
+        }
+
+        const comments = [];
+        for (const copiedBlock of copiedBlocks) {
+            if (!copiedBlock.comment) continue;
+            const sourceComment = optFromTarget && optFromTarget.comments[copiedBlock.comment];
+            if (!sourceComment) {
+                delete copiedBlock.comment;
+                continue;
+            }
+            const commentId = uid();
+            copiedBlock.comment = commentId;
+            comments.push({
+                id: commentId,
+                blockId: copiedBlock.id,
+                text: sourceComment.text,
+                x: typeof sourceComment.x === 'number' ? sourceComment.x + xOffset : sourceComment.x,
+                y: typeof sourceComment.y === 'number' ? sourceComment.y + yOffset : sourceComment.y,
+                width: sourceComment.width,
+                height: sourceComment.height,
+                minimized: sourceComment.minimized,
+                colour: sourceComment.colour
+            });
+        }
+
+        const variables = Object.values(target.variables)
+            .filter(variable => !variableIdsBeforeSharing.has(variable.id))
+            .map(variable => ({
+                id: variable.id,
+                name: variable.name,
+                type: variable.type,
+                isCloud: variable.isCloud,
+                value: cloneProjectMutationValue(variable.value)
+            }));
+
+        const payload = {
+            sourceTargetId: optFromTarget ? optFromTarget.id : null,
+            destinationTargetId: target.id,
+            blocks: copiedBlocks,
+            comments,
+            variables,
+            group: optGroup ? Object.assign({}, cloneProjectMutationValue(optGroup), {
+                id: uid(),
+                blocks: optGroup.blocks.map(id => blockIdMap[id]).filter(Boolean)
+            }) : null,
+            extensionURLs: Object.fromEntries(extensionURLs)
+        };
+
+        return this.applySharedBlocksToTarget(payload, emit, target);
+    }
+
+    /**
+     * Apply a canonical cross-target block payload without generating any IDs.
+     * The operation is idempotent: blocks, comments, variables, and the group
+     * which already exist are left in place.
+     * @param {!object} payload canonical payload produced by shareBlocksToTarget.
+     * @param {Boolean} emit Emit toggle.
+     * @param {?Target} target Destination target, if already resolved.
+     * @returns {!Promise<object>} resolves to the applied payload.
+     */
+    applySharedBlocksToTarget (payload, emit = false, target = null) {
+        if (!payload || !Array.isArray(payload.blocks)) {
+            return Promise.reject(new Error('Invalid shared blocks payload.'));
+        }
+        target = target || this.runtime.getTargetById(payload.destinationTargetId);
+        if (!target) {
+            return Promise.reject(new Error(`No target with ID: ${payload.destinationTargetId}`));
+        }
+
+        const sb3 = require('./serialization/sb3');
+        const copiedBlocks = cloneProjectMutationValue(payload.blocks);
+        const extensionURLs = new Map(Object.entries(payload.extensionURLs || {}));
         const extensionIDs = new Set(copiedBlocks
-            .map(b => sb3.getExtensionIdForOpcode(b.opcode))
-            .filter(id => !!id) // Remove ids that do not exist
-            .filter(id => !this.extensionManager.isExtensionLoaded(id)) // and remove loaded extensions
+            .map(block => sb3.getExtensionIdForOpcode(block.opcode))
+            .filter(id => !!id)
+            .filter(id => !this.extensionManager.isExtensionLoaded(id))
         );
 
-        return this._loadExtensions(extensionIDs, extensionURLs).then(() => {
-            copiedBlocks.forEach(block => {
-                target.blocks.createBlock(block);
-            });
-            if (optGroup) {
-                target.createGroup(Object.assign({}, optGroup, {
-                    id: null,
-                    blocks: optGroup.blocks.map(id => blockIdMap[id]).filter(Boolean)
-                }));
+        return this._loadExtensions(extensionIDs, extensionURLs, emit).then(() => {
+            for (const variable of payload.variables || []) {
+                if (!Object.prototype.hasOwnProperty.call(target.variables, variable.id)) {
+                    target.createVariable(variable.id, variable.name, variable.type, variable.isCloud);
+                    target.variables[variable.id].value = cloneProjectMutationValue(variable.value);
+                }
             }
-            target.blocks.updateTargetSpecificBlocks(target.isStage);
 
+            copiedBlocks.forEach(block => {
+                if (!target.blocks.getBlock(block.id)) {
+                    target.blocks.createBlock(block);
+                }
+            });
+
+            for (const comment of payload.comments || []) {
+                if (!Object.prototype.hasOwnProperty.call(target.comments, comment.id)) {
+                    target.createComment(
+                        comment.id,
+                        comment.blockId,
+                        comment.text,
+                        comment.x,
+                        comment.y,
+                        comment.width,
+                        comment.height,
+                        comment.minimized,
+                        comment.colour
+                    );
+                }
+            }
+
+            if (payload.group &&
+                !Object.prototype.hasOwnProperty.call(target.groups, payload.group.id)) {
+                target.createGroup(cloneProjectMutationValue(payload.group));
+            }
+
+            target.blocks.updateTargetSpecificBlocks(target.isStage);
+            this.runtime.emitProjectChanged();
+            if (target === this.editingTarget) this.emitWorkspaceUpdate();
             this.emitProjectMutationEvent(
-                'shareBlocksToTarget',
-                [blocks, null, null, optGroup ? structuredClone(optGroup) : null, null],
+                'applySharedBlocksToTarget',
+                [cloneProjectMutationValue(payload)],
                 emit,
                 target
             );
+            return payload;
         });
     }
 
@@ -1952,36 +2334,76 @@ class VirtualMachine extends EventEmitter {
      * @return {Promise} Promise that resolves when the new costume has been loaded.
      */
     shareCostumeToTarget (costumeIndex, targetId, emit = true, fromTarget = this.editingTarget) {
-        const originalCostume = fromTarget.getCostumes()[costumeIndex];
-        const clone = Object.assign({}, originalCostume);
-        const md5ext = `${clone.assetId}.${clone.dataFormat}`;
+        const target = this.runtime.getTargetById(targetId);
+        const originalCostume = fromTarget && fromTarget.getCostumes()[costumeIndex];
+        if (!target || !originalCostume) {
+            return Promise.reject(new Error('Could not resolve costume transfer targets or item.'));
+        }
+        return this.applySharedCostumeToTarget({
+            transferId: uid(),
+            sourceTargetId: fromTarget.id,
+            destinationTargetId: target.id,
+            costume: serializeMediaItemForMutation(originalCostume)
+        }, emit, target);
+    }
 
-        if (clone.asset && !(clone.asset instanceof this.runtime.storage.Asset)) {
-            const storage = this.runtime.storage;
-            clone.asset = storage.createAsset(
-                clone.asset.dataFormat === 'svg' ? storage.AssetType.ImageVector : storage.AssetType.ImageBitmap,
-                clone.asset.dataFormat,
-                new Uint8Array(clone.asset.data),
-                clone.asset.assetId,
-                false
+    /**
+     * Remember a canonical media transfer without retaining an unbounded
+     * session history.
+     * @param {?string} transferId canonical transfer ID.
+     */
+    _rememberSharedMediaTransfer (transferId) {
+        if (!transferId) return;
+        this._appliedSharedMediaTransfers.add(transferId);
+        while (this._appliedSharedMediaTransfers.size > MAX_APPLIED_MEDIA_TRANSFERS) {
+            this._appliedSharedMediaTransfers.delete(
+                this._appliedSharedMediaTransfers.values().next().value
             );
         }
+    }
 
-        return loadCostume(md5ext, clone, this.runtime).then(() => {
-            const target = this.runtime.getTargetById(targetId);
-            if (target) {
-                target.addCostume(clone);
-                target.setCostume(
-                    target.getCostumes().length - 1
-                );
+    /**
+     * Apply a serialized costume transfer to an explicitly resolved target.
+     * @param {!object} payload canonical costume transfer.
+     * @param {Boolean} emit Emit toggle.
+     * @param {?Target} target Destination target.
+     * @returns {!Promise<object>} resolves to the applied payload.
+     */
+    applySharedCostumeToTarget (payload, emit = false, target = null) {
+        if (!payload || !payload.costume) {
+            return Promise.reject(new Error('Invalid shared costume payload.'));
+        }
+        if (payload.transferId && this._appliedSharedMediaTransfers.has(payload.transferId)) {
+            return Promise.resolve(payload);
+        }
+        target = target || this.runtime.getTargetById(payload.destinationTargetId);
+        if (!target) {
+            return Promise.reject(new Error(`No target with ID: ${payload.destinationTargetId}`));
+        }
+        const storage = this.runtime.storage;
+        const assetType = storage && payload.costume.asset ?
+            (payload.costume.asset.dataFormat === 'svg' ?
+                storage.AssetType.ImageVector :
+                storage.AssetType.ImageBitmap) :
+            null;
+        const costume = hydrateMediaItemFromMutation(this.runtime, payload.costume, assetType);
+        const md5ext = costume.md5 || `${costume.assetId}.${costume.dataFormat}`;
 
-                this.emitProjectMutationEvent(
-                    'shareCostumeToTarget',
-                    [costumeIndex, targetId],
-                    emit,
-                    fromTarget
-                );
-            }
+        return loadCostume(md5ext, costume, this.runtime).then(() => {
+            target.addCostume(costume);
+            target.setCostume(target.getCostumes().length - 1);
+            this._rememberSharedMediaTransfer(payload.transferId);
+            this.emitTargetsUpdate();
+            const appliedPayload = Object.assign({}, payload, {
+                costume: serializeMediaItemForMutation(costume)
+            });
+            this.emitProjectMutationEvent(
+                'applySharedCostumeToTarget',
+                [appliedPayload],
+                emit,
+                target
+            );
+            return appliedPayload;
         });
     }
 
@@ -1994,21 +2416,58 @@ class VirtualMachine extends EventEmitter {
      * @return {Promise} Promise that resolves when the new sound has been loaded.
      */
     shareSoundToTarget (soundIndex, targetId, emit = true, fromTarget = this.editingTarget) {
-        const originalSound = fromTarget.getSounds()[soundIndex];
-        const clone = Object.assign({}, originalSound);
         const target = this.runtime.getTargetById(targetId);
-        return loadSound(clone, this.runtime, target.sprite.soundBank).then(() => {
-            if (target) {
-                target.addSound(clone);
-                this.emitTargetsUpdate();
+        const originalSound = fromTarget && fromTarget.getSounds()[soundIndex];
+        if (!target || !originalSound) {
+            return Promise.reject(new Error('Could not resolve sound transfer targets or item.'));
+        }
+        return this.applySharedSoundToTarget({
+            transferId: uid(),
+            sourceTargetId: fromTarget.id,
+            destinationTargetId: target.id,
+            sound: serializeMediaItemForMutation(originalSound)
+        }, emit, target);
+    }
 
-                this.emitProjectMutationEvent(
-                    'shareSoundToTarget',
-                    [soundIndex, targetId],
-                    emit,
-                    fromTarget
-                );
-            }
+    /**
+     * Apply a serialized sound transfer to an explicitly resolved target.
+     * @param {!object} payload canonical sound transfer.
+     * @param {Boolean} emit Emit toggle.
+     * @param {?Target} target Destination target.
+     * @returns {!Promise<object>} resolves to the applied payload.
+     */
+    applySharedSoundToTarget (payload, emit = false, target = null) {
+        if (!payload || !payload.sound) {
+            return Promise.reject(new Error('Invalid shared sound payload.'));
+        }
+        if (payload.transferId && this._appliedSharedMediaTransfers.has(payload.transferId)) {
+            return Promise.resolve(payload);
+        }
+        target = target || this.runtime.getTargetById(payload.destinationTargetId);
+        if (!target) {
+            return Promise.reject(new Error(`No target with ID: ${payload.destinationTargetId}`));
+        }
+        const storage = this.runtime.storage;
+        const sound = hydrateMediaItemFromMutation(
+            this.runtime,
+            payload.sound,
+            storage ? storage.AssetType.Sound : null
+        );
+
+        return loadSound(sound, this.runtime, target.sprite.soundBank).then(() => {
+            target.addSound(sound);
+            this.emitTargetsUpdate();
+            this._rememberSharedMediaTransfer(payload.transferId);
+            const appliedPayload = Object.assign({}, payload, {
+                sound: serializeMediaItemForMutation(sound)
+            });
+            this.emitProjectMutationEvent(
+                'applySharedSoundToTarget',
+                [appliedPayload],
+                emit,
+                target
+            );
+            return appliedPayload;
         });
     }
 
@@ -2021,21 +2480,58 @@ class VirtualMachine extends EventEmitter {
      * @return {Promise} Promise that resolves when the new asset has been loaded.
      */
     shareAssetToTarget (assetIndex, targetId, emit = true, fromTarget = this.editingTarget) {
-        const originalAsset = fromTarget.getAssets()[assetIndex];
-        const clone = Object.assign({}, originalAsset);
         const target = this.runtime.getTargetById(targetId);
-        return new Promise(resolve => {
-            if (target) {
-                target.addAsset(clone);
-                this.emitTargetsUpdate();
-                this.emitProjectMutationEvent(
-                    'shareAssetToTarget',
-                    [assetIndex, targetId],
-                    emit,
-                    fromTarget
-                );
-            }
-            resolve();
+        const originalAsset = fromTarget && fromTarget.getAssets()[assetIndex];
+        if (!target || !originalAsset) {
+            return Promise.reject(new Error('Could not resolve asset transfer targets or item.'));
+        }
+        return this.applySharedAssetToTarget({
+            transferId: uid(),
+            sourceTargetId: fromTarget.id,
+            destinationTargetId: target.id,
+            asset: serializeMediaItemForMutation(originalAsset)
+        }, emit, target);
+    }
+
+    /**
+     * Apply a serialized project-asset transfer to an explicitly resolved target.
+     * @param {!object} payload canonical asset transfer.
+     * @param {Boolean} emit Emit toggle.
+     * @param {?Target} target Destination target.
+     * @returns {!Promise<object>} resolves to the applied payload.
+     */
+    applySharedAssetToTarget (payload, emit = false, target = null) {
+        if (!payload || !payload.asset) {
+            return Promise.reject(new Error('Invalid shared asset payload.'));
+        }
+        if (payload.transferId && this._appliedSharedMediaTransfers.has(payload.transferId)) {
+            return Promise.resolve(payload);
+        }
+        target = target || this.runtime.getTargetById(payload.destinationTargetId);
+        if (!target) {
+            return Promise.reject(new Error(`No target with ID: ${payload.destinationTargetId}`));
+        }
+        const storage = this.runtime.storage;
+        const asset = hydrateMediaItemFromMutation(
+            this.runtime,
+            payload.asset,
+            storage ? storage.AssetType.Asset : null
+        );
+
+        return loadAsset(asset, this.runtime).then(() => {
+            target.addAsset(asset);
+            this.emitTargetsUpdate();
+            this._rememberSharedMediaTransfer(payload.transferId);
+            const appliedPayload = Object.assign({}, payload, {
+                asset: serializeMediaItemForMutation(asset)
+            });
+            this.emitProjectMutationEvent(
+                'applySharedAssetToTarget',
+                [appliedPayload],
+                emit,
+                target
+            );
+            return appliedPayload;
         });
     }
 

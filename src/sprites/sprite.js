@@ -168,6 +168,8 @@ class Sprite {
             return newSound;
         });
 
+        newSprite.assets = this.assets.map(asset => Object.assign({}, asset));
+
         return Promise.all(assetPromises).then(() => newSprite);
     }
 

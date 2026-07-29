@@ -181,8 +181,9 @@ class ExtensionManager {
      * Synchronously load an internal extension (core or non-core) by ID. This call will
      * fail if the provided id is not does not match an internal extension.
      * @param {string} extensionId - the ID of an internal extension
+     * @param {boolean} emit - whether to emit an EXTENSION_MUTATION event
      */
-    loadExtensionIdSync (extensionId) {
+    loadExtensionIdSync (extensionId, emit = true) {
         if (!this.isBuiltinExtension(extensionId)) {
             log.warn(`Could not find extension ${extensionId} in the built in extensions.`);
             return;
@@ -200,10 +201,12 @@ class ExtensionManager {
         const serviceName = this._registerInternalExtension(extensionInstance);
         this._loadedExtensions.set(extensionId, serviceName);
         this.runtime.compilerRegisterExtension(extensionId, extensionInstance);
-        this.vm.emit('EXTENSION_MUTATION', {
-            action: 'load',
-            source: extensionId
-        });
+        if (emit) {
+            this.vm.emit('EXTENSION_MUTATION', {
+                action: 'load',
+                source: extensionId
+            });
+        }
     }
 
     addBuiltinExtension (extensionId, extensionClass) {
@@ -227,11 +230,12 @@ class ExtensionManager {
     /**
      * Load an extension by URL or internal extension ID
      * @param {string} extensionURL - the URL for the extension to load OR the ID of an internal extension
+     * @param {boolean} emit - whether to emit an EXTENSION_MUTATION event
      * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
      */
-    async loadExtensionURL (extensionURL) {
+    async loadExtensionURL (extensionURL, emit = true) {
         if (this.isBuiltinExtension(extensionURL)) {
-            this.loadExtensionIdSync(extensionURL);
+            this.loadExtensionIdSync(extensionURL, emit);
             return;
         }
 
@@ -267,11 +271,13 @@ class ExtensionManager {
             }
 
             this._finishedLoadingExtensionScript();
-            this.vm.emit('EXTENSION_MUTATION', {
-                action: 'load',
-                source: extensionURL,
-                sandboxMode
-            });
+            if (emit) {
+                this.vm.emit('EXTENSION_MUTATION', {
+                    action: 'load',
+                    source: extensionURL,
+                    sandboxMode
+                });
+            }
             return;
         }
 
@@ -290,11 +296,13 @@ class ExtensionManager {
             this.pendingExtensions.push({extensionURL: rewritten, resolve, reject});
             dispatch.addWorker(new ExtensionWorker());
         }).then(result => {
-            this.vm.emit('EXTENSION_MUTATION', {
-                action: 'load',
-                source: extensionURL,
-                sandboxMode
-            });
+            if (emit) {
+                this.vm.emit('EXTENSION_MUTATION', {
+                    action: 'load',
+                    source: extensionURL,
+                    sandboxMode
+                });
+            }
             return result;
         })
             .catch(error => this._failedLoadingExtensionScript(error));
@@ -304,9 +312,10 @@ class ExtensionManager {
      * Reorder an extension by using current index and reorder to index
      * @param {string} extensionIndex - the index of the extension to reorder
      * @param {string} reorderIndex - the index to reorder the extension to
+     * @param {boolean} emit - whether to emit an EXTENSION_MUTATION event
      * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
      */
-    reorderExtension (extensionIndex, reorderIndex) {
+    reorderExtension (extensionIndex, reorderIndex, emit = true) {
         const extensions = Array.from(this._loadedExtensions);
         if (reorderIndex >= extensions.length) {
             let padding = reorderIndex - extensions.length + 1;
@@ -318,19 +327,22 @@ class ExtensionManager {
         this._loadedExtensions = new Map(extensions.map(extension => [extension[0], extension[1]]));
         dispatch.call('runtime', '_reorderExtensionPrimitive', extensionIndex, reorderIndex);
         this.refreshBlocks();
-        this.vm.emit('EXTENSION_MUTATION', {
-            action: 'reorder',
-            extensionIndex,
-            reorderIndex
-        });
+        if (emit) {
+            this.vm.emit('EXTENSION_MUTATION', {
+                action: 'reorder',
+                extensionIndex,
+                reorderIndex
+            });
+        }
     }
 
     /**
      * Unload an extension by URL or internal extension ID
      * @param {string} extensionURL - the URL for the extension to load OR the ID of an internal extension
+     * @param {boolean} emit - whether to emit an EXTENSION_MUTATION event
      * @returns {Promise} resolved once the extension is loaded and initialized or rejected on failure
      */
-    removeExtension (extensionURL) {
+    removeExtension (extensionURL, emit = true) {
         if (!this.isExtensionLoaded(extensionURL)) {
             const message = `Rejecting attempt to remove an unloaded extension with ID ${extensionURL}`;
             log.warn(message);
@@ -341,13 +353,19 @@ class ExtensionManager {
         delete this.runtime[`ext_${extensionURL}`];
         this._loadedExtensions.delete(extensionURL);
         const workerId = +serviceName.split('.')[1];
-        delete this.workerURLs[workerId];
+        const workerIsStillUsed = Number.isInteger(workerId) &&
+            Array.from(this._loadedExtensions.values()).some(otherServiceName =>
+                +otherServiceName.split('.')[1] === workerId
+            );
+        if (!workerIsStillUsed) delete this.workerURLs[workerId];
         dispatch.call('runtime', '_removeExtensionPrimitive', extensionURL);
         this.refreshBlocks();
-        this.vm.emit('EXTENSION_MUTATION', {
-            action: 'remove',
-            extensionId: extensionURL
-        });
+        if (emit) {
+            this.vm.emit('EXTENSION_MUTATION', {
+                action: 'remove',
+                extensionId: extensionURL
+            });
+        }
     }
 
     /**
@@ -721,6 +739,14 @@ class ExtensionManager {
             }
         }
         return extensionURLs;
+    }
+
+    /**
+     * Get loaded extension IDs in their current palette order.
+     * @returns {Array<string>} loaded extension IDs
+     */
+    getLoadedExtensionIds () {
+        return Array.from(this._loadedExtensions.keys());
     }
 
     isExtensionURLLoaded (url) {
