@@ -1513,6 +1513,55 @@ class VirtualMachine extends EventEmitter {
         return true;
     }
 
+    deleteFolderWithContents (folderId) {
+        const folder = this.runtime.projectFolders.find(item => item.id === folderId);
+        if (!folder) return false;
+        const parentId = folder.parentId;
+        const folderIds = new Set([folderId]);
+        let foundDescendant = true;
+        while (foundDescendant) {
+            foundDescendant = false;
+            for (const candidate of this.runtime.projectFolders) {
+                if (folderIds.has(candidate.parentId) && !folderIds.has(candidate.id)) {
+                    folderIds.add(candidate.id);
+                    foundDescendant = true;
+                }
+            }
+        }
+
+        if (folder.kind === 'sprite') {
+            const targets = this.runtime.targets.filter(target =>
+                target.isOriginal && !target.isStage && folderIds.has(target.folderId));
+            targets.forEach(target => this.deleteSprite(target.id));
+        } else {
+            const target = this.runtime.getTargetById(folder.scopeId);
+            const collections = target && {
+                costume: target.getCostumes(),
+                sound: target.getSounds(),
+                asset: target.getAssets()
+            };
+            const items = collections && collections[folder.kind];
+            if (items) {
+                for (let index = items.length - 1; index >= 0; index--) {
+                    if (!folderIds.has(items[index].folderId)) continue;
+                    if (folder.kind === 'costume') target.deleteCostume(index);
+                    else if (folder.kind === 'sound') target.deleteSound(index);
+                    else target.deleteAsset(index);
+                }
+                // A target must retain one costume. If every costume was in
+                // the deleted subtree, move the undeletable final costume out.
+                items.forEach(item => {
+                    if (item && folderIds.has(item.folderId)) item.folderId = parentId;
+                });
+            }
+        }
+
+        this.runtime.projectFolders = this.runtime.projectFolders.filter(candidate => !folderIds.has(candidate.id));
+        if (parentId) this._removeFolderIfEmpty(parentId);
+        this.emitTargetsUpdate();
+        return true;
+    }
+
     /**
      * Set explicit folder membership for a sprite or target-owned asset and,
      * optionally, move it in the same atomic update.
