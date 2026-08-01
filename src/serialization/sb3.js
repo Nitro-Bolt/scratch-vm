@@ -639,6 +639,22 @@ const normalizeFolderParents = folders => {
     return foldersById;
 };
 
+const makeFolderNamesUnique = folders => {
+    normalizeFolderParents(folders);
+    const siblingNames = new Map();
+    for (const folder of folders) {
+        const key = JSON.stringify([folder.kind, folder.scopeId, folder.parentId]);
+        let names = siblingNames.get(key);
+        if (!names) {
+            names = [];
+            siblingNames.set(key, names);
+        }
+        folder.name = StringUtil.caseInsensitiveUnusedName(folder.name, names);
+        names.push(folder.name);
+    }
+    return folders;
+};
+
 const normalizeProjectFolders = (runtime, targets) => {
     const targetsBySerializedId = new Map();
     for (const target of targets) {
@@ -663,19 +679,7 @@ const normalizeProjectFolders = (runtime, targets) => {
         seenFolderIds.add(folder.id);
         return true;
     });
-    normalizeFolderParents(folders);
-    const seenFolderNames = new Set();
-    folders = folders.filter(folder => {
-        const key = JSON.stringify([
-            folder.kind,
-            folder.scopeId,
-            folder.parentId,
-            folder.name.toLocaleLowerCase()
-        ]);
-        if (seenFolderNames.has(key)) return false;
-        seenFolderNames.add(key);
-        return true;
-    });
+    folders = makeFolderNamesUnique(folders);
     const foldersById = normalizeFolderParents(folders);
 
     const validMembership = (folderId, kind, scopeId) => {
@@ -922,11 +926,16 @@ const serialize = function (runtime, targetId, {allowOptimization = true} = {}) 
         obj.extensionStorage = globalExtensionStorage;
     }
 
-    obj.targets = serializedTargets;
-
-    if (Array.isArray(runtime.projectFolders) && runtime.projectFolders.length) {
+    const hasFolders = Array.isArray(runtime.projectFolders) && runtime.projectFolders.length > 0;
+    if (hasFolders) {
         obj.folders = runtime.projectFolders.map(serializeFolder);
+    } else {
+        // Target IDs are only needed to reconnect target-scoped folders while
+        // loading. Keep ordinary SB3 output unchanged when folders are unused.
+        serializedTargets.forEach(target => delete target.id);
     }
+
+    obj.targets = serializedTargets;
 
     obj.monitors = serializeMonitors(runtime.getMonitorState(), runtime, extensions);
 
@@ -1833,14 +1842,7 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
             parentId: folderIdMap.get(folder.parentId) || null,
             _isOpen: folder.isOpen !== false
         }));
-        normalizeFolderParents(importedFolders);
-        const seenFolderNames = new Set();
-        importedFolders = importedFolders.filter(folder => {
-            const key = JSON.stringify([folder.kind, folder.parentId, folder.name.toLocaleLowerCase()]);
-            if (seenFolderNames.has(key)) return false;
-            seenFolderNames.add(key);
-            return true;
-        });
+        importedFolders = makeFolderNamesUnique(importedFolders);
         const importedFolderIds = new Set(importedFolders.map(folder => folder.id));
         normalizeFolderParents(importedFolders);
         for (const [kind, collectionName] of [

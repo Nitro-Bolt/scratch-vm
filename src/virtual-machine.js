@@ -379,6 +379,7 @@ class VirtualMachine extends EventEmitter {
      */
     clear () {
         this.runtime.dispose();
+        this.runtime.projectFolders = [];
         this.editingTarget = null;
         this.emitTargetsUpdate(false /* Don't emit project change */);
     }
@@ -1323,6 +1324,47 @@ class VirtualMachine extends EventEmitter {
         return true;
     }
 
+    /**
+     * Move a folder into another folder, or to the root of its scope.
+     * @param {string} folderId Folder to move
+     * @param {?string} parentId Destination parent folder, or null for root
+     * @returns {boolean} true when the parent changed
+     */
+    setFolderParent (folderId, parentId) {
+        const folder = this.runtime.projectFolders.find(item => item.id === folderId);
+        if (!folder) throw new Error('Folder does not exist.');
+        const normalizedParentId = parentId || null;
+        if (folder.parentId === normalizedParentId) return false;
+        if (normalizedParentId === folderId) throw new Error('A folder cannot contain itself.');
+
+        if (normalizedParentId) {
+            const parent = this.runtime.projectFolders.find(item => item.id === normalizedParentId);
+            if (!parent || parent.kind !== folder.kind || parent.scopeId !== folder.scopeId) {
+                throw new Error('Parent folder does not exist in this scope.');
+            }
+            let ancestor = parent;
+            const visitedAncestorIds = new Set();
+            while (ancestor && !visitedAncestorIds.has(ancestor.id)) {
+                if (ancestor.id === folderId) throw new Error('A folder cannot be moved into its descendant.');
+                visitedAncestorIds.add(ancestor.id);
+                const ancestorParentId = ancestor.parentId;
+                ancestor = this.runtime.projectFolders.find(item => item.id === ancestorParentId);
+            }
+            if (ancestor) throw new Error('Parent folder hierarchy contains a cycle.');
+        }
+
+        const duplicate = this.runtime.projectFolders.some(item => item.id !== folderId &&
+            item.kind === folder.kind && item.scopeId === folder.scopeId && item.parentId === normalizedParentId &&
+            item.name.toLocaleLowerCase() === folder.name.toLocaleLowerCase());
+        if (duplicate) throw new Error('A folder with that name already exists in this scope.');
+
+        const oldParentId = folder.parentId;
+        folder.parentId = normalizedParentId;
+        if (oldParentId) this._removeFolderIfEmpty(oldParentId);
+        this.emitTargetsUpdate();
+        return true;
+    }
+
     moveFolderToIndex (folderId, newIndex) {
         const folder = this.runtime.projectFolders.find(item => item.id === folderId);
         if (!folder) throw new Error('Folder does not exist.');
@@ -1330,15 +1372,27 @@ class VirtualMachine extends EventEmitter {
         const collections = target && {
             costume: target.getCostumes(), sound: target.getSounds(), asset: target.getAssets()
         };
-        const items = folder.kind === 'sprite' ? this.runtime.targets : collections && collections[folder.kind];
+        const items = folder.kind === 'sprite' ?
+            this.runtime.targets.filter(item => item.isOriginal) : collections && collections[folder.kind];
         if (!items) return false;
-        const members = items.filter(item => item && item.folderId === folderId);
+        const descendantIds = new Set([folderId]);
+        let foundDescendant = true;
+        while (foundDescendant) {
+            foundDescendant = false;
+            for (const candidate of this.runtime.projectFolders) {
+                if (descendantIds.has(candidate.parentId) && !descendantIds.has(candidate.id)) {
+                    descendantIds.add(candidate.id);
+                    foundDescendant = true;
+                }
+            }
+        }
+        const members = items.filter(item => item && descendantIds.has(item.folderId));
         if (members.length === 0 || !Number.isFinite(newIndex)) return false;
         const selectedCostume = folder.kind === 'costume' ? items[target.currentCostume] : null;
-        const oldIndex = items.findIndex(item => item && item.folderId === folderId);
+        const oldIndex = items.findIndex(item => item && descendantIds.has(item.folderId));
         newIndex = Math.max(0, Math.min(items.length - 1, Math.trunc(newIndex)));
         const destination = items[newIndex];
-        if (destination && destination.folderId === folderId) return false;
+        if (destination && descendantIds.has(destination.folderId)) return false;
         let boundary = newIndex > oldIndex ? newIndex + 1 : newIndex;
         if (destination && destination.folderId && destination.folderId !== folderId) {
             const destinationMembers = items
@@ -1347,13 +1401,13 @@ class VirtualMachine extends EventEmitter {
             boundary = newIndex > oldIndex ?
                 destinationMembers[destinationMembers.length - 1].index + 1 : destinationMembers[0].index;
         }
-        const remaining = items.filter(item => !item || item.folderId !== folderId);
+        const remaining = items.filter(item => !item || !descendantIds.has(item.folderId));
         const minimum = folder.kind === 'sprite' && remaining[0] && remaining[0].isStage ? 1 : 0;
         const insertionIndex = Math.max(minimum, Math.min(remaining.length,
-            items.slice(0, boundary).filter(item => !item || item.folderId !== folderId).length));
+            items.slice(0, boundary).filter(item => !item || !descendantIds.has(item.folderId)).length));
         remaining.splice(insertionIndex, 0, ...members);
         if (remaining.every((item, index) => item === items[index])) return false;
-        if (folder.kind === 'sprite') this.runtime.targets = remaining;
+        if (folder.kind === 'sprite') this._setOriginalTargetOrder(remaining);
         else target.sprite[`${folder.kind}s`] = remaining;
         if (selectedCostume) target.currentCostume = remaining.indexOf(selectedCostume);
         this.emitTargetsUpdate();
@@ -1374,11 +1428,24 @@ class VirtualMachine extends EventEmitter {
         return collections[folder.kind] || [];
     }
 
+    _setOriginalTargetOrder (originalTargets) {
+        const reorderedTargets = this.runtime.targets.slice();
+        let originalIndex = 0;
+        for (let targetIndex = 0; targetIndex < reorderedTargets.length; targetIndex++) {
+            if (reorderedTargets[targetIndex].isOriginal) {
+                reorderedTargets[targetIndex] = originalTargets[originalIndex++];
+            }
+        }
+        this.runtime.targets = reorderedTargets;
+    }
+
     _removeFolderIfEmpty (folderId) {
         const snapshots = [];
         const originalIndices = new Map(this.runtime.projectFolders.map((folder, index) => [folder.id, index]));
+        const visitedFolderIds = new Set();
         let candidateId = folderId;
-        while (candidateId) {
+        while (candidateId && !visitedFolderIds.has(candidateId)) {
+            visitedFolderIds.add(candidateId);
             let index = -1;
             for (let folderIndex = 0; folderIndex < this.runtime.projectFolders.length; folderIndex++) {
                 if (this.runtime.projectFolders[folderIndex].id === candidateId) {
@@ -1424,13 +1491,21 @@ class VirtualMachine extends EventEmitter {
     deleteFolder (folderId) {
         const folder = this.runtime.projectFolders.find(item => item.id === folderId);
         if (!folder) return false;
+        const siblingNames = this.runtime.projectFolders
+            .filter(item => item.id !== folderId && item.kind === folder.kind && item.scopeId === folder.scopeId &&
+                item.parentId === folder.parentId)
+            .map(item => item.name);
         for (const child of this.runtime.projectFolders) {
-            if (child.parentId === folderId) child.parentId = folder.parentId;
+            if (child.parentId === folderId) {
+                child.name = StringUtil.caseInsensitiveUnusedName(child.name, siblingNames);
+                siblingNames.push(child.name);
+                child.parentId = folder.parentId;
+            }
         }
         for (const target of this.runtime.targets) {
-            if (target.folderId === folderId) target.folderId = null;
+            if (target.folderId === folderId) target.folderId = folder.parentId;
             for (const item of [...target.getCostumes(), ...target.getSounds(), ...target.getAssets()]) {
-                if (item && item.folderId === folderId) item.folderId = null;
+                if (item && item.folderId === folderId) item.folderId = folder.parentId;
             }
         }
         this.runtime.projectFolders = this.runtime.projectFolders.filter(item => item.id !== folderId);
@@ -1457,7 +1532,7 @@ class VirtualMachine extends EventEmitter {
         if (kind === 'sprite') {
             item = target;
             if (target.isStage || !target.isOriginal) throw new Error('Only original sprites can be put in folders.');
-            items = this.runtime.targets;
+            items = this.runtime.targets.filter(candidate => candidate.isOriginal);
         } else {
             if (!target.isOriginal) throw new Error('Only original targets can own asset folders.');
             const collections = {
@@ -1502,7 +1577,7 @@ class VirtualMachine extends EventEmitter {
             const reordered = items.slice();
             reordered.splice(sourceIndex, 1);
             reordered.splice(destinationIndex, 0, item);
-            if (kind === 'sprite') this.runtime.targets = reordered;
+            if (kind === 'sprite') this._setOriginalTargetOrder(reordered);
             else target.sprite[`${kind}s`] = reordered;
             if (selectedCostume) target.currentCostume = reordered.indexOf(selectedCostume);
             orderChanged = true;
@@ -2056,11 +2131,12 @@ class VirtualMachine extends EventEmitter {
         const originalSound = this.editingTarget.getSounds()[soundIndex];
         const clone = Object.assign({}, originalSound);
         const target = this.runtime.getTargetById(targetId);
-        if (!target) return Promise.reject(new Error('Target does not exist.'));
         clone.folderId = null;
         return loadSound(clone, this.runtime, target.sprite.soundBank).then(() => {
-            target.addSound(clone);
-            this.emitTargetsUpdate();
+            if (target) {
+                target.addSound(clone);
+                this.emitTargetsUpdate();
+            }
         });
     }
 
