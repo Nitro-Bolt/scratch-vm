@@ -243,6 +243,13 @@ class Runtime extends EventEmitter {
         super();
 
         /**
+         * Native project folders. Items refer to these records through a
+         * `folderId` property; folder membership is never encoded in names.
+         * @type {Array.<{id: string, name: string, kind: string, scopeId: ?string, parentId: ?string}>}
+         */
+        this.projectFolders = [];
+
+        /**
          * Target management and storage.
          * @type {Array.<!Target>}
          */

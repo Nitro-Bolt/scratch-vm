@@ -1187,6 +1187,7 @@ class RenderedTarget extends Target {
         return {
             id: this.id,
             name: this.getName(),
+            folderId: this.folderId || null,
             isStage: this.isStage,
             x: this.x,
             y: this.y,
