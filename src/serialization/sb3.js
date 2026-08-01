@@ -449,6 +449,7 @@ const serializeStandaloneBlocks = (blocks, runtime) => {
 const serializeCostume = function (costume) {
     const obj = Object.create(null);
     obj.name = costume.name;
+    if (costume.folderId) obj.folderId = costume.folderId;
 
     const costumeToSerialize = costume.broken || costume;
 
@@ -478,6 +479,7 @@ const serializeCostume = function (costume) {
 const serializeSound = function (sound) {
     const obj = Object.create(null);
     obj.name = sound.name;
+    if (sound.folderId) obj.folderId = sound.folderId;
 
     const soundToSerialize = sound.broken || sound;
 
@@ -503,6 +505,7 @@ const serializeSound = function (sound) {
 const serializeAsset = function (asset) {
     const obj = Object.create(null);
     obj.name = asset.name;
+    if (asset.folderId) obj.folderId = asset.folderId;
     obj.lastModified = asset.lastModified;
     obj.dataFormat = asset.dataFormat.toLowerCase();
     obj.assetId = asset.assetId;
@@ -604,6 +607,120 @@ const serializeGroups = function (groups) {
     return obj;
 };
 
+const serializeFolder = folder => ({
+    id: folder.id,
+    name: folder.name,
+    kind: folder.kind,
+    color: folder.color || null,
+    scopeId: folder.scopeId || null,
+    parentId: folder.parentId || null,
+    isOpen: folder._isOpen !== false
+});
+
+const normalizeFolderParents = folders => {
+    const foldersById = new Map(folders.map(folder => [folder.id, folder]));
+    for (const folder of folders) {
+        const parent = foldersById.get(folder.parentId);
+        if (!parent || parent.kind !== folder.kind || parent.scopeId !== folder.scopeId) {
+            folder.parentId = null;
+            continue;
+        }
+        const ancestors = new Set([folder.id]);
+        let ancestor = parent;
+        while (ancestor) {
+            if (ancestors.has(ancestor.id)) {
+                folder.parentId = null;
+                break;
+            }
+            ancestors.add(ancestor.id);
+            ancestor = foldersById.get(ancestor.parentId);
+        }
+    }
+    return foldersById;
+};
+
+const normalizeProjectFolders = (runtime, targets) => {
+    const targetsBySerializedId = new Map();
+    for (const target of targets) {
+        if (typeof target._serializedTargetId === 'string' &&
+            !targetsBySerializedId.has(target._serializedTargetId)) {
+            targetsBySerializedId.set(target._serializedTargetId, target);
+        }
+        delete target._serializedTargetId;
+    }
+
+    const seenFolderIds = new Set();
+    let folders = runtime.projectFolders.filter(folder => {
+        if (!folder.id.trim() || seenFolderIds.has(folder.id) || !folder.name.trim()) return false;
+        if (folder.kind === 'sprite') {
+            folder.scopeId = null;
+            seenFolderIds.add(folder.id);
+            return true;
+        }
+        const scopeTarget = targetsBySerializedId.get(folder.scopeId);
+        if (!scopeTarget || !scopeTarget.isOriginal) return false;
+        folder.scopeId = scopeTarget.id;
+        seenFolderIds.add(folder.id);
+        return true;
+    });
+    normalizeFolderParents(folders);
+    const seenFolderNames = new Set();
+    folders = folders.filter(folder => {
+        const key = JSON.stringify([
+            folder.kind,
+            folder.scopeId,
+            folder.parentId,
+            folder.name.toLocaleLowerCase()
+        ]);
+        if (seenFolderNames.has(key)) return false;
+        seenFolderNames.add(key);
+        return true;
+    });
+    const foldersById = normalizeFolderParents(folders);
+
+    const validMembership = (folderId, kind, scopeId) => {
+        const folder = foldersById.get(folderId);
+        return Boolean(folder && folder.kind === kind && folder.scopeId === scopeId);
+    };
+    for (const target of targets) {
+        if (target.isStage || !validMembership(target.folderId, 'sprite', null)) target.folderId = null;
+        for (const [kind, items] of [
+            ['costume', target.getCostumes()],
+            ['sound', target.getSounds()],
+            ['asset', target.getAssets()]
+        ]) {
+            for (const item of items) {
+                if (item && !validMembership(item.folderId, kind, target.id)) item.folderId = null;
+            }
+        }
+    }
+
+    // Empty folders have no tile in the editor and folder operations
+    // delete them as soon as their last member leaves. Apply the same invariant
+    // to loaded projects while preserving ancestors of non-empty folders.
+    const nonEmptyFolderIds = new Set();
+    for (const target of targets) {
+        if (target.folderId) nonEmptyFolderIds.add(target.folderId);
+        for (const items of [target.getCostumes(), target.getSounds(), target.getAssets()]) {
+            for (const item of items) {
+                if (item && item.folderId) nonEmptyFolderIds.add(item.folderId);
+            }
+        }
+    }
+    let foundParent = true;
+    while (foundParent) {
+        foundParent = false;
+        for (const folder of folders) {
+            if (nonEmptyFolderIds.has(folder.id) && folder.parentId &&
+                !nonEmptyFolderIds.has(folder.parentId)) {
+                nonEmptyFolderIds.add(folder.parentId);
+                foundParent = true;
+            }
+        }
+    }
+    runtime.projectFolders = folders.filter(folder => nonEmptyFolderIds.has(folder.id));
+};
+
 /**
  * Serialize the given target. Only serialize properties that are necessary
  * for saving and loading this target.
@@ -615,7 +732,9 @@ const serializeTarget = function (target, extensions) {
     const obj = Object.create(null);
     let targetExtensions = [];
     obj.isStage = target.isStage;
+    obj.id = target.id;
     obj.name = obj.isStage ? 'Stage' : target.name;
+    if (!obj.isStage && target.folderId) obj.folderId = target.folderId;
     const vars = serializeVariables(target.variables);
     obj.variables = vars.variables;
     obj.lists = vars.lists;
@@ -776,6 +895,14 @@ const serialize = function (runtime, targetId, {allowOptimization = true} = {}) 
 
     if (targetId) {
         const target = serializedTargets[0];
+        delete target.id;
+        delete target.folderId;
+        const folders = runtime.projectFolders.filter(folder =>
+            folder.scopeId === targetId && folder.kind !== 'sprite'
+        );
+        if (folders.length) {
+            target.folders = folders.map(serializeFolder);
+        }
         if (extensions.size) {
             // Vanilla Scratch doesn't include extensions in sprites, so don't add this if it's not needed
             target.extensions = Array.from(extensions);
@@ -796,6 +923,10 @@ const serialize = function (runtime, targetId, {allowOptimization = true} = {}) 
     }
 
     obj.targets = serializedTargets;
+
+    if (Array.isArray(runtime.projectFolders) && runtime.projectFolders.length) {
+        obj.folders = runtime.projectFolders.map(serializeFolder);
+    }
 
     obj.monitors = serializeMonitors(runtime.getMonitorState(), runtime, extensions);
 
@@ -1150,6 +1281,7 @@ const parseScratchAssets = function (object, runtime, zip) {
             assetId: costumeSource.assetId,
             skinId: null,
             name: costumeSource.name,
+            folderId: typeof costumeSource.folderId === 'string' ? costumeSource.folderId : null,
             bitmapResolution: costumeSource.bitmapResolution,
             rotationCenterX: costumeSource.rotationCenterX,
             rotationCenterY: costumeSource.rotationCenterY
@@ -1180,6 +1312,7 @@ const parseScratchAssets = function (object, runtime, zip) {
             rate: soundSource.rate,
             sampleCount: soundSource.sampleCount,
             name: soundSource.name,
+            folderId: typeof soundSource.folderId === 'string' ? soundSource.folderId : null,
             // TODO we eventually want this property to be called md5ext,
             // but there are many things relying on this particular name at the
             // moment, so this translation is very important
@@ -1204,6 +1337,7 @@ const parseScratchAssets = function (object, runtime, zip) {
             dataFormat: assetSource.dataFormat,
             contentType: assetSource.contentType,
             name: assetSource.name,
+            folderId: typeof assetSource.folderId === 'string' ? assetSource.folderId : null,
             lastModified: assetSource.lastModified,
             md5: assetSource.md5ext,
             data: null
@@ -1314,6 +1448,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     const {assetPromises} = assets;
     // Create the first clone, and load its run-state from JSON.
     const target = sprite.createClone(object.isStage ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER);
+    if (typeof object.id === 'string') target._serializedTargetId = object.id;
+    if (typeof object.folderId === 'string') target.folderId = object.folderId;
     // Load target properties from JSON.
     if (Object.prototype.hasOwnProperty.call(object, 'tempo')) {
         target.tempo = object.tempo;
@@ -1671,7 +1807,90 @@ const checkPlatformCompatibility = (json, runtime) => {
 const deserialize = async function (json, runtime, zip, isSingleSprite) {
     await checkPlatformCompatibility(json, runtime);
 
-    if (!isSingleSprite) {
+    const allowedFolderKinds = ['sprite', 'costume', 'sound', 'asset'];
+    let importedFolders = [];
+    if (isSingleSprite) {
+        delete json.id;
+        delete json.folderId;
+        const folderIdMap = new Map();
+        const seenFolderIds = new Set();
+        const serializedFolders = [];
+        for (const folder of Array.isArray(json.folders) ? json.folders : []) {
+            if (!folder || typeof folder.id !== 'string' || !folder.id.trim() || seenFolderIds.has(folder.id) ||
+                typeof folder.name !== 'string' || !folder.name.trim() || !allowedFolderKinds.includes(folder.kind) ||
+                folder.kind === 'sprite') continue;
+            seenFolderIds.add(folder.id);
+            serializedFolders.push(folder);
+        }
+        serializedFolders.forEach(folder => folderIdMap.set(folder.id, uid()));
+        importedFolders = serializedFolders.map(folder => ({
+            id: folderIdMap.get(folder.id),
+            name: folder.name.trim(),
+            kind: folder.kind,
+            color: typeof folder.color === 'string' && /^#[0-9a-f]{6}$/i.test(folder.color) ?
+                folder.color.toLowerCase() : null,
+            scopeId: null,
+            parentId: folderIdMap.get(folder.parentId) || null,
+            _isOpen: folder.isOpen !== false
+        }));
+        normalizeFolderParents(importedFolders);
+        const seenFolderNames = new Set();
+        importedFolders = importedFolders.filter(folder => {
+            const key = JSON.stringify([folder.kind, folder.parentId, folder.name.toLocaleLowerCase()]);
+            if (seenFolderNames.has(key)) return false;
+            seenFolderNames.add(key);
+            return true;
+        });
+        const importedFolderIds = new Set(importedFolders.map(folder => folder.id));
+        normalizeFolderParents(importedFolders);
+        for (const [kind, collectionName] of [
+            ['costume', 'costumes'],
+            ['sound', 'sounds'],
+            ['asset', 'assets']
+        ]) {
+            for (const item of json[collectionName] || []) {
+                const folder = serializedFolders.find(candidate =>
+                    candidate.id === item.folderId && candidate.kind === kind
+                );
+                if (folder && importedFolderIds.has(folderIdMap.get(folder.id))) {
+                    item.folderId = folderIdMap.get(folder.id);
+                } else delete item.folderId;
+            }
+        }
+        const nonEmptyFolderIds = new Set();
+        for (const collectionName of ['costumes', 'sounds', 'assets']) {
+            for (const item of json[collectionName] || []) {
+                if (item.folderId) nonEmptyFolderIds.add(item.folderId);
+            }
+        }
+        let foundParent = true;
+        while (foundParent) {
+            foundParent = false;
+            for (const folder of importedFolders) {
+                if (nonEmptyFolderIds.has(folder.id) && folder.parentId &&
+                    !nonEmptyFolderIds.has(folder.parentId)) {
+                    nonEmptyFolderIds.add(folder.parentId);
+                    foundParent = true;
+                }
+            }
+        }
+        importedFolders = importedFolders.filter(folder => nonEmptyFolderIds.has(folder.id));
+    } else {
+        // Project deserialization owns replacing the runtime's folder state.
+        // eslint-disable-next-line require-atomic-updates
+        runtime.projectFolders = Array.isArray(json.folders) ? json.folders
+            .filter(folder => folder && typeof folder.id === 'string' && typeof folder.name === 'string' &&
+                allowedFolderKinds.includes(folder.kind))
+            .map(folder => ({
+                id: folder.id,
+                name: folder.name.trim(),
+                kind: folder.kind,
+                color: typeof folder.color === 'string' && /^#[0-9a-f]{6}$/i.test(folder.color) ?
+                    folder.color.toLowerCase() : null,
+                scopeId: typeof folder.scopeId === 'string' ? folder.scopeId : null,
+                parentId: typeof folder.parentId === 'string' ? folder.parentId : null,
+                _isOpen: folder.isOpen !== false
+            })) : [];
         const parsedProjectOptions = json.projectOptions ? ExtendedJSON.parse(json.projectOptions) : null;
         if (typeof runtime._storedProjectOptions === 'undefined' || runtime._storedProjectOptions === null) {
             runtime._storedProjectOptions = parsedProjectOptions;
@@ -1741,6 +1960,7 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
             }))
         .then(targets => replaceUnsafeCharsInVariableIds(targets))
         .then(targets => {
+            if (!isSingleSprite) normalizeProjectFolders(runtime, targets);
             monitorObjects.map(monitorDesc => deserializeMonitor(monitorDesc, runtime, targets, extensions));
             if (Object.prototype.hasOwnProperty.call(json, 'extensionStorage')) {
                 runtime.extensionStorage = json.extensionStorage;
@@ -1749,7 +1969,8 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
         })
         .then(targets => ({
             targets,
-            extensions
+            extensions,
+            folders: importedFolders
         }));
 };
 
