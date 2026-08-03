@@ -1044,6 +1044,20 @@ runtimeFunctions.tan = `const tan = (angle) => {
 }`;
 
 /**
+ * Implements Scratch "letters () to () in ()".
+ * @param {string} str String to take letters from.
+ * @param {number} start 1-indexed start position.
+ * @param {number} end 1-indexed end position.
+ * @returns {string} The substring from start through end, or '' when out of bounds.
+ */
+runtimeFunctions.lettersIn = `const lettersIn = (str, start, end) => {
+    const _start = start - 1;
+    const _end = end - 1;
+    if (_start > _end || _start < 0 || _start >= str.length) return '';
+    return str.substring(_start, Math.min(_end, str.length - 1) + 1);
+}`;
+
+/**
  * @param {function} callback The function to run
  * @param {...unknown} args The arguments to pass to the function
  * @returns {unknown} A generator that will yield once then call the function and return its value.
