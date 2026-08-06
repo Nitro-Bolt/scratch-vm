@@ -72,7 +72,7 @@ class BlockUtility {
      * @type {number}
      */
     get iterationNumber () {
-        if (typeof this.stackFrame.index !== 'undefined') this.stackFrame.index = 0;
+        if (typeof this.stackFrame.index === 'undefined') this.stackFrame.index = 0;
         return this.stackFrame.index;
     }
 
@@ -162,27 +162,53 @@ class BlockUtility {
     /**
      * Start a specified procedure on this thread.
      * @param {string} procedureCode Procedure code for procedure to start.
+     * @param {boolean=} isGlobal If true, resolve globally scoped procedures.
      */
-    startProcedure (procedureCode) {
-        this.sequencer.stepToProcedure(this.thread, procedureCode);
+    startProcedure (procedureCode, isGlobal) {
+        this.sequencer.stepToProcedure(this.thread, procedureCode, isGlobal);
     }
 
     /**
      * Get names and ids of parameters for the given procedure.
      * @param {string} procedureCode Procedure code for procedure to query.
+     * @param {boolean=} requireGlobal If true, query globally scoped procedures.
      * @return {Array.<string>} List of param names for a procedure.
      */
-    getProcedureParamNamesAndIds (procedureCode) {
-        return this.thread.target.blocks.getProcedureParamNamesAndIds(procedureCode);
+    getProcedureParamNamesAndIds (procedureCode, requireGlobal) {
+        const info = this.getProcedureParamNamesIdsAndDefaults(procedureCode, requireGlobal);
+        return info ? info.slice(0, 2) : null;
     }
 
     /**
      * Get names, ids, and defaults of parameters for the given procedure.
      * @param {string} procedureCode Procedure code for procedure to query.
+     * @param {boolean=} requireGlobal If true, query globally scoped procedures.
      * @return {Array.<string>} List of param names for a procedure.
      */
-    getProcedureParamNamesIdsAndDefaults (procedureCode) {
-        return this.thread.target.blocks.getProcedureParamNamesIdsAndDefaults(procedureCode);
+    getProcedureParamNamesIdsAndDefaults (procedureCode, requireGlobal) {
+        const mustBeGlobal = !!requireGlobal;
+        const currentTarget = this.thread.target;
+
+        if (!mustBeGlobal) {
+            return currentTarget.blocks.getProcedureParamNamesIdsAndDefaults(procedureCode, false);
+        }
+
+        let result = currentTarget.blocks.getProcedureParamNamesIdsAndDefaults(procedureCode, true);
+        if (result) {
+            return result;
+        }
+
+        for (const target of this.runtime.targets) {
+            if (!target || !target.blocks || !target.isOriginal || target === currentTarget) {
+                continue;
+            }
+            result = target.blocks.getProcedureParamNamesIdsAndDefaults(procedureCode, true);
+            if (result) {
+                return result;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -218,6 +244,58 @@ class BlockUtility {
     setParam (name, value) {
         this.initParams();
         this.thread.peekStackFrame().params[name] = value;
+    }
+
+    /**
+     * Gets all arguments of a specific name in an extendable input in an args object as a nested array.
+     * @param {object} args The args object.
+     * @param {...string} path The sequence of argument names in the nested path.
+     * @returns {array} The nested array structure of retrieved values.
+     */
+    extendableToArray (args, ...path) {
+        if (!args || typeof args !== 'object' || path.length === 0) {
+            return [];
+        }
+
+        const retrieve = (prefix, pathIndex) => {
+            const currentArg = path[pathIndex];
+            const key = prefix ? `${prefix}_${currentArg}` : currentArg;
+
+            if (pathIndex === path.length - 1) {
+                return args[key];
+            }
+
+            let length = -1;
+            if (typeof args[key] !== 'undefined' && args[key] !== null) {
+                const parsed = Math.floor(Number(args[key]));
+                if (parsed >= 0) {
+                    length = parsed;
+                }
+            }
+
+            if (length === -1) {
+                const searchPrefix = `${key}_`;
+                let maxIndex = -1;
+                for (const k of Object.keys(args)) {
+                    if (k.startsWith(searchPrefix)) {
+                        const rest = k.slice(searchPrefix.length);
+                        const parts = rest.split('_');
+                        const index = Math.floor(Number(parts[0]));
+                        if (!isNaN(index) && index > maxIndex) {
+                            maxIndex = index;
+                        }
+                    }
+                }
+                length = maxIndex + 1;
+            }
+
+            const array = new Array(length);
+            for (let i = 0; i < length; i++) {
+                array[i] = retrieve(`${key}_${i}`, pathIndex + 1);
+            }
+            return array;
+        };
+        return retrieve('', 0);
     }
 
     /**

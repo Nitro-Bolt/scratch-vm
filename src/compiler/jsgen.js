@@ -27,6 +27,7 @@ const {
 /* eslint-disable max-len */
 /* eslint-disable prefer-template */
 
+/** @param {string | null} string */
 const sanitize = string => {
     if (typeof string !== 'string') {
         log.warn(`sanitize got unexpected type: ${typeof string}`);
@@ -54,6 +55,11 @@ const functionNameVariablePool = new VariablePool('fun');
  */
 const generatorNameVariablePool = new VariablePool('gen');
 
+/**
+ * @param {IntermediateInput} input
+ * @param {IntermediateInput} other
+ * @returns {boolean}
+ */
 const isSafeInputForEqualsOptimization = (input, other) => {
     // Only optimize constants
     if (input.opcode !== InputOpcode.CONSTANT) return false;
@@ -74,6 +80,7 @@ const isSafeInputForEqualsOptimization = (input, other) => {
  * A frame contains some information about the current substack being compiled.
  */
 class Frame {
+    /** @param {boolean} isLoop */
     constructor (isLoop) {
         /**
          * Whether the current stack runs in a loop (while, for)
@@ -105,6 +112,7 @@ class JSGenerator {
         this.isWarp = script.isWarp;
         this.isProcedure = script.isProcedure;
         this.warpTimer = script.warpTimer;
+        this.allowReturns = false;
 
         /**
          * Stack of frames, most recent is last item.
@@ -120,6 +128,7 @@ class JSGenerator {
 
         this.localVariables = new VariablePool('a');
         this._setupVariablesPool = new VariablePool('b');
+        /** @type {Record<string, string>} */
         this._setupVariables = {};
 
         this.descendedIntoModulo = false;
@@ -128,6 +137,12 @@ class JSGenerator {
         this.debug = this.target.runtime.debug;
 
         this.oldCompilerStub = new oldCompilerCompatibility.JSGeneratorStub(this);
+
+        /** @type {{value: string, index: string}[] | null} */
+        this.foreachVarsStack = null;
+
+        /** @type {string[] | null} */
+        this.forEachInRangeStack = null;
     }
 
     /**
@@ -278,44 +293,74 @@ class JSGenerator {
 
         case InputOpcode.JSON_NEW_OBJECT:
             return 'new Object()';
-        case InputOpcode.JSON_GET_PROPERTIES: {
-            const property = node.property;
-            const obj = this.descendInput(node.object);
-            if (property === 'keys') {
-                return `Object.keys(${obj})`;
-            } else if (property === 'values') {
-                return `Object.values(${obj})`;
-            } else if (property === 'entries') {
-                return `Object.entries(${obj})`;
+        case InputOpcode.JSON_OBJECT: {
+            const entries = [];
+            for (let i = 0; i < node.count; i++) {
+                entries.push(
+                    `[${this.descendInput(node.keys[i])},${this.descendInput(node.values[i])}]`
+                );
             }
-            return `[]`;
+            return `Object.fromEntries([${entries.join(',')}])`;
+        }
+        case InputOpcode.JSON_GET_PROPERTIES: {
+            switch (node.property) {
+            case 'keys':
+                return `Object.keys(${this.descendInput(node.object)})`;
+            case 'values':
+                return `Object.values(${this.descendInput(node.object)})`;
+            case 'entries':
+                return `Object.entries(${this.descendInput(node.object)})`;
+            default:
+                return '[]';
+            }
         }
         case InputOpcode.JSON_VALUE_OF_KEY:
             return `(${this.descendInput(node.object)}[${this.descendInput(node.key)}] ?? "")`;
-        case InputOpcode.JSON_SET_KEY:
-            return `(object = Object.assign({}, ${this.descendInput(node.object)}), object[${this.descendInput(node.key)}] = ${this.descendInput(node.value)}, object)`;
-        case InputOpcode.JSON_DELETE_KEY:
-            return `(object = Object.assign({}, ${this.descendInput(node.object)}), delete object[${this.descendInput(node.key)}], object)`;
-        case InputOpcode.JSON_MERGE_OBJECT:
-            return `mergeObjects(${this.descendInput(node.object1)}, ${this.descendInput(node.object2)})`;
+        case InputOpcode.JSON_SET_KEY: {
+            const i_ = this.localVariables.next();
+            return `((${i_} = Object.assign({}, ${this.descendInput(node.object)})), ${i_}[${this.descendInput(node.key)}] = ${this.descendInput(node.value)}, ${i_})`;
+        }
+        case InputOpcode.JSON_DELETE_KEY: {
+            const i_ = this.localVariables.next();
+            return `((${i_} = Object.assign({}, ${this.descendInput(node.object)})), delete ${i_}[${this.descendInput(node.key)}], ${i_})`;
+        }
+        case InputOpcode.JSON_MERGE_OBJECT: {
+            /** @type {IntermediateInput[]} */
+            const items = node.items;
+            return `mergeObjects(${items.map(i => this.descendInput(i)).join(', ')})`;
+        }
         case InputOpcode.JSON_HAS_KEY:
             return `${this.descendInput(node.object)}.hasOwnProperty(${this.descendInput(node.key)})`;
         case InputOpcode.JSON_NEW_ARRAY:
-            return 'new Array()';
+            return '[]';
+        case InputOpcode.JSON_ARRAY: {
+            /** @type {IntermediateInput[]} */
+            const items = node.items;
+            return `[${items.map(item => this.descendInput(item)).join(',')}]`;
+        }
         case InputOpcode.JSON_VALUE_OF_INDEX:
             return `arrayValueOfIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_INDEX_OF_VALUE:
             return `arrayIndexOf(${this.descendInput(node.array)}, ${this.descendInput(node.value)})`;
-        case InputOpcode.JSON_ADD_ITEM:
-            return `(array = ${this.descendInput(node.array)}.slice(0), array.push(${this.descendInput(node.item)}), array)`;
+        case InputOpcode.JSON_ADD_ITEM: {
+            /** @type {IntermediateInput[]} */
+            const items = node.items;
+            const i_ = this.localVariables.next();
+            return `((${i_} = ${this.descendInput(node.array)}.slice(0)), ${i_}.push(...[${items.map(i => this.descendInput(i)).join(', ')}]), ${i_})`;
+        }
         case InputOpcode.JSON_REPLACE_INDEX:
             return `arrayReplaceAtIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)}, ${this.descendInput(node.item)})`;
         case InputOpcode.JSON_DELETE_INDEX:
             return `arrayDeleteAtIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
-        case InputOpcode.JSON_DELETE_ALL_OCCURRENCES:
-            return `${this.descendInput(node.array)}.filter((item) => item !== ${this.descendInput(node.item)})`;
-        case InputOpcode.JSON_MERGE_ARRAY:
-            return `${this.descendInput(node.array1)}.concat(${this.descendInput(node.array2)})`;
+        case InputOpcode.JSON_DELETE_ALL_OCCURRENCES: {
+            const i_ = this.localVariables.next();
+            return `${this.descendInput(node.array)}.filter(${i_} => ${i_} !== ${this.descendInput(node.item)})`;
+        }
+        case InputOpcode.JSON_MERGE_ARRAY: {
+            /** @type {IntermediateInput[]} */
+            const items = node.items;
+            return `mergeArrays(${items.map(i => this.descendInput(i)).join(', ')})`;
+        }
         case InputOpcode.JSON_HAS_ITEM:
             return `${this.descendInput(node.array)}.includes(${this.descendInput(node.item)})`;
         case InputOpcode.JSON_ARRAY_LENGTH:
@@ -443,6 +488,8 @@ class JSGenerator {
         }
         case InputOpcode.OP_LETTER_OF:
             return `((${this.descendInput(node.string)})[${this.descendInput(node.letter)} - 1] || "")`;
+        case InputOpcode.OP_LETTERS_IN:
+            return `lettersIn(${this.descendInput(node.string)}, ${this.descendInput(node.start)}, ${this.descendInput(node.end)})`;
         case InputOpcode.OP_LOG_E:
             return `Math.log(${this.descendInput(node.value)})`;
         case InputOpcode.OP_LOG_10:
@@ -480,6 +527,105 @@ class JSGenerator {
             const value = this.descendInput(node.target);
             return `(Array.isArray(${value}) ? "array" : typeof ${value})`;
         }
+        case InputOpcode.OP_ADD_EXTENDABLE: {
+            if (node.count === 0) return '0';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' + ')})`;
+        }
+        case InputOpcode.OP_SUBTRACT_EXTENDABLE: {
+            if (node.count === 0) return '0';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' - ')})`;
+        }
+        case InputOpcode.OP_MULTIPLY_EXTENDABLE: {
+            if (node.count === 0) return '0';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' * ')})`;
+        }
+        case InputOpcode.OP_DIVIDE_EXTENDABLE: {
+            if (node.count === 0) return '0';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' / ')})`;
+        }
+        case InputOpcode.OP_POWER: {
+            if (node.count === 0) return '0';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' ** ')})`;
+        }
+        case InputOpcode.OP_AND_EXTENDABLE: {
+            if (node.count === 0) return 'true';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' && ')})`;
+        }
+        case InputOpcode.OP_OR_EXTENDABLE: {
+            if (node.count === 0) return 'false';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' || ')})`;
+        }
+        case InputOpcode.OP_XOR_EXTENDABLE: {
+            if (node.count === 0) return 'false';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' !== ')})`;
+        }
+        case InputOpcode.OP_JOIN_EXTENDABLE: {
+            if (node.count === 0) return '""';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.map(o => this.descendInput(o)).join(' + ')})`;
+        }
+        case InputOpcode.OP_LESS_EXTENDABLE: {
+            if (node.count <= 1) return 'true';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
+                `compareLessThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
+            )
+                .join(' && ')})`;
+        }
+        case InputOpcode.OP_EQUALS_EXTENDABLE: {
+            if (node.count <= 1) return 'true';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
+                `compareEqual(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
+            )
+                .join(' && ')})`;
+        }
+        case InputOpcode.OP_GREATER_EXTENDABLE: {
+            if (node.count <= 1) return 'true';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
+                `compareGreaterThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
+            )
+                .join(' && ')})`;
+        }
+        case InputOpcode.OP_LESS_OR_EQUAL_EXTENDABLE: {
+            if (node.count <= 1) return 'true';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
+                `!compareGreaterThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
+            )
+                .join(' && ')})`;
+        }
+        case InputOpcode.OP_GREATER_OR_EQUAL_EXTENDABLE: {
+            if (node.count <= 1) return 'true';
+            /** @type {IntermediateInput[]} */
+            const operands = node.operands;
+            return `(${operands.slice(0, -1).map((_, i) =>
+                `!compareLessThan(${this.descendInput(node.operands[i])}, ${this.descendInput(node.operands[i + 1])})`
+            )
+                .join(' && ')})`;
+        }
 
         case InputOpcode.PROCEDURE_CALL: {
             const procedureCode = node.code;
@@ -497,7 +643,22 @@ class JSGenerator {
             const procedureReference = `thread.procedures["${sanitize(procedureVariant)}"]`;
             const args = [];
             for (const input of node.arguments) {
-                args.push(this.descendInput(input));
+                if (input instanceof IntermediateStack) {
+                    const oldSource = this.source;
+                    this.source = 'function*(thread, target, runtime, stage) {\n';
+                    const oldWarp = this.isWarp;
+                    this.isWarp = procedureData.isWarp;
+                    const oldReturns = this.allowReturns;
+                    this.allowReturns = true;
+                    this.descendStack(input, new Frame(false));
+                    this.source += `}`;
+                    args.push(this.source);
+                    this.allowReturns = oldReturns;
+                    this.isWarp = oldWarp;
+                    this.source = oldSource;
+                } else {
+                    args.push(this.descendInput(input));
+                }
             }
             const joinedArgs = args.join(',');
 
@@ -564,6 +725,10 @@ class JSGenerator {
             return `(${varRef} ? ${varRef}.value : 0)`;
         } case InputOpcode.SENSING_TIME_SECOND:
             return `(new Date().getSeconds())`;
+        case InputOpcode.SENSING_TIME_MILLISECOND:
+            return `(new Date().getMilliseconds())`;
+        case InputOpcode.SENSING_TIME_TIMESTAMP:
+            return `(new Date().getTime())`;
         case InputOpcode.SENSING_TOUCHING_OBJECT:
             return `target.isTouchingObject(${this.descendInput(node.object)})`;
         case InputOpcode.SENSING_TOUCHING_COLOR:
@@ -572,10 +737,36 @@ class JSGenerator {
             return 'runtime.ioDevices.userData.getUsername()';
         case InputOpcode.SENSING_TIME_YEAR:
             return `(new Date().getFullYear())`;
-
         case InputOpcode.SENSING_TIMER_GET:
             return 'runtime.ioDevices.clock.projectTimer()';
+        case InputOpcode.SENSING_LOUDNESS:
+            return 'runtime.ext_scratch3_sensing.getLoudness()';
+        case InputOpcode.SENSING_LOUD:
+            return '(runtime.ext_scratch3_sensing.getLoudness() > 10)';
+        case InputOpcode.SENSING_ONLINE: {
+            // Read: sensing_online implementation in scratch3_sensing.js
+            if (typeof navigator?.onLine === 'boolean') {
+                return `navigator.onLine`;
+            }
+            return 'true';
+        }
 
+        case InputOpcode.SOUND_VOLUME:
+            return 'target.volume';
+
+        case InputOpcode.CONTROL_INLINE_IF_ELSE: {
+            const operand = this.descendInput(node.operand);
+            const _then = this.descendInput(node.then);
+            const _else = this.descendInput(node.else);
+
+            if (node.operand.isConstant(true)) {
+                return `${_then}`;
+            } else if (node.operand.isConstant(false)) {
+                return `${_else}`;
+            }
+
+            return `(${operand} ? ${_then} : ${_else})`;
+        }
         case InputOpcode.CONTROL_COUNTER:
             return 'runtime.ext_scratch3_control._counter';
         case InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM: {
@@ -599,6 +790,7 @@ class JSGenerator {
      * @param {IntermediateStackBlock} block Stacked block to compile.
      */
     descendStackedBlock (block) {
+        /** @type {Record<string, any>} */
         const node = block.inputs;
         switch (block.opcode) {
         case StackOpcode.ADDON_CALL: {
@@ -614,7 +806,8 @@ class JSGenerator {
             const blockType = node.blockType;
             if (blockType === BlockType.COMMAND || blockType === BlockType.HAT) {
                 this.source += `${this.generateCompatibilityLayerCall(node, isLastInLoop)};\n`;
-            } else if (blockType === BlockType.CONDITIONAL || blockType === BlockType.LOOP) {
+            } else if (blockType === BlockType.CONDITIONAL || blockType === BlockType.LOOP ||
+                blockType === BlockType.REPORTER || blockType === BlockType.OBJECT || blockType === BlockType.ARRAY) {
                 const branchVariable = this.localVariables.next();
                 this.source += `const ${branchVariable} = createBranchInfo(${blockType === BlockType.LOOP});\n`;
                 this.source += `while (${branchVariable}.branch = +(${this.generateCompatibilityLayerCall(node, false, branchVariable)})) {\n`;
@@ -768,7 +961,7 @@ class JSGenerator {
 
             if (!this.forEachInRangeStack) this.forEachInRangeStack = [];
             this.forEachInRangeStack.push(loopVar);
-        
+
             this.source += `const ${fromVar} = Math.round(${from});\n`;
             this.source += `const ${toVar} = Math.round(${to});\n`;
             this.source += `const ${stepVar} = ${fromVar} <= ${toVar} ? 1 : -1;\n`;
@@ -779,6 +972,48 @@ class JSGenerator {
             this.source += `}\n`;
 
             this.forEachInRangeStack.pop();
+            break;
+        }
+        case StackOpcode.CONTROL_IF_EXTENDABLE: {
+            for (let i = 0; i < node.count; i++) {
+                const branch = node.branches[i];
+                if (i === 0) {
+                    this.source += `if (${this.descendInput(branch.condition)}) {\n`;
+                } else {
+                    this.source += `} else if (${this.descendInput(branch.condition)}) {\n`;
+                }
+                this.descendStack(branch.do, new Frame(false));
+            }
+            if (node.count > 0) this.source += '}\n';
+            break;
+        }
+        case StackOpcode.CONTROL_IF_ELSE_EXTENDABLE: {
+            for (let i = 0; i < node.count; i++) {
+                const branch = node.branches[i];
+                if (i === 0) {
+                    this.source += `if (${this.descendInput(branch.condition)}) {\n`;
+                } else {
+                    this.source += `} else if (${this.descendInput(branch.condition)}) {\n`;
+                }
+                this.descendStack(branch.do, new Frame(false));
+            }
+            if (node.count > 0) this.source += '}\n';
+            this.source += `else {\n`;
+            this.descendStack(node.elseBranch, new Frame(false));
+            this.source += '}\n';
+            break;
+        }
+        case StackOpcode.CONTROL_SWITCH: {
+            this.source += `switch (${this.descendInput(node.switch)}) {\n`;
+            for (let i = 0; i < node.count; i++) {
+                const caseNode = node.cases[i];
+                this.source += `case (${this.descendInput(caseNode.value)}): {\n`;
+                this.descendStack(caseNode.do, new Frame(false));
+                this.source += `break;}\n`;
+            }
+            this.source += `default: {\n`;
+            this.descendStack(node.defaultBranch, new Frame(false));
+            this.source += `}\n}\n`;
             break;
         }
 
@@ -904,15 +1139,15 @@ class JSGenerator {
             const array = this.descendInput(node.array);
             const valVar = this.localVariables.next();
             const indVar = this.localVariables.next();
-        
+
             if (!this.foreachVarsStack) this.foreachVarsStack = [];
             this.foreachVarsStack.push({value: valVar, index: indVar});
-        
+
             this.source += `for (const [${indVar}, ${valVar}] of [...${array}].entries()) {\n`;
             if (node.substack) this.descendStack(node.substack, new Frame(true));
             this.yieldLoop();
             this.source += `}\n`;
-        
+
             this.foreachVarsStack.pop();
             break;
         }
@@ -1070,6 +1305,8 @@ class JSGenerator {
                 // Direct yields.
                 this.yieldNotWarp();
             }
+            const outputVariable = this.localVariables.next();
+            this.source += `let ${outputVariable} = `;
             if (procedureData.yields) {
                 this.source += 'yield* ';
                 if (!this.script.yields) {
@@ -1079,7 +1316,22 @@ class JSGenerator {
             this.source += `thread.procedures["${sanitize(procedureVariant)}"](`;
             const args = [];
             for (const input of node.arguments) {
-                args.push(this.descendInput(input));
+                if (input instanceof IntermediateStack) {
+                    const oldSource = this.source;
+                    this.source = 'function*(thread, target, runtime, stage) {\n';
+                    const oldWarp = this.isWarp;
+                    this.isWarp = procedureData.isWarp;
+                    const oldReturns = this.allowReturns;
+                    this.allowReturns = true;
+                    this.descendStack(input, new Frame(false));
+                    this.source += `}`;
+                    args.push(this.source);
+                    this.allowReturns = oldReturns;
+                    this.isWarp = oldWarp;
+                    this.source = oldSource;
+                } else {
+                    args.push(this.descendInput(input));
+                }
             }
             this.source += args.join(',');
             this.source += `);\n`;
@@ -1095,9 +1347,22 @@ class JSGenerator {
         case StackOpcode.PROCEDURE_RETURN:
             this.stopScriptAndReturn(this.descendInput(node.value));
             break;
+        case StackOpcode.PROCEDURE_BRANCH:
+            if (node.index !== -1) {
+                const outputVariable = this.localVariables.next();
+                this.source += `let ${outputVariable} = yield* (p${node.index} || function*(){})(thread, target, runtime, stage);\n`;
+                this.source += `if (${outputVariable} !== undefined) {\n`;
+                this.stopScriptAndReturn(outputVariable);
+                this.source += '};\n';
+            }
+            break;
 
         case StackOpcode.SENSING_TIMER_RESET:
             this.source += 'runtime.ioDevices.clock.resetProjectTimer();\n';
+            break;
+        case StackOpcode.SENSING_SET_DRAG_MODE:
+            console.log(node);
+            this.source += `target.setDraggable(${node.draggable});\n`;
             break;
 
         case StackOpcode.DEBUGGER:
@@ -1117,17 +1382,6 @@ class JSGenerator {
         }
         case StackOpcode.VAR_SHOW:
             this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.variable.id)}", element: "checkbox", value: true }, runtime);\n`;
-            break;
-
-        case StackOpcode.COMMENTS_HAT:
-            this.source += `\n`;
-            break;
-        case StackOpcode.COMMENTS_COMMAND:
-            this.source += `\n`;
-            break;
-        case StackOpcode.COMMENTS_LOOP:
-            this.source += `\n`;
-            this.descendStack(node.do, new Frame(true));
             break;
 
         case StackOpcode.VISUAL_REPORT: {
@@ -1314,6 +1568,7 @@ class JSGenerator {
         return factoryNameVariablePool.next();
     }
 
+    /** @param {boolean} yields */
     getScriptName (yields) {
         let name = yields ? generatorNameVariablePool.next() : functionNameVariablePool.next();
         if (this.isProcedure) {
@@ -1338,7 +1593,7 @@ class JSGenerator {
      * @param {string} valueJS JS code of value to return.
      */
     stopScriptAndReturn (valueJS) {
-        if (this.isProcedure) {
+        if (this.isProcedure || this.allowReturns) {
             this.source += `return ${valueJS};\n`;
         } else {
             this.retire();
@@ -1431,6 +1686,7 @@ JSGenerator.unstable_exports = {
 };
 
 // Test hook used by automated snapshot testing.
+// @ts-ignore
 JSGenerator.testingApparatus = null;
 
 module.exports = JSGenerator;

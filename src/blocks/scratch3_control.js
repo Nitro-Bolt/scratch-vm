@@ -32,6 +32,10 @@ class Scratch3ControlBlocks {
             control_wait_until: this.waitUntil,
             control_if: this.if,
             control_if_else: this.ifElse,
+            control_if_extendable: this.ifExtendable,
+            control_if_else_extendable: this.ifElseExtendable,
+            control_inline_if_else: this.inlineIfElse,
+            control_switch: this.switch,
             control_stop: this.stop,
             control_create_clone_of: this.createClone,
             control_delete_this_clone: this.deleteClone,
@@ -139,6 +143,43 @@ class Scratch3ControlBlocks {
         }
     }
 
+    ifExtendable (args, util) {
+        const argCount = args.BRANCHES;
+        for (let i = 0; i < argCount; i++) {
+            if (Cast.toBoolean(args[`BRANCHES_${i}_CONDITION`])) {
+                util.startBranch(`BRANCHES_${i}_BRANCH`);
+                return;
+            }
+        }
+    }
+
+    ifElseExtendable (args, util) {
+        const argCount = args.BRANCHES;
+        for (let i = 0; i < argCount; i++) {
+            if (Cast.toBoolean(args[`BRANCHES_${i}_CONDITION`])) {
+                util.startBranch(`BRANCHES_${i}_BRANCH`, false);
+                return;
+            }
+        }
+        util.startBranch(`ELSE_BRANCH`, false);
+    }
+
+    inlineIfElse (args) {
+        return Cast.toBoolean(args.OPERAND) ? args.THEN : args.ELSE;
+    }
+
+    switch (args, util) {
+        const switchVal = Cast.toString(args.SWITCH);
+        const caseCount = args.CASES;
+        for (let i = 0; i < caseCount; i++) {
+            if (switchVal === Cast.toString(args[`CASES_${i}_CASE`])) {
+                util.startBranch(`CASES_${i}_BRANCH`, false);
+                return;
+            }
+        }
+        util.startBranch(`DEFAULT_BRANCH`, false);
+    }
+
     stop (args, util) {
         const option = args.STOP_OPTION;
         if (option === 'all') {
@@ -213,10 +254,10 @@ class Scratch3ControlBlocks {
         }
         return 0;
     }
-    
+
     forEachInRange (args, util) {
         const {stackFrame, thread} = util;
-    
+
         if (typeof stackFrame.index === 'undefined') {
             const from = Math.round(Cast.toNumber(args.FROM));
             const to = Math.round(Cast.toNumber(args.TO));
@@ -227,15 +268,15 @@ class Scratch3ControlBlocks {
                 index: from
             });
         }
-    
+
         const {index, to, step} = stackFrame;
         const done = step > 0 ? index > to : index < to;
-    
+
         if (done) {
             delete thread.stackFrames[thread.stackFrames.length - 1].forEachInRangeItem;
             return;
         }
-    
+
         thread.stackFrames[thread.stackFrames.length - 1].forEachInRangeItem = index;
         stackFrame.index += step;
         util.startBranch(1, true);

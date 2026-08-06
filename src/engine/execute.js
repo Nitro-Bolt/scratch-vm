@@ -126,7 +126,7 @@ const handlePromiseResolution = (resolvedValue, sequencer, thread, blockCached, 
             if (popped === null) {
                 return;
             }
-            nextBlockId = thread.target.blocks.getNextBlock(popped);
+            nextBlockId = thread.blockContainer.getNextBlock(popped);
             if (nextBlockId !== null) {
                 // A next block exists so break out this loop
                 break;
@@ -321,7 +321,7 @@ class BlockCached {
                 const fieldValue = fields[fieldName].value;
                 this._argValues[fieldName] = {
                     id: fields[fieldName].id || null,
-                    name: fieldValue == null ? '' : fieldValue
+                    name: (typeof fieldValue === 'undefined' || fieldValue === null) ? '' : fieldValue
                 };
             } else {
                 this._argValues[fieldName] = fields[fieldName].value;

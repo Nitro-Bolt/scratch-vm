@@ -100,19 +100,6 @@ class Scratch3DataBlocks {
         this.changeMonitorVisibility(args.VARIABLE.id, false);
     }
 
-    listAsArray (args, util) {
-        const list = util.target.lookupOrCreateList(
-            args.LIST.id, args.LIST.name);
-        return Cast.toArray(list.value);
-    }
-
-    setListArray (args, util) {
-        const list = util.target.lookupOrCreateList(
-            args.LIST.id, args.LIST.name);
-        list.value = Cast.toArray(args.ARRAY);
-        list._monitorUpToDate = false;
-    }
-
     showList (args) {
         this.changeMonitorVisibility(args.LIST.id, true);
     }
@@ -275,7 +262,8 @@ class Scratch3DataBlocks {
     setListArray (args, util) {
         const list = util.target.lookupOrCreateList(
             args.LIST.id, args.LIST.name);
-        list.value = Cast.toArray(args.array);
+        list.value = Cast.toArray(args.ARRAY);
+        list._monitorUpToDate = false;
     }
 
     getTableContents (args, util) {

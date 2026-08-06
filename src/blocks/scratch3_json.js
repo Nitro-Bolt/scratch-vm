@@ -16,6 +16,7 @@ class Scratch3JSONBlocks {
     getPrimitives () {
         return {
             json_new_object: this.newObject,
+            json_object: this.object,
             json_get_properties: this.getProperties,
             json_value_of_key: this.valueOfKey,
             json_set_key: this.setKey,
@@ -23,6 +24,7 @@ class Scratch3JSONBlocks {
             json_merge_object: this.mergeObject,
             json_has_key: this.hasKey,
             json_new_array: this.newArray,
+            json_array: this.array,
             json_value_of_index: this.valueOfIndex,
             json_index_of_value: this.indexOfValue,
             json_add_item: this.addItem,
@@ -42,6 +44,12 @@ class Scratch3JSONBlocks {
 
     newObject () {
         return new Object();
+    }
+
+    object (args, util) {
+        const keys = util.extendableToArray(args, 'ITEMS', 'KEY');
+        const vals = util.extendableToArray(args, 'ITEMS', 'VALUE');
+        return Object.fromEntries(keys.map((key, i) => [key, vals[i]]));
     }
 
     getProperties (args) {
@@ -80,10 +88,9 @@ class Scratch3JSONBlocks {
         return obj;
     }
 
-    mergeObject (args) {
-        const obj1 = Cast.toObject(args.OBJ1);
-        const obj2 = Cast.toObject(args.OBJ2);
-        return Object.fromEntries(Object.entries(obj1).concat(Object.entries(obj2)));
+    mergeObject (args, util) {
+        const objs = util.extendableToArray(args, 'ITEMS', 'ITEM');
+        return objs.reduce((acc, obj) => ({...acc, ...Cast.toObject(obj)}), {});
     }
 
     hasKey (args) {
@@ -93,7 +100,11 @@ class Scratch3JSONBlocks {
     }
 
     newArray () {
-        return new Array();
+        return [];
+    }
+
+    array (args, util) {
+        return [...util.extendableToArray(args, 'ITEMS', 'ITEM')];
     }
 
     valueOfIndex (args) {
@@ -108,9 +119,9 @@ class Scratch3JSONBlocks {
         return arr.indexOf(args.VALUE) === -1 ? '' : arr.indexOf(args.VALUE);
     }
 
-    addItem (args) {
+    addItem (args, util) {
         const arr = [...Cast.toArray(args.ARR)];
-        arr.push(args.ITEM);
+        arr.push(...util.extendableToArray(args, 'ITEMS', 'ITEM'));
         return arr;
     }
 
@@ -136,10 +147,9 @@ class Scratch3JSONBlocks {
         return arr.filter(e => e !== item);
     }
 
-    mergeArray (args) {
-        const arr1 = Cast.toArray(args.ARR1);
-        const arr2 = Cast.toArray(args.ARR2);
-        return arr1.concat(arr2);
+    mergeArray (args, util) {
+        const arrays = util.extendableToArray(args, 'ITEMS', 'ITEM');
+        return [].concat(...arrays.map(a => Cast.toArray(a)));
     }
 
     hasItem (args) {

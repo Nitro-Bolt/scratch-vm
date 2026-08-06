@@ -31,13 +31,21 @@ const runtimeFunctions = {};
 baseRuntime += `const nullCoalsh = (n, v) => ((n === null || n === (void 0)) ? v : n);`;
 
 /**
- * Merges 2 objects. (use this to get around spread overflow)
- * @param {object} a
- * @param {object} b
+ * Merges objects. (use this to get around spread overflow)
+ * @param {object} objs
  * @returns {object}
  */
-runtimeFunctions.mergeObjects = `const mergeObjects = (a, b) => {
-  return Object.fromEntries(Object.entries(a).concat(Object.entries(b)));
+runtimeFunctions.mergeObjects = `const mergeObjects = (...objs) => {
+  return Object.assign({}, ...objs.map(o => toObject(o)));
+};`;
+
+/**
+ * Merges arrays. (use this to get around spread overflow)
+ * @param {...Array<any>} arrs
+ * @returns {Array<any>}
+ */
+runtimeFunctions.mergeArrays = `const mergeArrays = (...arrs) => {
+  return [].concat(...arrs.map(a => toArray(a)));
 };`;
 
 baseRuntime += `const arrayIndexSlow = (index, length) => {
@@ -1033,6 +1041,20 @@ runtimeFunctions.tan = `const tan = (angle) => {
     case -90: case 270: return -Infinity;
     }
     return Math.round(Math.tan((Math.PI * angle) / 180) * 1e10) / 1e10;
+}`;
+
+/**
+ * Implements Scratch "letters () to () in ()".
+ * @param {string} str String to take letters from.
+ * @param {number} start 1-indexed start position.
+ * @param {number} end 1-indexed end position.
+ * @returns {string} The substring from start through end, or '' when out of bounds.
+ */
+runtimeFunctions.lettersIn = `const lettersIn = (str, start, end) => {
+    const _start = start - 1;
+    const _end = end - 1;
+    if (_start > _end || _start < 0 || _start >= str.length) return '';
+    return str.substring(_start, Math.min(_end, str.length - 1) + 1);
 }`;
 
 /**

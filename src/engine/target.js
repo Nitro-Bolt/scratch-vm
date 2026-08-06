@@ -3,6 +3,7 @@ const EventEmitter = require('events');
 const Blocks = require('./blocks');
 const Variable = require('../engine/variable');
 const Comment = require('../engine/comment');
+const Group = require('../engine/group');
 const uid = require('../util/uid');
 const log = require('../util/log');
 const StringUtil = require('../util/string-util');
@@ -39,6 +40,12 @@ class Target extends EventEmitter {
          */
         this.id = uid();
         /**
+         * ID of the folder containing this target, or null when the
+         * target is not in a folder. Only original, non-stage targets use it.
+         * @type {?string}
+         */
+        this.folderId = null;
+        /**
          * Blocks run as code for this target.
          * @type {!Blocks}
          */
@@ -55,6 +62,11 @@ class Target extends EventEmitter {
          * @type {Object.<string,*>}
          */
         this.comments = {};
+        /**
+         * Dictionary of groups for this target.
+         * Key is the group id.
+         */
+        this.groups = {};
         /**
          * Dictionary of custom state for this target.
          * This can be used to store target-specific custom state for blocks which need it.
@@ -312,10 +324,10 @@ class Target extends EventEmitter {
      * @param {number} height The height of the comment when it is full size
      * @param {boolean} minimized Whether the comment is minimized.
      */
-    createComment (id, blockId, text, x, y, width, height, minimized) {
+    createComment (id, blockId, text, x, y, width, height, minimized, colour) {
         if (!Object.prototype.hasOwnProperty.call(this.comments, id)) {
             const newComment = new Comment(id, text, x, y,
-                width, height, minimized);
+                width, height, minimized, colour);
             if (blockId) {
                 newComment.blockId = blockId;
                 const blockWithComment = this.blocks.getBlock(blockId);
@@ -328,6 +340,14 @@ class Target extends EventEmitter {
             }
             this.comments[id] = newComment;
         }
+    }
+
+    /**
+     * Create or replace an editor script group.
+     */
+    createGroup (state) {
+        const group = new Group(state);
+        this.groups[group.id] = group;
     }
 
     /**

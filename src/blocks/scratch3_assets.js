@@ -18,6 +18,7 @@ class Scratch3AssetBlocks {
         return {
             assets_menu: this.assetsMenu,
             assets_file_as_type: this.fileAsType,
+            assets_all: this.all,
             assets_metadata: this.metadata,
             assets_set: this.set,
             assets_write: this.write
@@ -26,6 +27,19 @@ class Scratch3AssetBlocks {
 
     assetsMenu (args) {
         return args.ASSET_MENU;
+    }
+
+    all (args, util) {
+        let target;
+        if (args.SPRITE === '_myself_') {
+            target = util.target;
+        } else if (args.SPRITE === 'Stage') {
+            target = this.runtime.getTargetForStage();
+        } else {
+            target = this.runtime.getSpriteTargetByName(args.SPRITE);
+        }
+
+        return target.sprite.assets.map(a => a.name);
     }
 
     fileAsType (args, util) {
@@ -38,9 +52,9 @@ class Scratch3AssetBlocks {
             return asset.asset.encodeDataURI();
         } else if (args.TYPE === 'text') {
             return new TextDecoder().decode(asset.asset.data);
-        } else {
-            return '';
         }
+        return '';
+
     }
 
     metadata (args, util) {
@@ -86,11 +100,11 @@ class Scratch3AssetBlocks {
             try {
                 const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
                 asset.setData(arr, assetObject.dataFormat, true);
-            } catch {}
+            } catch { /* empty */ }
         } else {
             asset.encodeTextData(value, assetObject.dataFormat, true);
         }
-        assetObject.md5 = asset.assetId + '.' + assetObject.dataFormat;
+        assetObject.md5 = `${asset.assetId}.${assetObject.dataFormat}`;
         assetObject.assetId = asset.assetId;
     }
 
@@ -117,6 +131,11 @@ class Scratch3AssetBlocks {
         const assets = util.target.sprite.assets;
         for (let i = 0; i < assets.length; i++) {
             if (assets[i].name === assetName) {
+                return i;
+            }
+        }
+        for (let i = 0; i < assets.length; i++) {
+            if (`${assets[i].name}.${assets[i].dataFormat}` === assetName) {
                 return i;
             }
         }
