@@ -3822,9 +3822,10 @@ class Runtime extends EventEmitter {
      * @param {string} type The type of the log. Either "log", "warn", "error".
      * @param {string} message The message of the log.
      * @param {Target} optTarget The target that the log was sent in.
+     * @param {RGBOject} optColor The color of the log, as an {r, g, b, a} object.
      */
-    emitDebuggerLog (type, message, optTarget) {
-        this.emit(Runtime.DEBUGGER_LOG, type, message, optTarget);
+    emitDebuggerLog (type, message, optTarget, optColor) {
+        this.emit(Runtime.DEBUGGER_LOG, type, message, optTarget, optColor);
     }
 
     /**

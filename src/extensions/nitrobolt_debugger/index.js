@@ -38,9 +38,7 @@ class Scratch3DebuggerBlocks {
             id: 'debugger',
             name: 'Debugger',
             menuIconURI: menuIconURI,
-            color1: '#195040',
-            color2: '#21745e',
-            color3: '#0fbd8c',
+            color1: '#29beb8',
             blocks: [
                 {
                     opcode: 'breakpoint',
@@ -55,7 +53,7 @@ class Scratch3DebuggerBlocks {
                 {
                     opcode: 'log',
                     blockType: BlockType.COMMAND,
-                    text: '[TYPE][MESSAGE]',
+                    text: '[TYPE] [MESSAGE] [COLOR]',
                     arguments: {
                         TYPE: {
                             type: ArgumentType.STRING,
@@ -65,21 +63,19 @@ class Scratch3DebuggerBlocks {
                         MESSAGE: {
                             type: ArgumentType.STRING,
                             defaultValue: 'Hello!'
-                        }
-                    }
-                },
-                {
-                    opcode: 'color',
-                    blockType: BlockType.REPORTER,
-                    text: '[COLOR][MESSAGE]',
-                    arguments: {
-                        COLOR: {
-                            type: ArgumentType.COLOR,
-                            defaultValue: '#0000ff'
                         },
-                        MESSAGE: {
-                            type: ArgumentType.STRING,
-                            defaultValue: 'Hello!'
+                        COLOR: {
+                            type: ArgumentType.EXTENDABLE,
+                            text: 'with color [VALUE]',
+                            arguments: {
+                                VALUE: {
+                                    type: ArgumentType.COLOR,
+                                    defaultValue: '#0000ff'
+                                }
+                            },
+                            minInputs: 0,
+                            maxInputs: 1,
+                            defaultInputs: 0
                         }
                     }
                 },
@@ -144,7 +140,9 @@ class Scratch3DebuggerBlocks {
 
     log (args, util) {
         const message = Cast.toString(args.MESSAGE);
-        this.runtime.emitDebuggerLog(args.TYPE, message, util.target);
+        const color = Cast.toNumber(args.COLOR) === 1 ? Cast.toRgbColorObject(args.COLOR_0_VALUE) : null;
+
+        this.runtime.emitDebuggerLog(args.TYPE, message, util.target, color);
         switch (args.TYPE) {
         case 'warn':
             console.warn(message);
@@ -156,12 +154,6 @@ class Scratch3DebuggerBlocks {
             console.log(message);
             break;
         }
-    }
-
-    color (args) {
-        const message = Cast.toString(args.MESSAGE);
-        const color = Cast.toRgbColorObject(args.COLOR);
-        return {__COLOR: color, message};
     }
 
     _getTimer (name) {
