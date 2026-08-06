@@ -16,6 +16,12 @@ class Scratch3DebuggerBlocks {
          * @type {Runtime}
          */
         this.runtime = runtime;
+
+        /**
+         * Map of timer name to timer state.
+         * @type {Object.<string, {start: ?number, durations: Array.<number>}>}
+         */
+        this.timers = {};
     }
 
     /**
@@ -26,6 +32,9 @@ class Scratch3DebuggerBlocks {
             id: 'debugger',
             name: 'Debugger',
             menuIconURI: menuIconURI,
+            color1: '#195040',
+            color2: '#21745e',
+            color3: '#0fbd8c',
             blocks: [
                 {
                     opcode: 'breakpoint',
@@ -67,12 +76,53 @@ class Scratch3DebuggerBlocks {
                             defaultValue: 'Hello!'
                         }
                     }
+                },
+                '---',
+                {
+                    opcode: 'timerCommand',
+                    blockType: BlockType.COMMAND,
+                    text: '[OPERATION] timer [TIMER_NAME]',
+                    arguments: {
+                        OPERATION: {
+                            type: ArgumentType.STRING,
+                            menu: 'timerOperation',
+                            defaultValue: 'start'
+                        },
+                        TIMER_NAME: {
+                            type: ArgumentType.STRING,
+                            defaultValue: 'timer'
+                        }
+                    }
+                },
+                {
+                    opcode: 'getTimerValue',
+                    blockType: BlockType.REPORTER,
+                    text: '[STAT] of timer [TIMER_NAME]',
+                    arguments: {
+                        STAT: {
+                            type: ArgumentType.STRING,
+                            menu: 'timerStat',
+                            defaultValue: 'average'
+                        },
+                        TIMER_NAME: {
+                            type: ArgumentType.STRING,
+                            defaultValue: 'timer'
+                        }
+                    }
                 }
             ],
             menus: {
                 logType: {
                     acceptReporters: true,
                     items: ['log', 'warn', 'error']
+                },
+                timerOperation: {
+                    acceptReporters: true,
+                    items: ['start', 'end', 'clear', 'delete']
+                },
+                timerStat: {
+                    acceptReporters: true,
+                    items: ['min', 'max', 'average']
                 }
             }
         };
@@ -90,22 +140,113 @@ class Scratch3DebuggerBlocks {
         const message = Cast.toString(args.MESSAGE);
         this.runtime.emitDebuggerLog(args.TYPE, message, util.target);
         switch (args.TYPE) {
-            case 'warn':
-                console.warn(message);
-                break;
-            case 'error':
-                console.error(message);
-                break;
-            default:
-                console.log(message);
-                break;
+        case 'warn':
+            console.warn(message);
+            break;
+        case 'error':
+            console.error(message);
+            break;
+        default:
+            console.log(message);
+            break;
         }
     }
 
-    color (args, util) {
+    color (args) {
         const message = Cast.toString(args.MESSAGE);
         const color = Cast.toRgbColorObject(args.COLOR);
-        return { __COLOR: color, message };
+        return {__COLOR: color, message};
+    }
+
+    _getTimer (name) {
+        if (!Object.prototype.hasOwnProperty.call(this.timers, name)) {
+            this.timers[name] = {
+                start: null,
+                durations: []
+            };
+        }
+        return this.timers[name];
+    }
+
+    _getTimerStats (timer) {
+        const stats = {
+            count: timer.durations.length,
+            min: null,
+            max: null,
+            average: null
+        };
+        if (timer.durations.length > 0) {
+            let min = Infinity;
+            let max = -Infinity;
+            let sum = 0;
+            for (const duration of timer.durations) {
+                if (duration < min) min = duration;
+                if (duration > max) max = duration;
+                sum += duration;
+            }
+            stats.min = min;
+            stats.max = max;
+            stats.average = sum / timer.durations.length;
+        }
+        return stats;
+    }
+
+    _emitTimerUpdate () {
+        const data = {};
+        for (const name in this.timers) {
+            data[name] = this._getTimerStats(this.timers[name]);
+        }
+        this.runtime.emit('DEBUGGER_TIMER_UPDATE', data);
+    }
+
+    timerCommand (args) {
+        const operation = Cast.toString(args.OPERATION);
+        const name = Cast.toString(args.TIMER_NAME);
+        if (!name) return;
+        if (operation === 'delete') {
+            if (Object.prototype.hasOwnProperty.call(this.timers, name)) {
+                delete this.timers[name];
+                this._emitTimerUpdate();
+            }
+            return;
+        }
+        const timer = this._getTimer(name);
+        switch (operation) {
+        case 'start':
+            if (timer.start === null) {
+                timer.start = performance.now();
+                this._emitTimerUpdate();
+            }
+            break;
+        case 'end':
+            if (timer.start !== null) {
+                timer.durations.push(performance.now() - timer.start);
+                timer.start = null;
+                this._emitTimerUpdate();
+            }
+            break;
+        case 'clear':
+            timer.start = null;
+            timer.durations = [];
+            this._emitTimerUpdate();
+            break;
+        }
+    }
+
+    getTimerValue (args) {
+        const stat = Cast.toString(args.STAT);
+        const name = Cast.toString(args.TIMER_NAME);
+        const timer = this.timers[name];
+        if (!timer) return 0;
+        const stats = this._getTimerStats(timer);
+        switch (stat) {
+        case 'min':
+            return stats.min || 0;
+        case 'max':
+            return stats.max || 0;
+        default:
+            return stats.average || 0;
+        }
     }
 }
 

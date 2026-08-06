@@ -1032,6 +1032,13 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Event name when debugger timer data has changed.
+     */
+    static get DEBUGGER_TIMER_UPDATE () {
+        return 'DEBUGGER_TIMER_UPDATE';
+    }
+
+    /**
      * How rapidly we try to step threads by default, in ms.
      */
     static get THREAD_STEP_INTERVAL () {
