@@ -371,6 +371,12 @@ class Runtime extends EventEmitter {
         this.turboMode = false;
 
         /**
+         * Whether the project is paused.
+         * @type {boolean}
+         */
+        this.paused = false;
+
+        /**
          * tw: Responsible for managing the VM's many timers.
          */
         this.frameLoop = new FrameLoop(this);
@@ -740,6 +746,20 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Event name when the project is paused.
+     */
+    static get PROJECT_RUN_PAUSE () {
+        return 'PROJECT_RUN_PAUSE';
+    }
+
+    /**
+     * Event name when the project is resumed.
+     */
+    static get PROJECT_RUN_RESUME () {
+        return 'PROJECT_RUN_RESUME';
+    }
+
+    /**
      * Event name when threads start running.
      * Used by the UI to indicate running status.
      * @const {string}
@@ -988,6 +1008,34 @@ class Runtime extends EventEmitter {
      */
     static get PLATFORM_MISMATCH () {
         return 'PLATFORM_MISMATCH';
+    }
+
+    /**
+     * Event name when a debugger breakpoint is activated.
+     */
+    static get DEBUGGER_BREAKPOINT () {
+        return 'DEBUGGER_BREAKPOINT';
+    }
+
+    /**
+     * Event name when debugger logs are cleared.
+     */
+    static get DEBUGGER_CLEAR () {
+        return 'DEBUGGER_CLEAR';
+    }
+
+    /**
+     * Event name when a log has been added.
+     */
+    static get DEBUGGER_LOG () {
+        return 'DEBUGGER_LOG';
+    }
+
+    /**
+     * Event name when debugger timer data has changed.
+     */
+    static get DEBUGGER_TIMER_UPDATE () {
+        return 'DEBUGGER_TIMER_UPDATE';
     }
 
     /**
@@ -2716,6 +2764,29 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Pause all existing threads.
+     */
+    pause () {
+        this.emit(Runtime.PROJECT_RUN_PAUSE);
+        for (const thread of this.threads) {
+            thread.isPaused = true;
+        }
+        this.paused = true;
+    }
+
+    /**
+     * Resume all currently paused threads.
+     */
+    resume () {
+        this.emit(Runtime.PROJECT_RUN_RESUME);
+        for (const thread of this.threads) {
+            if (!thread.isPaused) continue;
+            thread.isPaused = false;
+        }
+        this.paused = false;
+    }
+
+    /**
      * Stop "everything."
      */
     stopAll () {
@@ -2770,8 +2841,9 @@ class Runtime extends EventEmitter {
     /**
      * Repeatedly run `sequencer.stepThreads` and filter out
      * inactive threads after each iteration.
+     * @param {boolean | undefined} stepPausedThreads Whether to step paused threads.
      */
-    _step () {
+    _step (stepPausedThreads) {
         // RUNTIME_STEP_START runs before BEFORE_EXECUTE
         // this runs before any processing of this new step
         this.frameLoop._stepCounter++;
@@ -2809,7 +2881,7 @@ class Runtime extends EventEmitter {
             this.profiler.start(stepThreadsProfilerId);
         }
         this.emit(Runtime.BEFORE_EXECUTE);
-        const doneThreads = this.sequencer.stepThreads();
+        const doneThreads = this.sequencer.stepThreads(stepPausedThreads);
         if (this.profiler !== null) {
             this.profiler.stop();
         }
@@ -3735,6 +3807,24 @@ class Runtime extends EventEmitter {
         }
         this.frameLoop.stop();
         this.emit(Runtime.RUNTIME_STOPPED);
+    }
+
+    /**
+     * Pause's the runtime and open's the debugger.
+     */
+    breakpoint () {
+        this.pause();
+        this.emit(Runtime.DEBUGGER_BREAKPOINT);
+    }
+
+    /**
+     * Emit's a log to the debugger.
+     * @param {string} type The type of the log. Either "log", "warn", "error".
+     * @param {string} message The message of the log.
+     * @param {Target} optTarget The target that the log was sent in.
+     */
+    emitDebuggerLog (type, message, optTarget) {
+        this.emit(Runtime.DEBUGGER_LOG, type, message, optTarget);
     }
 
     /**
