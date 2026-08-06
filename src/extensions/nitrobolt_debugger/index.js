@@ -3,6 +3,12 @@ const BlockType = require('../../extension-support/block-type');
 const Cast = require('../../util/cast');
 
 /**
+ * Maximum number of timers that can be created.
+ * @type {number}
+ */
+const MAX_TIMERS = 100;
+
+/**
  * Icon svg to be displayed in the blocks category menu, encoded as a data URI.
  * @type {string}
  */
@@ -160,6 +166,9 @@ class Scratch3DebuggerBlocks {
 
     _getTimer (name) {
         if (!Object.prototype.hasOwnProperty.call(this.timers, name)) {
+            if (Object.keys(this.timers).length >= MAX_TIMERS) {
+                return null;
+            }
             this.timers[name] = {
                 start: null,
                 durations: []
@@ -211,6 +220,7 @@ class Scratch3DebuggerBlocks {
             return;
         }
         const timer = this._getTimer(name);
+        if (!timer) return;
         switch (operation) {
         case 'start':
             if (timer.start === null) {
