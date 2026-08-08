@@ -1378,7 +1378,8 @@ const fixSporkCompatibility = function (blocks) {
 
         // For completeness with the above, set the argument reporter generators to be shadow: true as well.
         case 'argument_reporter_string_number':
-        case 'argument_reporter_boolean': {
+        case 'argument_reporter_boolean':
+        case 'argument_reporter_color': {
             const parent = blocks[block.parent];
             if (parent && parent.opcode === 'procedures_prototype') {
                 block.shadow = true;

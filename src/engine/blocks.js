@@ -339,7 +339,7 @@ class Blocks {
      */
     static normalizeProcedureDefaults (proccode, names, ids, defaults) {
         const paramTypes = [];
-        const regex = /%([snboa])/g;
+        const regex = /%([snboar])/g;
         let match;
         while ((match = regex.exec(proccode)) !== null) {
             paramTypes.push(match[1]);
@@ -1053,7 +1053,7 @@ class Blocks {
         }
 
         const argumentTypes = [];
-        const argumentPattern = /(?:^|[^\\])%([nbdoas])/g;
+        const argumentPattern = /(?:^|[^\\])%([nbdoasr])/g;
         let match;
         while ((match = argumentPattern.exec(mutation.proccode || ''))) {
             argumentTypes.push(match[1]);

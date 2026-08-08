@@ -21,6 +21,7 @@ class Scratch3ProcedureBlocks {
             argument_reporter_boolean: this.argumentReporterBoolean,
             argument_reporter_object: this.argumentReporterObject,
             argument_reporter_array: this.argumentReporterArray,
+            argument_reporter_color: this.argumentReporterColor,
             argument_reporter_statement: this.argumentReporterStatement
         };
     }
@@ -144,7 +145,8 @@ class Scratch3ProcedureBlocks {
             opcode === 'argument_reporter_string_number' ||
             opcode === 'argument_reporter_boolean' ||
             opcode === 'argument_reporter_array' ||
-            opcode === 'argument_reporter_object'
+            opcode === 'argument_reporter_object' ||
+            opcode === 'argument_reporter_color'
         );
         if (!allowedOpcode) return;
 
@@ -196,6 +198,14 @@ class Scratch3ProcedureBlocks {
     }
 
     argumentReporterArray (args, util) {
+        const value = util.getParam(args.VALUE);
+        if (value === null) {
+            return 0;
+        }
+        return value;
+    }
+
+    argumentReporterColor (args, util) {
         const value = util.getParam(args.VALUE);
         if (value === null) {
             return 0;
