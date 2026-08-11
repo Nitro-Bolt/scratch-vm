@@ -126,9 +126,6 @@ importers:
       scratch-audio:
         specifier: 0.1.0-prerelease.20231221012053
         version: 0.1.0-prerelease.20231221012053
-      scratch-blocks:
-        specifier: github:Nitro-Bolt/scratch-blocks#develop-builds
-        version: https://codeload.github.com/Nitro-Bolt/scratch-blocks/tar.gz/b5fa1e42a291009a247e0f0ad8cd2c4a104c6c7a
       scratch-l10n:
         specifier: 3.16.20231222031921
         version: 3.16.20231222031921
@@ -2173,10 +2170,6 @@ packages:
     resolution: {integrity: sha512-w/ozOKR9Obk3qoWeY/WDi6MFta9AoMR+zud60mdnbniMcBxRuFJyDt2LdX/14A1UABeqk+Uk+LDfUpvoGKppZA==}
     engines: {node: '>=0.10.0'}
 
-  exports-loader@0.7.0:
-    resolution: {integrity: sha512-RKwCrO4A6IiKm0pG3c9V46JxIHcDplwwGJn6+JJ1RcVnh/WSGJa0xkmk5cRVtgOPzCAtTMGj2F7nluh9L0vpSA==}
-    engines: {node: '>= 4'}
-
   expose-loader@0.7.5:
     resolution: {integrity: sha512-iPowgKUZkTPX5PznYsmifVj9Bob0w2wTHVkt/eYNPSzyebkUgIedmskf/kcfEIWpiWjg3JRjnW+a17XypySMuw==}
     engines: {node: '>= 4.3 < 5.0.0 || >= 5.10'}
@@ -2796,10 +2789,6 @@ packages:
     resolution: {integrity: sha512-b6s04m3O+s3CGSbqDIyP4R6aAwAeYlVq9+WUWep6iHa8ETRf9yei1U48C5MmfJmV9AiLYYBKPMq/W+/WRpQmCQ==}
     engines: {node: '>=6'}
     hasBin: true
-
-  imports-loader@0.8.0:
-    resolution: {integrity: sha512-kXWL7Scp8KQ4552ZcdVTeaQCZSLW+e6nJfp3cwUMB673T7Hr98Xjx5JK+ql7ADlJUvj1JS5O01RLbKoutN5QDQ==}
-    engines: {node: '>= 4'}
 
   imurmurhash@0.1.4:
     resolution: {integrity: sha512-JmXMZ6wuvDmLiHEml9ykzqO6lwFbof0GG4IkcGaENdCRDDmMVnny7s5HsIgHCbaq0w2MyPhDqkhTUgS2LU2PHA==}
@@ -4315,10 +4304,6 @@ packages:
   scratch-audio@0.1.0-prerelease.20231221012053:
     resolution: {integrity: sha512-NtleZZPFHcmDtybyNpGjgINTCmfqJHSPiRBn5Crvk8kqKPbYSr1vnFRJlO1JwjTHi+xK0BJscQoxW0ad3cquUw==}
 
-  scratch-blocks@https://codeload.github.com/Nitro-Bolt/scratch-blocks/tar.gz/b5fa1e42a291009a247e0f0ad8cd2c4a104c6c7a:
-    resolution: {tarball: https://codeload.github.com/Nitro-Bolt/scratch-blocks/tar.gz/b5fa1e42a291009a247e0f0ad8cd2c4a104c6c7a}
-    version: 0.1.0
-
   scratch-l10n@3.16.20231222031921:
     resolution: {integrity: sha512-nKm6cc2cMh1lGRLuj3ItPJNU0YW6RNht0CP/d82hRPEdyOlsfFqMbM+6+1rrzivjd2Cg3HZM/VqXR1BsH96QNA==}
     hasBin: true
@@ -4545,10 +4530,6 @@ packages:
   source-map-url@0.4.1:
     resolution: {integrity: sha512-cPiFOTLUKvJFIg4SKVScy4ilPPW6rFgMgfuZJPNoDuMs3nC1HbMUycBoJw77xFIp6z1UJQJOfx6C9GMH80DiTw==}
     deprecated: See https://github.com/lydell/source-map-url#deprecated
-
-  source-map@0.5.0:
-    resolution: {integrity: sha512-gjGnxNN0K+/Pr4Mi4fs/pOtda10dKB6Wn9QvjOrH6v5TWsI7ghHuJUHoIgyM6DkUL5kr2GtPFGererzKpMBWfA==}
-    engines: {node: '>=0.10.0'}
 
   source-map@0.5.7:
     resolution: {integrity: sha512-LbrmJOMUSdEVxIKvdcJzQC+nQhe8FUZQTXQy6+I75skNgn3OoQ0DZA8YnFa7gp8tqtL3KPf1kmo0R5DoApeSGQ==}
@@ -7899,11 +7880,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  exports-loader@0.7.0:
-    dependencies:
-      loader-utils: 1.4.2
-      source-map: 0.5.0
-
   expose-loader@0.7.5(webpack@4.47.0):
     dependencies:
       webpack: 4.47.0(webpack-cli@3.1.0)
@@ -8652,11 +8628,6 @@ snapshots:
     dependencies:
       pkg-dir: 3.0.0
       resolve-cwd: 2.0.0
-
-  imports-loader@0.8.0:
-    dependencies:
-      loader-utils: 1.4.2
-      source-map: 0.6.1
 
   imurmurhash@0.1.4: {}
 
@@ -10298,11 +10269,6 @@ snapshots:
       minilog: 3.1.0
       startaudiocontext: 1.2.1
 
-  scratch-blocks@https://codeload.github.com/Nitro-Bolt/scratch-blocks/tar.gz/b5fa1e42a291009a247e0f0ad8cd2c4a104c6c7a:
-    dependencies:
-      exports-loader: 0.7.0
-      imports-loader: 0.8.0
-
   scratch-l10n@3.16.20231222031921:
     dependencies:
       '@babel/cli': 7.23.4(@babel/core@7.17.8)
@@ -10633,8 +10599,6 @@ snapshots:
       source-map: 0.6.1
 
   source-map-url@0.4.1: {}
-
-  source-map@0.5.0: {}
 
   source-map@0.5.7: {}
 
