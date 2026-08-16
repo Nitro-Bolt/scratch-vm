@@ -2503,6 +2503,11 @@ class Runtime extends EventEmitter {
      */
     startHats (requestedHatOpcode,
         optMatchFields, optTarget) {
+        if (this.paused) {
+            // Runtime is paused.
+            return;
+        }
+
         if (!Object.prototype.hasOwnProperty.call(this._hats, requestedHatOpcode)) {
             // No known hat with this opcode.
             return;
@@ -2764,24 +2769,36 @@ class Runtime extends EventEmitter {
     }
 
     /**
-     * Pause all existing threads.
+     * Pause all existing threads and sounds.
      */
     pause () {
         this.emit(Runtime.PROJECT_RUN_PAUSE);
         for (const thread of this.threads) {
             thread.isPaused = true;
         }
+        for (const target of this.targets) {
+            const soundBank = target.sprite.soundBank;
+            soundBank.audioEngine.audioContext.suspend();
+        }
         this.paused = true;
     }
 
     /**
-     * Resume all currently paused threads.
+     * Resume all currently paused threads and sounds.
      */
     resume () {
         this.emit(Runtime.PROJECT_RUN_RESUME);
         for (const thread of this.threads) {
             if (!thread.isPaused) continue;
             thread.isPaused = false;
+        }
+        for (const target of this.targets) {
+            const soundBank = target.sprite.soundBank;
+            const audioContext = soundBank.audioEngine.audioContext;
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
         }
         this.paused = false;
     }
