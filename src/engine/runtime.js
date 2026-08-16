@@ -1290,6 +1290,13 @@ class Runtime extends EventEmitter {
 
         for (const menuName in extensionInfo.menus) {
             if (Object.prototype.hasOwnProperty.call(extensionInfo.menus, menuName)) {
+                if (
+                    extensionInfo.menus[menuName].acceptText === true &&
+                    typeof extensionInfo.menus[menuName].acceptReporters === 'undefined'
+                ) {
+                    extensionInfo.menus[menuName].acceptReporters = true;
+                }
+
                 const menuInfo = extensionInfo.menus[menuName];
                 const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuInfo, categoryInfo);
                 categoryInfo.menus.push(convertedMenu);
@@ -1384,19 +1391,6 @@ class Runtime extends EventEmitter {
     }
 
     /**
-     * Determine whether a menu should accept reporters.
-     * @param {object} menuInfo - a description of this menu and its items
-     * @property {boolean} [acceptReporters] - if true, allow dropping reporters onto this menu
-     * @property {boolean} [acceptText] - if true, allow entering arbitrary text in this menu
-     * @returns {boolean} - whether the menu accepts reporters
-     * @private
-     */
-    _menuAcceptsReporters (menuInfo) {
-        return menuInfo.acceptReporters !== false &&
-            (menuInfo.acceptReporters === true || menuInfo.acceptText === true);
-    }
-
-    /**
      * Build the scratch-blocks JSON for a menu. Note that scratch-blocks treats menus as a special kind of block.
      * @param {string} menuName - the name of the menu
      * @param {object} menuInfo - a description of this menu and its items
@@ -1419,7 +1413,7 @@ class Runtime extends EventEmitter {
                 colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
                 colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
                 colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
-                outputShape: this._menuAcceptsReporters(menuInfo) ?
+                outputShape: menuInfo.acceptReporters === true ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
@@ -1883,8 +1877,15 @@ class Runtime extends EventEmitter {
             let shadowType;
             let fieldName;
             if (argInfo.menu) {
+                if (
+                    context.categoryInfo.menuInfo[argInfo.menu].acceptText === true &&
+                    typeof context.categoryInfo.menuInfo[argInfo.menu].acceptReporters === 'undefined'
+                ) {
+                    context.categoryInfo.menuInfo[argInfo.menu].acceptReporters = true;
+                }
+
                 const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
-                if (this._menuAcceptsReporters(menuInfo)) {
+                if (menuInfo.acceptReporters) {
                     valueName = name;
                     shadowType = this._makeExtensionMenuId(
                         argInfo.menu,
