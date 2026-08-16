@@ -1384,11 +1384,25 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Determine whether a menu should accept reporters.
+     * @param {object} menuInfo - a description of this menu and its items
+     * @property {boolean} [acceptReporters] - if true, allow dropping reporters onto this menu
+     * @property {boolean} [acceptText] - if true, allow entering arbitrary text in this menu
+     * @returns {boolean} - whether the menu accepts reporters
+     * @private
+     */
+    _menuAcceptsReporters (menuInfo) {
+        return menuInfo.acceptReporters !== false &&
+            (menuInfo.acceptReporters === true || menuInfo.acceptText === true);
+    }
+
+    /**
      * Build the scratch-blocks JSON for a menu. Note that scratch-blocks treats menus as a special kind of block.
      * @param {string} menuName - the name of the menu
      * @param {object} menuInfo - a description of this menu and its items
      * @property {*} items - an array of menu items or a function to retrieve such an array
      * @property {boolean} [acceptReporters] - if true, allow dropping reporters onto this menu
+     * @property {boolean} [acceptText] - if true, allow entering arbitrary text in this menu
      * @param {CategoryInfo} categoryInfo - the category for this block
      * @returns {object} - a JSON-esque object ready for scratch-blocks' consumption
      * @private
@@ -1405,7 +1419,7 @@ class Runtime extends EventEmitter {
                 colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
                 colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
                 colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
-                outputShape: menuInfo.acceptReporters ?
+                outputShape: this._menuAcceptsReporters(menuInfo) ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
@@ -1870,7 +1884,7 @@ class Runtime extends EventEmitter {
             let fieldName;
             if (argInfo.menu) {
                 const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
-                if (menuInfo.acceptReporters) {
+                if (this._menuAcceptsReporters(menuInfo)) {
                     valueName = name;
                     shadowType = this._makeExtensionMenuId(
                         argInfo.menu,
