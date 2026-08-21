@@ -1298,8 +1298,13 @@ class Runtime extends EventEmitter {
                 }
 
                 const menuInfo = extensionInfo.menus[menuName];
-                const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuInfo, categoryInfo);
-                categoryInfo.menus.push(convertedMenu);
+                // Dependent menus are fields on another block, so they cannot also
+                // be emitted as standalone shadow blocks: their parent field would
+                // not exist there.
+                if (!menuInfo.parentName) {
+                    const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuInfo, categoryInfo);
+                    categoryInfo.menus.push(convertedMenu);
+                }
                 categoryInfo.menuInfo[menuName] = menuInfo;
             }
         }
@@ -1885,7 +1890,21 @@ class Runtime extends EventEmitter {
                 }
 
                 const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
-                if (menuInfo.acceptReporters) {
+                if (menuInfo.parentName) {
+                    const optionMapping = {};
+                    for (const parentValue in menuInfo.optionMapping) {
+                        if (Object.prototype.hasOwnProperty.call(menuInfo.optionMapping, parentValue)) {
+                            optionMapping[parentValue] = this._convertMenuItems(menuInfo.optionMapping[parentValue]);
+                        }
+                    }
+                    argJSON.type = 'field_dependent_dropdown';
+                    argJSON.parentName = menuInfo.parentName;
+                    argJSON.optionMapping = optionMapping;
+                    argJSON.defaultOptions = this._convertMenuItems(menuInfo.defaultOptions || []);
+                    valueName = null;
+                    shadowType = null;
+                    fieldName = name;
+                } else if (menuInfo.acceptReporters) {
                     valueName = name;
                     shadowType = this._makeExtensionMenuId(
                         argInfo.menu,
