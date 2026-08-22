@@ -35,6 +35,9 @@
  * @property {ArgumentType} type - the type of the argument (number, string, etc.)
  * @property {*} [defaultValue] - the default value of this argument.
  * @property {string} [menu] - the name of the menu to use for this argument, if any.
+ * @property {number} [min] - minimum value for a slider argument.
+ * @property {number} [max] - maximum value for a slider argument.
+ * @property {number} [precision] - step size for a slider argument.
  */
 
 /**

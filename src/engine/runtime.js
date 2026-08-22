@@ -78,6 +78,9 @@ const ArgumentTypeMap = (() => {
             fieldName: 'NUM'
         }
     };
+    map[ArgumentType.SLIDER] = {
+        slider: true
+    };
     map[ArgumentType.COLOR] = {
         shadow: {
             type: 'colour_picker',
@@ -1925,8 +1928,38 @@ class Runtime extends EventEmitter {
                 }
             } else {
                 valueName = name;
-                shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
-                fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+                if (argTypeInfo.slider) {
+                    shadowType = `${context.categoryInfo.id}_${context.blockInfo.opcode}_${name}_slider`;
+                    fieldName = 'NUM';
+                    const fieldJSON = {
+                        type: 'field_slider',
+                        name: fieldName
+                    };
+                    if (defaultValue !== null) fieldJSON.value = defaultValue;
+                    if (typeof argInfo.min !== 'undefined') fieldJSON.min = argInfo.min;
+                    if (typeof argInfo.max !== 'undefined') fieldJSON.max = argInfo.max;
+                    if (typeof argInfo.precision !== 'undefined') fieldJSON.precision = argInfo.precision;
+                    if (!context.categoryInfo.blocks.some(block => block.json && block.json.type === shadowType)) {
+                        context.categoryInfo.blocks.push({
+                            info: {hideFromPalette: true},
+                            json: {
+                                type: shadowType,
+                                message0: '%1',
+                                args0: [fieldJSON],
+                                inputsInline: true,
+                                output: 'Number',
+                                outputShape: ScratchBlocksConstants.OUTPUT_SHAPE_ROUND,
+                                colour: '#FFFFFF',
+                                colourSecondary: '#FFFFFF',
+                                colourTertiary: '#FFFFFF'
+                            },
+                            xml: ''
+                        });
+                    }
+                } else {
+                    shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
+                    fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+                }
 
                 if (typeof argInfo.shadow === 'string') {
                     shadowType = `${context.categoryInfo.id}_${argInfo.shadow}`;
