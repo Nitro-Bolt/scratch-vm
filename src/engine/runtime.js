@@ -1926,7 +1926,11 @@ class Runtime extends EventEmitter {
                     shadowType = null;
                     fieldName = name;
                 }
-            } else if (argInfo.type === ArgumentType.STRING && !argInfo.acceptReporters) {
+            } else if (
+                argInfo.type === ArgumentType.STRING &&
+                typeof argInfo.acceptReporters !== 'undefined' &&
+                argInfo.acceptReporters === false
+            ) {
                 argJSON.type = 'field_input';
                 argJSON.text = defaultValue || '';
                 valueName = null;
