@@ -1926,6 +1926,12 @@ class Runtime extends EventEmitter {
                     shadowType = null;
                     fieldName = name;
                 }
+            } else if (argInfo.type === ArgumentType.STRING && !argInfo.acceptReporters) {
+                argJSON.type = 'field_input';
+                argJSON.text = defaultValue || '';
+                valueName = null;
+                shadowType = null;
+                fieldName = name;
             } else {
                 valueName = name;
                 if (argTypeInfo.slider) {
