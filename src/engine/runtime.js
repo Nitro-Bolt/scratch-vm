@@ -1884,6 +1884,9 @@ class Runtime extends EventEmitter {
                 argJSON.check = argTypeInfo.check;
             }
 
+            const noAcceptReporters = typeof argInfo.acceptReporters !== 'undefined' &&
+                argInfo.acceptReporters === false;
+
             let valueName;
             let shadowType;
             let fieldName;
@@ -1929,13 +1932,15 @@ class Runtime extends EventEmitter {
                     shadowType = null;
                     fieldName = name;
                 }
-            } else if (
-                argInfo.type === ArgumentType.STRING &&
-                typeof argInfo.acceptReporters !== 'undefined' &&
-                argInfo.acceptReporters === false
-            ) {
+            } else if (argInfo.type === ArgumentType.STRING && noAcceptReporters) {
                 argJSON.type = 'field_input';
                 argJSON.text = defaultValue || '';
+                valueName = null;
+                shadowType = null;
+                fieldName = name;
+            } else if (argInfo.type === ArgumentType.NUMBER && noAcceptReporters) {
+                argJSON.type = 'field_number';
+                argJSON.value = defaultValue || '';
                 valueName = null;
                 shadowType = null;
                 fieldName = name;
