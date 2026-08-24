@@ -2363,10 +2363,6 @@ class Runtime extends EventEmitter {
             this._hats[opcode].edgeActivated;
     }
 
-    // -----------------------------------------------------------------------------
-    // Custom data types ("extensionId:typeName")
-    // -----------------------------------------------------------------------------
-
     /**
      * Register a namespaced custom type class. Extensions should call this
      * through Scratch.types.register before their getInfo() is read.
@@ -2377,7 +2373,7 @@ class Runtime extends EventEmitter {
     registerCustomType (typeId, classDef) {
         if (!CustomTypes.isValidTypeId(typeId)) {
             throw new Error(
-                `Invalid custom type ID: ${typeId}. Type IDs must be namespaced like "extensionId:typeName".`
+                `Invalid custom type ID: ${typeId}.`
             );
         }
         if (typeof classDef !== 'function') {
