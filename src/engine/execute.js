@@ -297,6 +297,12 @@ class BlockCached {
         this._blockFunction = runtime.getOpcodeFunction(opcode);
         this._definedBlockFunction = typeof this._blockFunction !== 'undefined';
 
+        /**
+         * Custom type argument cast functions for this.
+         * @type {?object}
+         */
+        this._argCasters = runtime._customArgumentCasters.get(opcode) || null;
+
         const flowing = runtime._flowing[opcode];
         this._isConditional = !!(flowing && flowing.conditional);
         this._isLoop = !!(flowing && flowing.loop);
@@ -376,7 +382,11 @@ class BlockCached {
                 // Shadow values are static and do not change, go ahead and
                 // store their value on args.
                 if (inputCached._isShadowBlock) {
-                    this._argValues[inputName] = inputCached._shadowValue;
+                    // nb: cast shadow values for custom type arguments.
+                    const caster = this._argCasters && this._argCasters[inputName];
+                    this._argValues[inputName] = caster ?
+                        caster(inputCached._shadowValue) :
+                        inputCached._shadowValue;
                 }
             }
         }
@@ -457,10 +467,12 @@ const execute = function (sequencer, thread) {
                 if (inputName === 'BROADCAST_INPUT') {
                     // Something is plugged into the broadcast input.
                     // Cast it to a string. We don't need an id here.
-                    argValues.BROADCAST_OPTION.id = null;
+                    argValues.BROADCAST_INPUT.id = null;
                     argValues.BROADCAST_OPTION.name = cast.toString(inputValue);
                 } else {
-                    argValues[inputName] = inputValue;
+                    // nb: cast reported values into custom type arguments.
+                    const caster = opCached._argCasters && opCached._argCasters[inputName];
+                    argValues[inputName] = caster ? caster(inputValue) : inputValue;
                 }
             }
         }
@@ -491,10 +503,12 @@ const execute = function (sequencer, thread) {
             if (inputName === 'BROADCAST_INPUT') {
                 // Something is plugged into the broadcast input.
                 // Cast it to a string. We don't need an id here.
-                argValues.BROADCAST_OPTION.id = null;
+                argValues.BROADCAST_INPUT.id = null;
                 argValues.BROADCAST_OPTION.name = cast.toString(inputValue);
             } else {
-                argValues[inputName] = inputValue;
+                // nb: cast reported values into custom type arguments.
+                const caster = opCached._argCasters && opCached._argCasters[inputName];
+                argValues[inputName] = caster ? caster(inputValue) : inputValue;
             }
 
             i += 1;
@@ -574,10 +588,12 @@ const execute = function (sequencer, thread) {
                 if (inputName === 'BROADCAST_INPUT') {
                     // Something is plugged into the broadcast input.
                     // Cast it to a string. We don't need an id here.
-                    parentValues.BROADCAST_OPTION.id = null;
+                    parentValues.BROADCAST_INPUT.id = null;
                     parentValues.BROADCAST_OPTION.name = cast.toString(primitiveReportedValue);
                 } else {
-                    parentValues[inputName] = primitiveReportedValue;
+                    // nb: cast reported values into custom type arguments.
+                    const caster = opCached._argCasters && opCached._argCasters[inputName];
+                    parentValues[inputName] = caster ? caster(primitiveReportedValue) : primitiveReportedValue;
                 }
             }
         } else if (thread.status === Thread.STATUS_DONE) {

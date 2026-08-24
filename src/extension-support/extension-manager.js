@@ -3,6 +3,7 @@ const log = require('../util/log');
 const maybeFormatMessage = require('../util/maybe-format-message');
 
 const BlockType = require('./block-type');
+const CustomTypes = require('./custom-types');
 const SecurityManager = require('./tw-security-manager');
 
 // These extensions are currently built into the VM repository but should not be loaded at startup.
@@ -586,6 +587,16 @@ class ExtensionManager {
             arguments: {}
         }, blockInfo);
         blockInfo.text = blockInfo.text || blockInfo.opcode;
+
+        // nb: validate custom outputType metadata. Invalid IDs are dropped so the
+        // rest of the system can safely assume outputType is a namespaced string.
+        if (typeof blockInfo.outputType !== 'undefined' && !CustomTypes.isValidTypeId(blockInfo.outputType)) {
+            log.warn(
+                `Ignoring invalid outputType "${blockInfo.outputType}" on block ${blockInfo.opcode}: ` +
+                'expected a namespaced string like "extensionId:typeName".'
+            );
+            delete blockInfo.outputType;
+        }
 
         if (typeof blockInfo.blockType === 'function' && typeof blockInfo.blockType.shape !== 'undefined') {
             blockInfo.blockShape = blockInfo.blockType.shape;

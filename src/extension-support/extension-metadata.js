@@ -26,13 +26,18 @@
  * @property {Boolean} [duplicateOnDrag] - sets whether a block can duplicate on drag,
  * this will also hide it from pallete.
  * @property {int} [branchCount] - for flow control blocks, the number of branches/substacks for this block.
+ * @property {string} [outputType] - for reporter/boolean blocks, a namespaced custom type ID
+ * ("extensionId:typeName") registered via Scratch.types.register. Reporters with a custom outputType
+ * only connect to argument slots expecting that type, and take their connection shape from the type class.
  * @property {Object.<ExtensionArgumentMetadata>} [arguments] - map of argument placeholder to metadata about each arg.
  */
 
 /**
  * @typedef {object} ExtensionArgumentMetadata
  * All the metadata needed to register an argument for an extension block.
- * @property {ArgumentType} type - the type of the argument (number, string, etc.)
+ * @property {ArgumentType|string} type - the type of the argument (number, string, etc.),
+ * or a namespaced custom type ID ("extensionId:typeName") registered via Scratch.types.register.
+ * Custom-typed arguments are automatically cast with CustomClass.cast(value) before the block runs.
  * @property {*} [defaultValue] - the default value of this argument.
  * @property {string} [menu] - the name of the menu to use for this argument, if any.
  * @property {number} [min] - minimum value for a slider argument.

@@ -19,6 +19,7 @@ const StringUtil = require('../util/string-util');
 const VariableUtil = require('../util/variable-util');
 const ExtendedJSON = require('@turbowarp/json');
 const compress = require('./tw-compress-sb3');
+const CustomTypes = require('../extension-support/custom-types');
 
 const {loadCostume} = require('../import/load-costume.js');
 const {loadSound} = require('../import/load-sound.js');
@@ -517,11 +518,13 @@ const serializeAsset = function (asset) {
 /**
  * Serialize the given variables object.
  * @param {object} variables The variables to be serialized.
+ * @param {?Runtime} runtime The runtime owning the custom type registry, used
+ * to serialize custom type instances. May be null (plain values only).
  * @return {object} A serialized representation of the variables. They get
  * separated by type to compress the representation of each given variable and
  * reduce duplicate information.
  */
-const serializeVariables = function (variables) {
+const serializeVariables = function (variables, runtime) {
     const obj = Object.create(null);
     // separate out variables into types at the top level so we don't have
     // keep track of a type for each
@@ -536,20 +539,21 @@ const serializeVariables = function (variables) {
             continue;
         }
         if (v.type === Variable.LIST_TYPE) {
-            obj.lists[varId] = [v.name, v.value];
+            obj.lists[varId] = [v.name, CustomTypes.serializeCustomValue(runtime, v.value)];
             continue;
         }
         if (v.type === Variable.TABLE_TYPE) {
-            obj.tables[varId] = [v.name, v.value];
-            continue;
-        }
-        if (v.type === Variable.TABLE_TYPE) {
-            obj.tables[varId] = [v.name, v.value];
+            obj.tables[varId] = [v.name, CustomTypes.serializeCustomValue(runtime, v.value)];
             continue;
         }
 
         // otherwise should be a scalar type
-        obj.variables[varId] = [v.name, v.value];
+        if (v.isCloud) {
+            // Cloud variables must stay plain primitives.
+            obj.variables[varId] = [v.name, v.value];
+        } else {
+            obj.variables[varId] = [v.name, CustomTypes.serializeCustomValue(runtime, v.value)];
+        }
         // only scalar vars have the potential to be cloud vars
         if (v.isCloud) obj.variables[varId].push(true);
     }
@@ -732,14 +736,14 @@ const normalizeProjectFolders = (runtime, targets) => {
  * @param {Set} extensions A set of extensions to add extension IDs to
  * @return {object} A serialized representation of the given target.
  */
-const serializeTarget = function (target, extensions) {
+const serializeTarget = function (target, extensions, runtime) {
     const obj = Object.create(null);
     let targetExtensions = [];
     obj.isStage = target.isStage;
     obj.id = target.id;
     obj.name = obj.isStage ? 'Stage' : target.name;
     if (!obj.isStage && target.folderId) obj.folderId = target.folderId;
-    const vars = serializeVariables(target.variables);
+    const vars = serializeVariables(target.variables, runtime);
     obj.variables = vars.variables;
     obj.lists = vars.lists;
     obj.tables = vars.tables;
@@ -884,7 +888,7 @@ const serialize = function (runtime, targetId, {allowOptimization = true} = {}) 
         });
     }
 
-    const serializedTargets = flattenedOriginalTargets.map(t => serializeTarget(t, extensions))
+    const serializedTargets = flattenedOriginalTargets.map(t => serializeTarget(t, extensions, runtime))
         .map((serialized, index) => {
             // can't serialize extensionStorage until the list of used extensions is fully known
             const target = originalTargetsToSerialize[index];
@@ -1492,7 +1496,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 isCloud
             );
             if (isCloud) runtime.addCloudVariable();
-            newVariable.value = variable[1];
+            // nb: revive custom type instances saved by extensions.
+            newVariable.value = CustomTypes.deserializeCustomValue(runtime, variable[1]);
             target.variables[newVariable.id] = newVariable;
         }
     }
@@ -1505,7 +1510,7 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 Variable.LIST_TYPE,
                 false
             );
-            newList.value = list[1];
+            newList.value = CustomTypes.deserializeCustomValue(runtime, list[1]);
             target.variables[newList.id] = newList;
         }
     }
@@ -1518,7 +1523,7 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 Variable.TABLE_TYPE,
                 false
             );
-            newTable.value = table[1];
+            newTable.value = CustomTypes.deserializeCustomValue(runtime, table[1]);
             target.variables[newTable.id] = newTable;
         }
     }

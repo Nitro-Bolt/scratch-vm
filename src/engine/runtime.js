@@ -6,6 +6,7 @@ const ArgumentType = require('../extension-support/argument-type');
 const Blocks = require('./blocks');
 const BlocksRuntimeCache = require('./blocks-runtime-cache');
 const BlockType = require('../extension-support/block-type');
+const CustomTypes = require('../extension-support/custom-types');
 const Profiler = require('./profiler');
 const Sequencer = require('./sequencer');
 const execute = require('./execute.js');
@@ -322,6 +323,28 @@ class Runtime extends EventEmitter {
          * @type {Record<string, {conditional: boolean}>}
          */
         this._flowing = {};
+
+        /**
+         * Registry of custom data types. Keys are type IDs in the
+         * "extensionId:typeName" format, values are the registered classes.
+         * @type {Map.<string, Function>}
+         */
+        this.customTypes = new Map();
+
+        /**
+         * Reverse lookup of custom type ID by class definition, so serialization
+         * can identify instances in O(1).
+         * @type {WeakMap.<Function, string>}
+         */
+        this._customTypeIds = new WeakMap();
+
+        /**
+         * Precomputed custom-type argument cast functions per opcode:
+         * opcode -> {argumentName: castFunction}. Populated when extension
+         * blocks are registered; consumed by execute.js's BlockCached.
+         * @type {Map.<string, Object.<string, Function>>}
+         */
+        this._customArgumentCasters = new Map();
 
         /**
          * A list of script block IDs that were glowing during the previous frame.
@@ -1260,6 +1283,13 @@ class Runtime extends EventEmitter {
                 }
             }
         }
+        // Clean up cached custom-type argument casters for the removed blocks.
+        for (const block of info.blocks) {
+            const opcode = block && block.json && block.json.type;
+            if (opcode) {
+                this._customArgumentCasters.delete(opcode);
+            }
+        }
         this.emit(Runtime.BLOCKS_NEED_UPDATE);
     }
 
@@ -1350,6 +1380,7 @@ class Runtime extends EventEmitter {
                     if (blockInfo.blockType !== BlockType.EVENT) {
                         this._primitives[opcode] = convertedBlock.info.func;
                     }
+                    this._updateCustomArgumentCasters(opcode, blockInfo);
                     if (blockInfo.blockType === BlockType.EVENT || blockInfo.blockType === BlockType.HAT) {
                         this._hats[opcode] = {
                             edgeActivated: blockInfo.isEdgeActivated,
@@ -1639,6 +1670,20 @@ class Runtime extends EventEmitter {
             break;
         }
 
+        // nb: reporters declaring a registered custom outputType connect only to
+        // inputs expecting that type, and take their shape from the type class.
+        if (
+            typeof blockInfo.outputType === 'string' &&
+            (blockInfo.blockType === BlockType.REPORTER || blockInfo.blockType === BlockType.BOOLEAN) &&
+            this.customTypes.has(blockInfo.outputType)
+        ) {
+            blockJSON.output = blockInfo.outputType;
+            const typeDefinition = this.customTypes.get(blockInfo.outputType);
+            if (typeof typeDefinition.shape === 'number') {
+                blockJSON.outputShape = typeDefinition.shape;
+            }
+        }
+
         // Allow extensiosn to override outputShape
         if (blockInfo.blockShape) {
             blockJSON.outputShape = blockInfo.blockShape;
@@ -1879,6 +1924,13 @@ class Runtime extends EventEmitter {
                 // input slot on the block accepts Boolean reporters, so it should be
                 // shaped like a hexagon
                 argJSON.check = argTypeInfo.check;
+            } else if (typeof argInfo.type === 'string' && this.customTypes.has(argInfo.type)) {
+                // nb: slots typed as a registered custom type only accept reporters
+                // whose outputType is exactly that type.
+                argJSON.check = argInfo.type;
+                if (typeof this.customTypes.get(argInfo.type).shape === 'number') {
+                    argJSON.outputShape = this.customTypes.get(argInfo.type).shape;
+                }
             }
 
             let valueName;
@@ -2309,6 +2361,113 @@ class Runtime extends EventEmitter {
     getIsEdgeActivatedHat (opcode) {
         return Object.prototype.hasOwnProperty.call(this._hats, opcode) &&
             this._hats[opcode].edgeActivated;
+    }
+
+    // -----------------------------------------------------------------------------
+    // Custom data types ("extensionId:typeName")
+    // -----------------------------------------------------------------------------
+
+    /**
+     * Register a namespaced custom type class. Extensions should call this
+     * through Scratch.types.register before their getInfo() is read.
+     * @param {string} typeId - namespaced ID in the "extensionId:typeName" format.
+     * @param {Function} classDef - the custom type class. May define static cast,
+     * static fromJSON, and instance toJSON/toString/valueOf members.
+     */
+    registerCustomType (typeId, classDef) {
+        if (!CustomTypes.isValidTypeId(typeId)) {
+            throw new Error(
+                `Invalid custom type ID: ${typeId}. Type IDs must be namespaced like "extensionId:typeName".`
+            );
+        }
+        if (typeof classDef !== 'function') {
+            throw new Error(`Custom type ${typeId} must be a class or constructor.`);
+        }
+        const existing = this.customTypes.get(typeId);
+        if (existing === classDef) {
+            // Re-registering the same class is a harmless no-op (e.g. HMR).
+            return;
+        }
+        if (existing) {
+            throw new Error(`Custom type "${typeId}" is already registered by another class.`);
+        }
+        this.customTypes.set(typeId, classDef);
+        this._customTypeIds.set(classDef, typeId);
+    }
+
+    /**
+     * Remove a previously registered custom type. Blocks already placed in the
+     * editor keep working via their cached casters, but new serialization will
+     * fall back to plain data representations.
+     * @param {string} typeId - the namespaced ID of the type to remove.
+     */
+    unregisterCustomType (typeId) {
+        const classDef = this.customTypes.get(typeId);
+        if (!classDef) {
+            return;
+        }
+        this.customTypes.delete(typeId);
+        if (this._customTypeIds.get(classDef) === typeId) {
+            this._customTypeIds.delete(classDef);
+        }
+        for (const [opcode, casters] of this._customArgumentCasters) {
+            let used = false;
+            for (const name in casters) {
+                if (casters[name].typeId === typeId) {
+                    used = true;
+                    break;
+                }
+            }
+            if (used) {
+                this._customArgumentCasters.delete(opcode);
+            }
+        }
+    }
+
+    /**
+     * Check whether a custom type is registered.
+     * @param {string} typeId - the namespaced ID of the type.
+     * @returns {boolean} true if registered.
+     */
+    hasCustomType (typeId) {
+        return this.customTypes.has(typeId);
+    }
+
+    /**
+     * Look up a registered custom type class.
+     * @param {string} typeId - the namespaced ID of the type.
+     * @returns {?Function} the class definition, or null when not registered.
+     */
+    getCustomType (typeId) {
+        return this.customTypes.get(typeId) || null;
+    }
+
+    /**
+     * Precompute per-argument cast functions for an extension block so that
+     * execute.js can apply them without registry lookups at run time.
+     * @param {string} opcode - the fully namespaced opcode of the block.
+     * @param {object} blockInfo - the extension's block metadata.
+     * @private
+     */
+    _updateCustomArgumentCasters (opcode, blockInfo) {
+        const arguments_ = blockInfo && blockInfo.arguments;
+        let casters = null;
+        if (arguments_) {
+            for (const name in arguments_) {
+                const argType = arguments_[name] && arguments_[name].type;
+                if (typeof argType === 'string' && this.customTypes.has(argType)) {
+                    const caster = CustomTypes.makeCastFunction(this.customTypes.get(argType));
+                    caster.typeId = argType;
+                    casters = casters || {};
+                    casters[name] = caster;
+                }
+            }
+        }
+        if (casters) {
+            this._customArgumentCasters.set(opcode, casters);
+        } else {
+            this._customArgumentCasters.delete(opcode);
+        }
     }
 
 
