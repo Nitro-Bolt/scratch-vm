@@ -546,6 +546,9 @@ class ExtensionManager {
         const menuItems = menuFunc.call(extensionObject, editingTargetID).map(
             item => {
                 item = maybeFormatMessage(item, extensionMessageContext);
+                if (item === '---') {
+                    return 'separator';
+                }
                 switch (typeof item) {
                 case 'object':
                     return [

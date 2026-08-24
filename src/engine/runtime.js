@@ -1385,6 +1385,9 @@ class Runtime extends EventEmitter {
             const extensionMessageContext = this.makeMessageContextForTarget();
             return menuItems.map(item => {
                 const formattedItem = maybeFormatMessage(item, extensionMessageContext);
+                if (formattedItem === '---') {
+                    return 'separator';
+                }
                 switch (typeof formattedItem) {
                 case 'string':
                     return [formattedItem, formattedItem];
