@@ -130,7 +130,8 @@ class NitroBoltDebuggerBlocks {
         };
     }
 
-    breakpoint () {
+    breakpoint (args, util) {
+        util.thread.stopThisScript();
         this.runtime.breakpoint();
     }
 
