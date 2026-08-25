@@ -3,6 +3,7 @@ const BlocksExecuteCache = require('./blocks-execute-cache');
 const log = require('../util/log');
 const Thread = require('./thread');
 const cast = require('../util/cast');
+const Timer = require('../util/timer');
 
 /**
  * Single BlockUtility instance reused by execute for every pritimive ran.
@@ -34,6 +35,13 @@ const isPromise = function (value) {
         typeof value.then === 'function'
     );
 };
+
+class EngineEvaluationRequiredError extends Error {
+    constructor () {
+        super('Block requires evaluation by the sequencer');
+        this.name = 'EngineEvaluationRequiredError';
+    }
+}
 
 /**
  * Handle any reported value from the primitive, either directly returned
@@ -408,6 +416,132 @@ const _prepareBlockProfiling = function (profiler, blockCached) {
     }
 };
 
+const _evaluateBlockSynchronously = function (sequencer, thread, blockId, isTopLevel) {
+    if (!blockId) return '';
+    const target = thread.target;
+    const blockContainer = thread.blockContainer || target.blocks;
+    const block = blockContainer.getBlock(blockId);
+    if (!block) return '';
+
+    const opcode = block.opcode;
+
+    if (opcode === 'procedures_call') {
+        throw new EngineEvaluationRequiredError();
+    }
+
+    const args = {mutation: block.mutation};
+    for (const inputName in block.inputs) {
+        const input = block.inputs[inputName];
+        const subBlockId = input.block || input.shadow;
+        args[inputName] = subBlockId ?
+            _evaluateBlockSynchronously(sequencer, thread, subBlockId, false) :
+            '';
+    }
+
+    for (const fieldName in block.fields) {
+        if (
+            fieldName === 'VARIABLE' ||
+            fieldName === 'LIST' ||
+            fieldName === 'TABLE' ||
+            fieldName === 'BROADCAST_OPTION'
+        ) {
+            const fieldValue = block.fields[fieldName].value;
+            args[fieldName] = {
+                id: block.fields[fieldName].id || null,
+                name: (typeof fieldValue === 'undefined' || fieldValue === null) ? '' : fieldValue
+            };
+        } else {
+            args[fieldName] = block.fields[fieldName].value;
+        }
+    }
+
+    const primitive = sequencer.runtime.getOpcodeFunction(opcode);
+
+    if (primitive) {
+        const result = primitive(args, blockUtility);
+        if (isPromise(result)) {
+            if (isTopLevel) return result;
+            throw new EngineEvaluationRequiredError();
+        }
+        return result;
+    }
+
+    const fieldKeys = Object.keys(block.fields);
+    if (fieldKeys.length === 1 && Object.keys(block.inputs).length === 0) {
+        return block.fields[fieldKeys[0]].value;
+    }
+
+    return '';
+};
+
+/**
+ * Evaluate a reporter block synchronously without yielding.
+ * @param {!Sequencer} sequencer Which sequencer is executing.
+ * @param {!Thread} thread Thread which to evaluate the block in.
+ * @param {?string} blockId Id of the block to evaluate.
+ * @returns {*} The value reported by the block, '' if it could not be
+ * evaluated, or a Promise of the value.
+ */
+const evaluateBlockSynchronously = function (sequencer, thread, blockId) {
+    return _evaluateBlockSynchronously(sequencer, thread, blockId, true);
+};
+
+/**
+ * Evaluate a reporter block by driving the real engine on a temporary thread.
+ * @param {!Sequencer} sequencer Which sequencer is executing.
+ * @param {!Thread} thread Calling thread.
+ * mapContexts.
+ * @param {?string} blockId Id of the block to evaluate
+ * @returns {Promise<*>} Resolves with the reported value, or '' if none.
+ */
+const evaluateBlockWithEngine = async function (sequencer, thread, blockId) {
+    if (!blockId) return '';
+
+    const engineThread = new Thread(blockId);
+    engineThread.target = thread.target;
+    engineThread.blockContainer = thread.blockContainer || thread.target.blocks;
+    engineThread.pushStack(blockId);
+    engineThread.mapContexts = thread.mapContexts;
+
+    const WORK_TIME = 0.75 * sequencer.runtime.currentStepTime;
+    const timer = new Timer();
+    timer.start();
+    let hasSuspended = false;
+
+    while (
+        engineThread.status !== Thread.STATUS_DONE &&
+        engineThread.stack.length > 0
+    ) {
+        if (hasSuspended && thread.status !== Thread.STATUS_PROMISE_WAIT) break;
+
+        if (timer.timeElapsed() >= WORK_TIME) {
+            hasSuspended = true;
+            await new Promise(resolve => setTimeout(resolve, 0));
+            timer.start();
+            continue;
+        }
+
+        if (engineThread.status === Thread.STATUS_PROMISE_WAIT) {
+            hasSuspended = true;
+            await Promise.resolve();
+            while (
+                engineThread.status === Thread.STATUS_PROMISE_WAIT &&
+                thread.status === Thread.STATUS_PROMISE_WAIT
+            ) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+            timer.start();
+        } else if (engineThread.status === Thread.STATUS_YIELD_TICK) {
+            engineThread.status = Thread.STATUS_RUNNING;
+        } else {
+            sequencer.stepThread(engineThread);
+        }
+    }
+
+    const reported = engineThread.justReported;
+    return typeof reported === 'undefined' || reported === null ? '' : reported;
+};
+
 /**
  * Execute a block.
  * @param {!Sequencer} sequencer Which sequencer is executing.
@@ -602,3 +736,7 @@ const execute = function (sequencer, thread) {
 };
 
 module.exports = execute;
+module.exports.evaluateBlockSynchronously = evaluateBlockSynchronously;
+module.exports.evaluateBlockWithEngine = evaluateBlockWithEngine;
+module.exports.EngineEvaluationRequiredError = EngineEvaluationRequiredError;
+module.exports.isPromise = isPromise;

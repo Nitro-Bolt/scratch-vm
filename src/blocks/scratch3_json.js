@@ -1,4 +1,5 @@
 const Cast = require('../util/cast');
+const execute = require('../engine/execute');
 
 class Scratch3JSONBlocks {
     constructor (runtime) {
@@ -38,7 +39,10 @@ class Scratch3JSONBlocks {
             json_reverse_array: this.reverseArray,
             json_foreach: this.forEach,
             json_foreach_value: this.forEachValue,
-            json_foreach_index: this.forEachIndex
+            json_foreach_index: this.forEachIndex,
+            json_map: this.map,
+            json_map_value: this.mapValue,
+            json_map_index: this.mapIndex
         };
     }
 
@@ -217,6 +221,83 @@ class Scratch3JSONBlocks {
         };
         stackFrame.index++;
         util.startBranch(1, true);
+    }
+
+    mapValue (args, util) {
+        const contexts = util.thread.mapContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].value ?? '';
+        }
+        return util.thread.currentMapValue ?? '';
+    }
+
+    mapIndex (args, util) {
+        const contexts = util.thread.mapContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].index ?? '';
+        }
+        return util.thread.currentMapIndex ?? '';
+    }
+
+    map (args, util) {
+        const {thread, sequencer} = util;
+        const arr = Cast.toArray(args.ARRAY);
+
+        const currentBlockId = thread.peekStack();
+        const blockContainer = thread.blockContainer || thread.target.blocks;
+        const currentBlock = blockContainer.getBlock(currentBlockId);
+        const mapperBlockId = currentBlock && currentBlock.inputs.METHOD ?
+            currentBlock.inputs.METHOD.block : null;
+
+        const contexts = thread.mapContexts = thread.mapContexts || [];
+        const baseDepth = contexts.length;
+        const result = [];
+        const NEEDS_ENGINE = {};
+
+        const setContext = index => {
+            contexts.length = baseDepth;
+            contexts.push({value: arr[index], index});
+        };
+
+        const finishAsynchronously = async (startIndex, pendingValue) => {
+            let pending = pendingValue;
+            for (let i = startIndex; i < arr.length; i++) {
+                setContext(i);
+                let value = pending;
+                pending = undefined;
+                if (value === NEEDS_ENGINE) {
+                    value = await execute.evaluateBlockWithEngine(sequencer, thread, mapperBlockId);
+                } else if (typeof value === 'undefined') {
+                    try {
+                        value = execute.evaluateBlockSynchronously(sequencer, thread, mapperBlockId);
+                    } catch (error) {
+                        if (!(error instanceof execute.EngineEvaluationRequiredError)) throw error;
+                        value = await execute.evaluateBlockWithEngine(sequencer, thread, mapperBlockId);
+                    }
+                }
+                if (execute.isPromise(value)) value = await value;
+                result.push(typeof value === 'undefined' ? '' : value);
+            }
+            contexts.length = baseDepth;
+            return result;
+        };
+
+        let i = 0;
+        try {
+            for (; i < arr.length; i++) {
+                setContext(i);
+                const value = execute.evaluateBlockSynchronously(sequencer, thread, mapperBlockId);
+                if (execute.isPromise(value)) {
+                    return finishAsynchronously(i, value);
+                }
+                result.push(typeof value === 'undefined' ? '' : value);
+            }
+        } catch (error) {
+            if (!(error instanceof execute.EngineEvaluationRequiredError)) throw error;
+            return finishAsynchronously(i, NEEDS_ENGINE);
+        }
+        contexts.length = baseDepth;
+        return result;
     }
 }
 

@@ -376,6 +376,9 @@ const InputOpcode = {
     JSON_REVERSE_ARRAY: 'json.reverseArray',
     JSON_FOREACH_VALUE: 'json.forEachValue',
     JSON_FOREACH_INDEX: 'json.forEachIndex',
+    JSON_MAP: 'json.map',
+    JSON_MAP_VALUE: 'json.mapValue',
+    JSON_MAP_INDEX: 'json.mapIndex',
 
     PROCEDURE_CALL: 'procedures.call',
     PROCEDURE_ARGUMENT: 'procedures.argument',

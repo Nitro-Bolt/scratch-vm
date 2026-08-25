@@ -542,6 +542,27 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);
         case 'json_foreach_index':
             return new IntermediateInput(InputOpcode.JSON_FOREACH_INDEX, InputType.NUMBER);
+        case 'json_map': {
+            const array = this.descendInputOfBlock(block, 'ARRAY', false,
+                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY);
+            const methodInput = block.inputs.METHOD;
+            let mapper;
+            if (methodInput && methodInput.block) {
+                mapper = this.descendInputOfBlock(block, 'METHOD');
+            } else {
+                mapper = this.createConstantInput('');
+            }
+            // yield is not fully known at generation time, so
+            // we just always yield. :tada:
+            return new IntermediateInput(InputOpcode.JSON_MAP, InputType.ARRAY, {
+                array,
+                mapper
+            }, true);
+        }
+        case 'json_map_value':
+            return new IntermediateInput(InputOpcode.JSON_MAP_VALUE, InputType.ANY);
+        case 'json_map_index':
+            return new IntermediateInput(InputOpcode.JSON_MAP_INDEX, InputType.NUMBER | InputType.STRING_NAN);
 
         case 'event_broadcast_menu': {
             const broadcastOption = block.fields.BROADCAST_OPTION;
