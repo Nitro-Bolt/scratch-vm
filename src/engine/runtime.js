@@ -1294,7 +1294,8 @@ class Runtime extends EventEmitter {
         for (const menuName in extensionInfo.menus) {
             if (Object.prototype.hasOwnProperty.call(extensionInfo.menus, menuName)) {
                 if (
-                    extensionInfo.menus[menuName].acceptText === true &&
+                    extensionInfo.menus[menuName] &&
+                    extensionInfo.menus[menuName]?.acceptText === true &&
                     typeof extensionInfo.menus[menuName].acceptReporters === 'undefined'
                 ) {
                     extensionInfo.menus[menuName].acceptReporters = true;
@@ -1421,14 +1422,14 @@ class Runtime extends EventEmitter {
                 type: menuId,
                 inputsInline: true,
                 output: 'String',
-                colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
-                colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
-                colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
+                colour: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color1,
+                colourSecondary: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color2,
+                colourTertiary: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color3,
                 outputShape: menuInfo.acceptReporters === true ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
-                        type: menuInfo.acceptText ? 'field_textdropdown' : 'field_dropdown',
+                        type: menuInfo?.acceptText ? 'field_textdropdown' : 'field_dropdown',
                         name: menuName,
                         options: menuItems
                     }
@@ -1892,7 +1893,8 @@ class Runtime extends EventEmitter {
             let fieldName;
             if (argInfo.menu) {
                 if (
-                    context.categoryInfo.menuInfo[argInfo.menu].acceptText === true &&
+                    context.categoryInfo.menuInfo[argInfo.menu] &&
+                    context.categoryInfo.menuInfo[argInfo.menu]?.acceptText === true &&
                     typeof context.categoryInfo.menuInfo[argInfo.menu].acceptReporters === 'undefined'
                 ) {
                     context.categoryInfo.menuInfo[argInfo.menu].acceptReporters = true;
@@ -1921,7 +1923,7 @@ class Runtime extends EventEmitter {
                     );
                     fieldName = argInfo.menu;
                 } else {
-                    if (menuInfo.acceptText) {
+                    if (menuInfo?.acceptText) {
                         argJSON.type = 'field_textdropdown';
                         argJSON.text = defaultValue || '';
                     } else {
