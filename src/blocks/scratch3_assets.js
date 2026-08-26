@@ -82,6 +82,7 @@ class Scratch3AssetBlocks {
         }
         const value = Cast.toString(args.VALUE).trim();
         const asset = util.target.sprite.assets[index];
+        if (asset.sharedAssetOwner && asset.sharedAssetOwner !== util.target.id) return;
         switch (args.TYPE) {
         case 'name': util.target.renameAsset(index, value, asset.dataFormat); break;
         case 'extension': util.target.renameAsset(index, asset.name, value || 'file'); break;
@@ -96,6 +97,7 @@ class Scratch3AssetBlocks {
         }
         const value = Cast.toString(args.VALUE);
         const assetObject = util.target.sprite.assets[index];
+        if (assetObject.sharedAssetOwner && assetObject.sharedAssetOwner !== util.target.id) return;
         const asset = assetObject.asset;
         if (args.TYPE === 'data: uri') {
             const base64 = value.split(',')[1];

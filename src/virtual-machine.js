@@ -856,7 +856,10 @@ class VirtualMachine extends EventEmitter {
             this.emitWorkspaceUpdate();
             this.runtime.setEditingTarget(this.editingTarget);
             this.runtime.ioDevices.cloud.setStage(this.runtime.getTargetForStage());
-        });
+        })
+            .then(() => Promise.all(this.runtime.targets
+                .filter(target => target.isOriginal && !target.isStage)
+                .map(target => this._addSharedAssetsToTarget(target))));
     }
 
     /**
@@ -902,6 +905,9 @@ class VirtualMachine extends EventEmitter {
                 // eslint-disable-next-line prefer-promise-reject-errors
                 return Promise.reject(`${errorPrefix} Unable to verify sprite version.`);
             })
+            .then(() => Promise.all(this.runtime.targets
+                .filter(target => target.isOriginal && !target.isStage)
+                .map(target => this._addSharedAssetsToTarget(target))))
             .then(() => this.runtime.emitProjectChanged())
             .catch(error => {
                 // Intentionally rejecting here (want errors to be handled by caller)
@@ -1002,6 +1008,7 @@ class VirtualMachine extends EventEmitter {
      * @returns {?Promise} - a promise that resolves when the costume has been decoded and added
      */
     duplicateCostume (costumeIndex) {
+        if (this._isReadOnlySharedAsset('costume', costumeIndex)) return Promise.resolve();
         const originalCostume = this.editingTarget.getCostumes()[costumeIndex];
         const clone = Object.assign({}, originalCostume);
         const md5ext = `${clone.assetId}.${clone.dataFormat}`;
@@ -1018,6 +1025,7 @@ class VirtualMachine extends EventEmitter {
      * @returns {?Promise} - a promise that resolves when the sound has been decoded and added
      */
     duplicateSound (soundIndex) {
+        if (this._isReadOnlySharedAsset('sound', soundIndex)) return Promise.resolve();
         const originalSound = this.editingTarget.getSounds()[soundIndex];
         const clone = Object.assign({}, originalSound);
         return loadSound(clone, this.runtime, this.editingTarget.sprite.soundBank).then(() => {
@@ -1032,6 +1040,7 @@ class VirtualMachine extends EventEmitter {
      * @param {string} newName - the desired new name of the costume (will be modified if already in use).
      */
     renameCostume (costumeIndex, newName) {
+        if (this._isReadOnlySharedAsset('costume', costumeIndex)) return;
         this.editingTarget.renameCostume(costumeIndex, newName);
         this.emitTargetsUpdate();
     }
@@ -1043,6 +1052,9 @@ class VirtualMachine extends EventEmitter {
      * if no costume was deleted.
      */
     deleteCostume (costumeIndex) {
+        if (this._isReadOnlySharedAsset('costume', costumeIndex)) return null;
+        const costume = this.editingTarget.getCostumes()[costumeIndex];
+        if (costume && costume.forAllSprites) this._removeSharedCopies('costume', costume);
         const deletedCostume = this.editingTarget.deleteCostume(costumeIndex);
         if (deletedCostume) {
             const target = this.editingTarget;
@@ -1082,6 +1094,7 @@ class VirtualMachine extends EventEmitter {
      * @param {string} newName - the desired new name of the sound (will be modified if already in use).
      */
     renameSound (soundIndex, newName) {
+        if (this._isReadOnlySharedAsset('sound', soundIndex)) return;
         this.editingTarget.renameSound(soundIndex, newName);
         this.emitTargetsUpdate();
     }
@@ -1106,12 +1119,18 @@ class VirtualMachine extends EventEmitter {
      * @param {ArrayBuffer} soundEncoding - the new (mp3) encoded sound to be stored
      */
     updateSoundBuffer (soundIndex, newBuffer, soundEncoding) {
+        if (this._isReadOnlySharedAsset('sound', soundIndex)) return;
         const sound = this.editingTarget.sprite.sounds[soundIndex];
         if (sound && sound.broken) delete sound.broken;
         const id = sound ? sound.soundId : null;
         if (id && this.runtime && this.runtime.audioEngine) {
             this.editingTarget.sprite.soundBank.getSoundPlayer(id).buffer = newBuffer;
         }
+        this._getSharedCopies('sound', sound).forEach(copy => {
+            if (copy.item.soundId && this.runtime.audioEngine) {
+                copy.target.sprite.soundBank.getSoundPlayer(copy.item.soundId).buffer = newBuffer;
+            }
+        });
         // Update sound in runtime
         if (soundEncoding) {
             // Now that we updated the sound, the format should also be updated
@@ -1148,7 +1167,10 @@ class VirtualMachine extends EventEmitter {
      * or null, if no sound was deleted.
      */
     deleteSound (soundIndex) {
+        if (this._isReadOnlySharedAsset('sound', soundIndex)) return null;
         const target = this.editingTarget;
+        const sound = target.getSounds()[soundIndex];
+        if (sound && sound.forAllSprites) this._removeSharedCopies('sound', sound);
         const deletedSound = this.editingTarget.deleteSound(soundIndex);
         if (deletedSound) {
             const folderSnapshot = this._removeFolderIfEmpty(deletedSound.folderId);
@@ -1189,7 +1211,10 @@ class VirtualMachine extends EventEmitter {
      * or null, if no asset was deleted.
      */
     deleteAsset (assetIndex) {
+        if (this._isReadOnlySharedAsset('asset', assetIndex)) return null;
         const target = this.editingTarget;
+        const asset = target.getAssets()[assetIndex];
+        if (asset && asset.forAllSprites) this._removeSharedCopies('asset', asset);
         const deletedAsset = this.editingTarget.deleteAsset(assetIndex);
         if (deletedAsset) {
             const folderSnapshot = this._removeFolderIfEmpty(deletedAsset.folderId);
@@ -1229,6 +1254,7 @@ class VirtualMachine extends EventEmitter {
      * @returns {?Promise} - a promise that resolves when the asset has been added
      */
     duplicateAsset (assetIndex) {
+        if (this._isReadOnlySharedAsset('asset', assetIndex)) return Promise.resolve();
         const originalAsset = this.editingTarget.getAssets()[assetIndex];
         const clone = Object.assign({}, originalAsset);
         return new Promise(resolve => {
@@ -1244,8 +1270,122 @@ class VirtualMachine extends EventEmitter {
      * @param {string} newName - the desired new name of the asset (will be modified if already in use).
      */
     renameAsset (assetIndex, newName, extension) {
+        if (this._isReadOnlySharedAsset('asset', assetIndex)) return;
         this.editingTarget.renameAsset(assetIndex, newName, extension);
         this.emitTargetsUpdate();
+    }
+
+    _sharedAssetList (target, kind) {
+        if (kind === 'costume') return target.getCostumes();
+        if (kind === 'sound') return target.getSounds();
+        return target.getAssets();
+    }
+
+    _isReadOnlySharedAsset (kind, index) {
+        if (!this.editingTarget) return false;
+        const item = this._sharedAssetList(this.editingTarget, kind)[index];
+        return Boolean(item && item.sharedAssetOwner && item.sharedAssetOwner !== this.editingTarget.id);
+    }
+
+    _removeSharedCopies (kind, master) {
+        this.runtime.targets.filter(target => target.isOriginal && !target.isStage &&
+            target.id !== master.sharedAssetOwner)
+            .forEach(target => {
+                const list = this._sharedAssetList(target, kind);
+                for (let i = list.length - 1; i >= 0; i--) {
+                    if (list[i].sharedAssetId !== master.sharedAssetId) continue;
+                    if (kind === 'costume') target.deleteCostume(i);
+                    else if (kind === 'sound') target.deleteSound(i);
+                    else target.deleteAsset(i);
+                }
+            });
+    }
+
+    _getSharedCopies (kind, master) {
+        if (!(master && master.forAllSprites && master.sharedAssetId)) return [];
+        const copies = [];
+        this.runtime.targets.filter(target => target.isOriginal && !target.isStage &&
+            target.id !== master.sharedAssetOwner)
+            .forEach(target => {
+                const item = this._sharedAssetList(target, kind)
+                    .find(candidate => candidate.sharedAssetId === master.sharedAssetId);
+                if (item) copies.push({item, target});
+            });
+        return copies;
+    }
+
+    _addSharedAssetsToTarget (target) {
+        const promises = [];
+        this.runtime.targets.filter(owner => owner.isOriginal && !owner.isStage && owner.id !== target.id)
+            .forEach(owner => ['costume', 'sound', 'asset'].forEach(kind => {
+                this._sharedAssetList(owner, kind)
+                    .filter(item => item.forAllSprites && item.sharedAssetOwner === owner.id)
+                    .forEach(item => {
+                        if (this._sharedAssetList(target, kind)
+                            .some(candidate => candidate.sharedAssetId === item.sharedAssetId)) return;
+                        const copy = Object.assign({}, item, {folderId: null});
+                        if (kind === 'costume') {
+                            promises.push(loadCostume(`${copy.assetId}.${copy.dataFormat}`, copy, this.runtime)
+                                .then(() => target.addCostume(copy)));
+                        } else if (kind === 'sound') {
+                            promises.push(loadSound(copy, this.runtime, target.sprite.soundBank)
+                                .then(() => target.addSound(copy)));
+                        } else {
+                            target.addAsset(copy);
+                        }
+                    });
+            }));
+        return Promise.all(promises);
+    }
+
+    _synchronizeSharedAssetCopies () {
+        const originals = this.runtime.targets.filter(target => target.isOriginal && !target.isStage);
+        ['costume', 'sound', 'asset'].forEach(kind => {
+            originals.forEach(owner => {
+                this._sharedAssetList(owner, kind)
+                    .filter(item => item.forAllSprites && item.sharedAssetOwner === owner.id)
+                    .forEach(master => originals.forEach(target => {
+                        if (target.id === owner.id) return;
+                        const copy = this._sharedAssetList(target, kind)
+                            .find(item => item.sharedAssetId === master.sharedAssetId);
+                        if (!copy) return;
+                        const runtimeId = kind === 'costume' ? copy.skinId :
+                            kind === 'sound' ? copy.soundId : null;
+                        Object.assign(copy, master, {folderId: null});
+                        if (kind === 'costume') copy.skinId = runtimeId;
+                        if (kind === 'sound') copy.soundId = runtimeId;
+                    }));
+            });
+        });
+    }
+
+    /** Make a target-owned item available, read-only, to every other sprite. */
+    setAssetForAllSprites (kind, index, enabled) {
+        if (!this.editingTarget || this.editingTarget.isStage ||
+            ['costume', 'sound', 'asset'].indexOf(kind) < 0) {
+            return Promise.resolve(false);
+        }
+        const item = this._sharedAssetList(this.editingTarget, kind)[index];
+        if (!item || (item.sharedAssetOwner && item.sharedAssetOwner !== this.editingTarget.id)) {
+            return Promise.resolve(false);
+        }
+        if (!enabled) {
+            this._removeSharedCopies(kind, item);
+            delete item.forAllSprites;
+            delete item.sharedAssetOwner;
+            delete item.sharedAssetId;
+            this.emitTargetsUpdate();
+            return Promise.resolve(true);
+        }
+        item.forAllSprites = true;
+        item.sharedAssetOwner = this.editingTarget.id;
+        item.sharedAssetId = item.sharedAssetId || uid();
+        const promises = this.runtime.targets.filter(target => target.isOriginal && !target.isStage &&
+            target.id !== this.editingTarget.id).map(target => this._addSharedAssetsToTarget(target));
+        return Promise.all(promises).then(() => {
+            this.emitTargetsUpdate();
+            return true;
+        });
     }
 
     /**
@@ -1693,6 +1833,7 @@ class VirtualMachine extends EventEmitter {
      *     2 for double-resolution bitmaps
      */
     updateBitmap (costumeIndex, bitmap, rotationCenterX, rotationCenterY, bitmapResolution) {
+        if (this._isReadOnlySharedAsset('costume', costumeIndex)) return;
         return this._updateBitmap(
             this.editingTarget.getCostumes()[costumeIndex],
             bitmap,
@@ -1727,6 +1868,14 @@ class VirtualMachine extends EventEmitter {
             bitmapResolution,
             [rotationCenterX / bitmapResolution, rotationCenterY / bitmapResolution]
         );
+        this._getSharedCopies('costume', costume).forEach(copy => {
+            this.runtime.renderer.updateBitmapSkin(
+                copy.item.skinId,
+                canvas,
+                bitmapResolution,
+                [rotationCenterX / bitmapResolution, rotationCenterY / bitmapResolution]
+            );
+        });
 
         // @todo there should be a better way to get from ImageData to a decodable storage format
         canvas.toBlob(blob => {
@@ -1762,6 +1911,7 @@ class VirtualMachine extends EventEmitter {
      * @param {number} rotationCenterY y of point about which the costume rotates, relative to its upper left corner
      */
     updateSvg (costumeIndex, svg, rotationCenterX, rotationCenterY) {
+        if (this._isReadOnlySharedAsset('costume', costumeIndex)) return;
         return this._updateSvg(
             this.editingTarget.getCostumes()[costumeIndex],
             svg,
@@ -1777,6 +1927,9 @@ class VirtualMachine extends EventEmitter {
             costume.rotationCenterY = rotationCenterY;
             this.runtime.renderer.updateSVGSkin(costume.skinId, svg, [rotationCenterX, rotationCenterY]);
             costume.size = this.runtime.renderer.getSkinSize(costume.skinId);
+            this._getSharedCopies('costume', costume).forEach(copy => {
+                this.runtime.renderer.updateSVGSkin(copy.item.skinId, svg, [rotationCenterX, rotationCenterY]);
+            });
         }
         const storage = this.runtime.storage;
         // If we're in here, we've edited an svg in the vector editor,
@@ -2235,6 +2388,7 @@ class VirtualMachine extends EventEmitter {
      * Defaults to true.
      */
     emitTargetsUpdate (triggerProjectChange) {
+        this._synchronizeSharedAssetCopies();
         if (typeof triggerProjectChange === 'undefined') triggerProjectChange = true;
         let lazyTargetList;
         const getTargetListLazily = () => {

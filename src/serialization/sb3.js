@@ -450,6 +450,9 @@ const serializeCostume = function (costume) {
     const obj = Object.create(null);
     obj.name = costume.name;
     if (costume.folderId) obj.folderId = costume.folderId;
+    if (costume.forAllSprites) obj.forAllSprites = true;
+    if (costume.sharedAssetOwner) obj.sharedAssetOwner = costume.sharedAssetOwner;
+    if (costume.sharedAssetId) obj.sharedAssetId = costume.sharedAssetId;
 
     const costumeToSerialize = costume.broken || costume;
 
@@ -480,6 +483,9 @@ const serializeSound = function (sound) {
     const obj = Object.create(null);
     obj.name = sound.name;
     if (sound.folderId) obj.folderId = sound.folderId;
+    if (sound.forAllSprites) obj.forAllSprites = true;
+    if (sound.sharedAssetOwner) obj.sharedAssetOwner = sound.sharedAssetOwner;
+    if (sound.sharedAssetId) obj.sharedAssetId = sound.sharedAssetId;
 
     const soundToSerialize = sound.broken || sound;
 
@@ -506,6 +512,9 @@ const serializeAsset = function (asset) {
     const obj = Object.create(null);
     obj.name = asset.name;
     if (asset.folderId) obj.folderId = asset.folderId;
+    if (asset.forAllSprites) obj.forAllSprites = true;
+    if (asset.sharedAssetOwner) obj.sharedAssetOwner = asset.sharedAssetOwner;
+    if (asset.sharedAssetId) obj.sharedAssetId = asset.sharedAssetId;
     obj.lastModified = asset.lastModified;
     obj.dataFormat = asset.dataFormat.toLowerCase();
     obj.assetId = asset.assetId;
@@ -662,6 +671,15 @@ const normalizeProjectFolders = (runtime, targets) => {
             !targetsBySerializedId.has(target._serializedTargetId)) {
             targetsBySerializedId.set(target._serializedTargetId, target);
         }
+    }
+    for (const target of targets) {
+        for (const items of [target.getCostumes(), target.getSounds(), target.getAssets()]) {
+            for (const item of items) {
+                if (!item || typeof item.sharedAssetOwner !== 'string') continue;
+                const owner = targetsBySerializedId.get(item.sharedAssetOwner);
+                if (owner) item.sharedAssetOwner = owner.id;
+            }
+        }
         delete target._serializedTargetId;
     }
 
@@ -753,10 +771,17 @@ const serializeTarget = function (target, extensions) {
         log.warn(`currentCostume property for target ${target.name} is out of range`);
         target.currentCostume = MathUtil.clamp(target.currentCostume, 0, target.costumes.length - 1);
     }
-    obj.currentCostume = target.currentCostume;
-    obj.costumes = target.costumes.map(serializeCostume);
-    obj.sounds = target.sounds.map(serializeSound);
-    obj.assets = target.assets.map(serializeAsset);
+    const costumes = target.costumes.filter(costume =>
+        !costume.sharedAssetOwner || costume.sharedAssetOwner === target.id);
+    const currentCostume = target.costumes[target.currentCostume];
+    obj.currentCostume = Math.max(0, costumes.indexOf(currentCostume));
+    obj.costumes = costumes.map(serializeCostume);
+    obj.sounds = target.sounds
+        .filter(sound => !sound.sharedAssetOwner || sound.sharedAssetOwner === target.id)
+        .map(serializeSound);
+    obj.assets = target.assets
+        .filter(asset => !asset.sharedAssetOwner || asset.sharedAssetOwner === target.id)
+        .map(serializeAsset);
     if (Object.prototype.hasOwnProperty.call(target, 'volume')) obj.volume = target.volume;
     if (Object.prototype.hasOwnProperty.call(target, 'layerOrder')) obj.layerOrder = target.layerOrder;
     if (obj.isStage) { // Only the stage should have these properties
@@ -927,11 +952,14 @@ const serialize = function (runtime, targetId, {allowOptimization = true} = {}) 
     }
 
     const hasFolders = Array.isArray(runtime.projectFolders) && runtime.projectFolders.length > 0;
+    const hasSharedAssets = serializedTargets.some(target =>
+        [...target.costumes, ...target.sounds, ...target.assets].some(item => item.forAllSprites));
     if (hasFolders) {
         obj.folders = runtime.projectFolders.map(serializeFolder);
-    } else {
+    } else if (!hasSharedAssets) {
         // Target IDs are only needed to reconnect target-scoped folders while
-        // loading. Keep ordinary SB3 output unchanged when folders are unused.
+        // loading or to reconnect shared assets with their owner. Keep ordinary
+        // SB3 output unchanged when neither feature is used.
         serializedTargets.forEach(target => delete target.id);
     }
 
@@ -1291,6 +1319,9 @@ const parseScratchAssets = function (object, runtime, zip) {
             skinId: null,
             name: costumeSource.name,
             folderId: typeof costumeSource.folderId === 'string' ? costumeSource.folderId : null,
+            forAllSprites: costumeSource.forAllSprites === true,
+            sharedAssetOwner: costumeSource.sharedAssetOwner,
+            sharedAssetId: costumeSource.sharedAssetId,
             bitmapResolution: costumeSource.bitmapResolution,
             rotationCenterX: costumeSource.rotationCenterX,
             rotationCenterY: costumeSource.rotationCenterY
@@ -1322,6 +1353,9 @@ const parseScratchAssets = function (object, runtime, zip) {
             sampleCount: soundSource.sampleCount,
             name: soundSource.name,
             folderId: typeof soundSource.folderId === 'string' ? soundSource.folderId : null,
+            forAllSprites: soundSource.forAllSprites === true,
+            sharedAssetOwner: soundSource.sharedAssetOwner,
+            sharedAssetId: soundSource.sharedAssetId,
             // TODO we eventually want this property to be called md5ext,
             // but there are many things relying on this particular name at the
             // moment, so this translation is very important
@@ -1347,6 +1381,9 @@ const parseScratchAssets = function (object, runtime, zip) {
             contentType: assetSource.contentType,
             name: assetSource.name,
             folderId: typeof assetSource.folderId === 'string' ? assetSource.folderId : null,
+            forAllSprites: assetSource.forAllSprites === true,
+            sharedAssetOwner: assetSource.sharedAssetOwner,
+            sharedAssetId: assetSource.sharedAssetId,
             lastModified: assetSource.lastModified,
             md5: assetSource.md5ext,
             data: null
