@@ -758,13 +758,6 @@ class JSGenerator {
             const operand = this.descendInput(node.operand);
             const _then = this.descendInput(node.then);
             const _else = this.descendInput(node.else);
-
-            if (node.operand.isConstant(true)) {
-                return `${_then}`;
-            } else if (node.operand.isConstant(false)) {
-                return `${_else}`;
-            }
-
             return `(${operand} ? ${_then} : ${_else})`;
         }
         case InputOpcode.CONTROL_COUNTER:
