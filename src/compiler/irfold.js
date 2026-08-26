@@ -115,19 +115,21 @@ class IRFolder {
     foldInput (input) {
         for (const key of Object.keys(input.inputs)) input.inputs[key] = this.foldValue(input.inputs[key]);
         const node = input.inputs;
+        /** @type {(value: *) => IntermediateInput} */
+        const foldNonNaN = value => (typeof value === 'number' && Number.isNaN(value) ? input : constant(value));
         /** @type {(values: IntermediateInput[]) => boolean} */
         const all = values => values.every(isConstant);
         /** @type {(callback: (value: number) => number) => IntermediateInput} */
-        const unary = callback => (isConstant(node.value) ? constant(callback(valueOf(node.value))) : input);
+        const unary = callback => (isConstant(node.value) ? foldNonNaN(callback(valueOf(node.value))) : input);
         /** @type {(callback: (left: *, right: *) => *) => IntermediateInput} */
         const binary = callback => (all([node.left, node.right]) ?
-            constant(callback(valueOf(node.left), valueOf(node.right))) : input);
+            foldNonNaN(callback(valueOf(node.left), valueOf(node.right))) : input);
         /** @type {(callback: (values: *[]) => *) => IntermediateInput} */
         const operands = callback => {
             /** @type {IntermediateInput[] | undefined} */
             const inputOperands = node.operands;
             if (!inputOperands || !all(inputOperands)) return input;
-            return constant(callback(inputOperands.map(valueOf)));
+            return foldNonNaN(callback(inputOperands.map(valueOf)));
         };
         /** @type {(callback: (result: number) => boolean) => IntermediateInput} */
         const comparisons = callback => operands(values => {
@@ -143,7 +145,7 @@ class IRFolder {
             if (isConstant(node.target)) return constant(Cast.toNumber(valueOf(node.target)));
             break;
         case InputOpcode.CAST_NUMBER_OR_NAN:
-            if (isConstant(node.target)) return constant(+valueOf(node.target));
+            if (isConstant(node.target)) return foldNonNaN(+valueOf(node.target));
             break;
         case InputOpcode.CAST_NUMBER_INDEX:
             if (isConstant(node.target)) return constant((+valueOf(node.target)) | 0);
