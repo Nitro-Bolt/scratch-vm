@@ -5,5 +5,4 @@ updates:
     schedule:
       interval: "daily"
     allow:
-      - dependency-name: "scratch-blocks"
       - dependency-name: "scratch-parser"

@@ -35,10 +35,21 @@
  * @property {ArgumentType} type - the type of the argument (number, string, etc.)
  * @property {*} [defaultValue] - the default value of this argument.
  * @property {string} [menu] - the name of the menu to use for this argument, if any.
+ * @property {number} [min] - minimum value for a slider argument.
+ * @property {number} [max] - maximum value for a slider argument.
+ * @property {number} [precision] - step size for a slider argument.
  */
 
 /**
- * @typedef {ExtensionDynamicMenu|ExtensionMenuItems} ExtensionMenuMetadata
+ * @typedef {object} ExtensionDependentMenuMetadata
+ * Metadata for a menu whose options depend on another argument on the same block.
+ * @property {string} parentName - the name of the argument this menu depends on. The parent argument must occur first.
+ * @property {Object.<string, ExtensionMenuItems>} optionMapping - menu items keyed by parent argument value.
+ * @property {ExtensionMenuItems} [defaultOptions] - items used when the parent value has no mapping.
+ */
+
+/**
+ * @typedef {ExtensionDynamicMenu|ExtensionMenuItems|ExtensionDependentMenuMetadata} ExtensionMenuMetadata
  * All the metadata needed to register an extension drop-down menu.
  */
 

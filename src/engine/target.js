@@ -40,6 +40,12 @@ class Target extends EventEmitter {
          */
         this.id = uid();
         /**
+         * ID of the folder containing this target, or null when the
+         * target is not in a folder. Only original, non-stage targets use it.
+         * @type {?string}
+         */
+        this.folderId = null;
+        /**
          * Blocks run as code for this target.
          * @type {!Blocks}
          */

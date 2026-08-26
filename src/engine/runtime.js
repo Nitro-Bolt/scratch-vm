@@ -78,6 +78,9 @@ const ArgumentTypeMap = (() => {
             fieldName: 'NUM'
         }
     };
+    map[ArgumentType.SLIDER] = {
+        slider: true
+    };
     map[ArgumentType.COLOR] = {
         shadow: {
             type: 'colour_picker',
@@ -243,6 +246,13 @@ class Runtime extends EventEmitter {
         super();
 
         /**
+         * Native project folders. Items refer to these records through a
+         * `folderId` property; folder membership is never encoded in names.
+         * @type {Array.<{id: string, name: string, kind: string, scopeId: ?string, parentId: ?string}>}
+         */
+        this.projectFolders = [];
+
+        /**
          * Target management and storage.
          * @type {Array.<!Target>}
          */
@@ -368,6 +378,12 @@ class Runtime extends EventEmitter {
          * @type {Boolean}
          */
         this.turboMode = false;
+
+        /**
+         * Whether the project is paused.
+         * @type {boolean}
+         */
+        this.paused = false;
 
         /**
          * tw: Responsible for managing the VM's many timers.
@@ -739,6 +755,20 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Event name when the project is paused.
+     */
+    static get PROJECT_RUN_PAUSE () {
+        return 'PROJECT_RUN_PAUSE';
+    }
+
+    /**
+     * Event name when the project is resumed.
+     */
+    static get PROJECT_RUN_RESUME () {
+        return 'PROJECT_RUN_RESUME';
+    }
+
+    /**
      * Event name when threads start running.
      * Used by the UI to indicate running status.
      * @const {string}
@@ -987,6 +1017,34 @@ class Runtime extends EventEmitter {
      */
     static get PLATFORM_MISMATCH () {
         return 'PLATFORM_MISMATCH';
+    }
+
+    /**
+     * Event name when a debugger breakpoint is activated.
+     */
+    static get DEBUGGER_BREAKPOINT () {
+        return 'DEBUGGER_BREAKPOINT';
+    }
+
+    /**
+     * Event name when debugger logs are cleared.
+     */
+    static get DEBUGGER_CLEAR () {
+        return 'DEBUGGER_CLEAR';
+    }
+
+    /**
+     * Event name when a log has been added.
+     */
+    static get DEBUGGER_LOG () {
+        return 'DEBUGGER_LOG';
+    }
+
+    /**
+     * Event name when debugger timer data has changed.
+     */
+    static get DEBUGGER_TIMER_UPDATE () {
+        return 'DEBUGGER_TIMER_UPDATE';
     }
 
     /**
@@ -1241,9 +1299,21 @@ class Runtime extends EventEmitter {
 
         for (const menuName in extensionInfo.menus) {
             if (Object.prototype.hasOwnProperty.call(extensionInfo.menus, menuName)) {
+                if (
+                    extensionInfo.menus[menuName].acceptText === true &&
+                    typeof extensionInfo.menus[menuName].acceptReporters === 'undefined'
+                ) {
+                    extensionInfo.menus[menuName].acceptReporters = true;
+                }
+
                 const menuInfo = extensionInfo.menus[menuName];
-                const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuInfo, categoryInfo);
-                categoryInfo.menus.push(convertedMenu);
+                // Dependent menus are fields on another block, so they cannot also
+                // be emitted as standalone shadow blocks: their parent field would
+                // not exist there.
+                if (!menuInfo.parentName) {
+                    const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuInfo, categoryInfo);
+                    categoryInfo.menus.push(convertedMenu);
+                }
                 categoryInfo.menuInfo[menuName] = menuInfo;
             }
         }
@@ -1326,6 +1396,9 @@ class Runtime extends EventEmitter {
             const extensionMessageContext = this.makeMessageContextForTarget();
             return menuItems.map(item => {
                 const formattedItem = maybeFormatMessage(item, extensionMessageContext);
+                if (formattedItem === '---') {
+                    return 'separator';
+                }
                 switch (typeof formattedItem) {
                 case 'string':
                     return [formattedItem, formattedItem];
@@ -1345,6 +1418,7 @@ class Runtime extends EventEmitter {
      * @param {object} menuInfo - a description of this menu and its items
      * @property {*} items - an array of menu items or a function to retrieve such an array
      * @property {boolean} [acceptReporters] - if true, allow dropping reporters onto this menu
+     * @property {boolean} [acceptText] - if true, allow entering arbitrary text in this menu
      * @param {CategoryInfo} categoryInfo - the category for this block
      * @returns {object} - a JSON-esque object ready for scratch-blocks' consumption
      * @private
@@ -1361,7 +1435,7 @@ class Runtime extends EventEmitter {
                 colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
                 colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
                 colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
-                outputShape: menuInfo.acceptReporters ?
+                outputShape: menuInfo.acceptReporters === true ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
@@ -1821,12 +1895,36 @@ class Runtime extends EventEmitter {
                 argJSON.check = argTypeInfo.check;
             }
 
+            const noAcceptReporters = typeof argInfo.acceptReporters !== 'undefined' &&
+                argInfo.acceptReporters === false;
+
             let valueName;
             let shadowType;
             let fieldName;
             if (argInfo.menu) {
+                if (
+                    context.categoryInfo.menuInfo[argInfo.menu].acceptText === true &&
+                    typeof context.categoryInfo.menuInfo[argInfo.menu].acceptReporters === 'undefined'
+                ) {
+                    context.categoryInfo.menuInfo[argInfo.menu].acceptReporters = true;
+                }
+
                 const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
-                if (menuInfo.acceptReporters) {
+                if (menuInfo.parentName) {
+                    const optionMapping = {};
+                    for (const parentValue in menuInfo.optionMapping) {
+                        if (Object.prototype.hasOwnProperty.call(menuInfo.optionMapping, parentValue)) {
+                            optionMapping[parentValue] = this._convertMenuItems(menuInfo.optionMapping[parentValue]);
+                        }
+                    }
+                    argJSON.type = 'field_dependent_dropdown';
+                    argJSON.parentName = menuInfo.parentName;
+                    argJSON.optionMapping = optionMapping;
+                    argJSON.defaultOptions = this._convertMenuItems(menuInfo.defaultOptions || []);
+                    valueName = null;
+                    shadowType = null;
+                    fieldName = name;
+                } else if (menuInfo.acceptReporters) {
                     valueName = name;
                     shadowType = this._makeExtensionMenuId(
                         argInfo.menu,
@@ -1845,10 +1943,52 @@ class Runtime extends EventEmitter {
                     shadowType = null;
                     fieldName = name;
                 }
+            } else if (argInfo.type === ArgumentType.STRING && noAcceptReporters) {
+                argJSON.type = 'field_input';
+                argJSON.text = defaultValue || '';
+                valueName = null;
+                shadowType = null;
+                fieldName = name;
+            } else if (argInfo.type === ArgumentType.NUMBER && noAcceptReporters) {
+                argJSON.type = 'field_number';
+                argJSON.value = defaultValue || '';
+                valueName = null;
+                shadowType = null;
+                fieldName = name;
             } else {
                 valueName = name;
-                shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
-                fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+                if (argTypeInfo.slider) {
+                    shadowType = `${context.categoryInfo.id}_${context.blockInfo.opcode}_${name}_slider`;
+                    fieldName = 'NUM';
+                    const fieldJSON = {
+                        type: 'field_slider',
+                        name: fieldName
+                    };
+                    if (defaultValue !== null) fieldJSON.value = defaultValue;
+                    if (typeof argInfo.min !== 'undefined') fieldJSON.min = argInfo.min;
+                    if (typeof argInfo.max !== 'undefined') fieldJSON.max = argInfo.max;
+                    if (typeof argInfo.precision !== 'undefined') fieldJSON.precision = argInfo.precision;
+                    if (!context.categoryInfo.blocks.some(block => block.json && block.json.type === shadowType)) {
+                        context.categoryInfo.blocks.push({
+                            info: {hideFromPalette: true},
+                            json: {
+                                type: shadowType,
+                                message0: '%1',
+                                args0: [fieldJSON],
+                                inputsInline: true,
+                                output: 'Number',
+                                outputShape: ScratchBlocksConstants.OUTPUT_SHAPE_ROUND,
+                                colour: '#FFFFFF',
+                                colourSecondary: '#FFFFFF',
+                                colourTertiary: '#FFFFFF'
+                            },
+                            xml: ''
+                        });
+                    }
+                } else {
+                    shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
+                    fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+                }
 
                 if (typeof argInfo.shadow === 'string') {
                     shadowType = `${context.categoryInfo.id}_${argInfo.shadow}`;
@@ -2459,6 +2599,11 @@ class Runtime extends EventEmitter {
      */
     startHats (requestedHatOpcode,
         optMatchFields, optTarget) {
+        if (this.paused) {
+            // Runtime is paused.
+            return;
+        }
+
         if (!Object.prototype.hasOwnProperty.call(this._hats, requestedHatOpcode)) {
             // No known hat with this opcode.
             return;
@@ -2720,6 +2865,41 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Pause all existing threads and sounds.
+     */
+    pause () {
+        this.emit(Runtime.PROJECT_RUN_PAUSE);
+        for (const thread of this.threads) {
+            thread.isPaused = true;
+        }
+        for (const target of this.targets) {
+            const soundBank = target.sprite.soundBank;
+            soundBank.audioEngine.audioContext.suspend();
+        }
+        this.paused = true;
+    }
+
+    /**
+     * Resume all currently paused threads and sounds.
+     */
+    resume () {
+        this.emit(Runtime.PROJECT_RUN_RESUME);
+        for (const thread of this.threads) {
+            if (!thread.isPaused) continue;
+            thread.isPaused = false;
+        }
+        for (const target of this.targets) {
+            const soundBank = target.sprite.soundBank;
+            const audioContext = soundBank.audioEngine.audioContext;
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+        }
+        this.paused = false;
+    }
+
+    /**
      * Stop "everything."
      */
     stopAll () {
@@ -2774,8 +2954,9 @@ class Runtime extends EventEmitter {
     /**
      * Repeatedly run `sequencer.stepThreads` and filter out
      * inactive threads after each iteration.
+     * @param {boolean | undefined} stepPausedThreads Whether to step paused threads.
      */
-    _step () {
+    _step (stepPausedThreads) {
         // RUNTIME_STEP_START runs before BEFORE_EXECUTE
         // this runs before any processing of this new step
         this.frameLoop._stepCounter++;
@@ -2813,7 +2994,7 @@ class Runtime extends EventEmitter {
             this.profiler.start(stepThreadsProfilerId);
         }
         this.emit(Runtime.BEFORE_EXECUTE);
-        const doneThreads = this.sequencer.stepThreads();
+        const doneThreads = this.sequencer.stepThreads(stepPausedThreads);
         if (this.profiler !== null) {
             this.profiler.stop();
         }
@@ -3739,6 +3920,25 @@ class Runtime extends EventEmitter {
         }
         this.frameLoop.stop();
         this.emit(Runtime.RUNTIME_STOPPED);
+    }
+
+    /**
+     * Pause's the runtime and open's the debugger.
+     */
+    breakpoint () {
+        this.pause();
+        this.emit(Runtime.DEBUGGER_BREAKPOINT);
+    }
+
+    /**
+     * Emit's a log to the debugger.
+     * @param {string} type The type of the log. Either "log", "warn", "error".
+     * @param {string} message The message of the log.
+     * @param {Target} optTarget The target that the log was sent in.
+     * @param {RGBOject} optColor The color of the log, as an {r, g, b, a} object.
+     */
+    emitDebuggerLog (type, message, optTarget, optColor) {
+        this.emit(Runtime.DEBUGGER_LOG, type, message, optTarget, optColor);
     }
 
     /**

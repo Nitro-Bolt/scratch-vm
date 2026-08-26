@@ -505,12 +505,8 @@ class JSGenerator {
         }
         case InputOpcode.OP_LETTER_OF:
             return `((${this.descendInput(node.string)})[${this.descendInput(node.letter)} - 1] || "")`;
-        case InputOpcode.OP_LETTERS_IN: {
-            const str = this.descendInput(node.string);
-            const start = this.descendInput(node.start);
-            const end = this.descendInput(node.end);
-            return `((() => { const _s = ${str}; const _start = ${start} - 1; const _end = ${end} - 1; return (_start > _end || _start < 0 || _start >= _s.length) ? '' : _s.substring(_start, Math.min(_end, _s.length - 1) + 1); })())`;
-        }
+        case InputOpcode.OP_LETTERS_IN:
+            return `lettersIn(${this.descendInput(node.string)}, ${this.descendInput(node.start)}, ${this.descendInput(node.end)})`;
         case InputOpcode.OP_LOG_E:
             return `Math.log(${this.descendInput(node.value)})`;
         case InputOpcode.OP_LOG_10:

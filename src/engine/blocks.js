@@ -339,7 +339,7 @@ class Blocks {
      */
     static normalizeProcedureDefaults (proccode, names, ids, defaults) {
         const paramTypes = [];
-        const regex = /%([snboa])/g;
+        const regex = /%([snboar])/g;
         let match;
         while ((match = regex.exec(proccode)) !== null) {
             paramTypes.push(match[1]);
@@ -1053,7 +1053,7 @@ class Blocks {
         }
 
         const argumentTypes = [];
-        const argumentPattern = /(?:^|[^\\])%([nbdoas])/g;
+        const argumentPattern = /(?:^|[^\\])%([nbdoasr])/g;
         let match;
         while ((match = argumentPattern.exec(mutation.proccode || ''))) {
             argumentTypes.push(match[1]);
@@ -1277,25 +1277,76 @@ class Blocks {
         if (block.next !== null && !preserve) {
             this.deleteBlock(block.next);
         }
+        let preservedStack = block.next;
+
         // Preservation if needed
         if (preserve) {
             const parent = this._blocks[block.parent];
-            const next = this._blocks[block.next];
             const input = parent?.inputs ?
                 Object.values(parent.inputs).find(i => i.block === blockId) :
                 null;
+
+            // Flatten statement inputs into the surrounding script before its old
+            // tail. Multi-branch blocks retain every branch in input order.
+            const substacks = [];
+            for (const inputName in block.inputs) {
+                const blockInput = block.inputs[inputName];
+                if (inputName.startsWith('SUBSTACK') && blockInput.block !== null) {
+                    substacks.push(blockInput.block);
+                    blockInput.block = null;
+                }
+            }
+            if (substacks.length > 0) {
+                preservedStack = substacks[0];
+                for (let i = 0; i < substacks.length; i++) {
+                    let lastBlock = this._blocks[substacks[i]];
+                    while (lastBlock && lastBlock.next !== null) {
+                        lastBlock = this._blocks[lastBlock.next];
+                    }
+                    const followingBlockId = substacks[i + 1] || block.next;
+                    if (lastBlock) {
+                        lastBlock.next = followingBlockId;
+                    }
+                    const followingBlock = this._blocks[followingBlockId];
+                    if (followingBlock && lastBlock) {
+                        followingBlock.parent = lastBlock.id;
+                    }
+                }
+            }
+
             if (parent && !input) {
-                parent.next = block.next;
+                parent.next = preservedStack;
             }
-            if (next) {
-                next.parent = block.parent;
+            const firstPreservedBlock = this._blocks[preservedStack];
+            if (firstPreservedBlock) {
+                firstPreservedBlock.parent = block.parent;
             }
-            if (next && input) {
-                input.block = block.next;
+            if (input) {
+                input.block = preservedStack;
+            }
+
+            // Reporter inputs cannot be spliced into a statement connection, so
+            // promote real reporters to their own scripts. Generated shadow/default
+            // inputs still belong to the deleted block.
+            for (const inputName in block.inputs) {
+                const blockInput = block.inputs[inputName];
+                if (blockInput.block === null || blockInput.block === blockInput.shadow) continue;
+
+                const inputBlock = this._blocks[blockInput.block];
+                if (inputBlock) {
+                    inputBlock.parent = null;
+                    inputBlock.topLevel = true;
+                    inputBlock.x = block.x;
+                    inputBlock.y = block.y;
+                    if (this._scripts.indexOf(inputBlock.id) === -1) {
+                        this._scripts.push(inputBlock.id);
+                    }
+                }
+                blockInput.block = null;
             }
         }
 
-        // Delete inputs (including branches)
+        // Delete inputs (including branches not preserved above)
         for (const input in block.inputs) {
             // If it's null, the block in this input moved away.
             if (block.inputs[input].block !== null) {
@@ -1314,12 +1365,12 @@ class Blocks {
         }
         const index = this._scripts.indexOf(blockId);
         if (preserve && index > -1) {
-            const next = this._blocks[block.next];
-            if (next) {
-                this._scripts.push(next.id);
-                next.topLevel = true;
-                next.x = block.x;
-                next.y = block.y;
+            const firstPreservedBlock = this._blocks[preservedStack];
+            if (firstPreservedBlock) {
+                this._scripts.push(firstPreservedBlock.id);
+                firstPreservedBlock.topLevel = true;
+                firstPreservedBlock.x = block.x;
+                firstPreservedBlock.y = block.y;
             }
             this._scripts.splice(index, 1);
         }

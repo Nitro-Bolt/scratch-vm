@@ -10,10 +10,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: git config user.name "GitHub Action"
       - run: git config user.email "action@github.com"
-      - run: npm install
-      - run: git diff --quiet package-lock.json || (git add package-lock.json && git commit -m "Update package-lock.json" && git push)
+      - run: pnpm install
+      - run: git diff --quiet pnpm-lock.yaml package.json || (git add pnpm-lock.yaml package.json && git commit -m "Update pnpm-lock.yaml" && git push)

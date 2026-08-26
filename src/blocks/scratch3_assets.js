@@ -39,7 +39,9 @@ class Scratch3AssetBlocks {
             target = this.runtime.getSpriteTargetByName(args.SPRITE);
         }
 
-        return target.sprite.assets.map(a => a.name);
+        if (!target) return [];
+
+        return target.sprite?.assets ? target.sprite.assets.map(a => a.name) : [];
     }
 
     fileAsType (args, util) {
