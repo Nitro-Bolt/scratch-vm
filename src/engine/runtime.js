@@ -1886,6 +1886,8 @@ class Runtime extends EventEmitter {
 
             const noAcceptReporters = typeof argInfo.acceptReporters !== 'undefined' &&
                 argInfo.acceptReporters === false;
+            const canMultiline = argInfo.type === ArgumentType.STRING &&
+                argInfo.canMultiline === true;
 
             let valueName;
             let shadowType;
@@ -1935,6 +1937,7 @@ class Runtime extends EventEmitter {
             } else if (argInfo.type === ArgumentType.STRING && noAcceptReporters) {
                 argJSON.type = 'field_input';
                 argJSON.text = defaultValue || '';
+                if (canMultiline) argJSON.multiline = true;
                 valueName = null;
                 shadowType = null;
                 fieldName = name;
@@ -1977,6 +1980,9 @@ class Runtime extends EventEmitter {
                 } else {
                     shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
                     fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+                    if (canMultiline && shadowType === 'text') {
+                        shadowType = 'text_multiline';
+                    }
                 }
 
                 if (typeof argInfo.shadow === 'string') {

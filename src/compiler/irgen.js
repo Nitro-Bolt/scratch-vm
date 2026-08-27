@@ -265,6 +265,7 @@ class ScriptTreeGenerator {
         case 'math_whole_number':
             return this.createConstantInput(block.fields.NUM.value, preserveStrings);
         case 'text':
+        case 'text_multiline':
             return this.createConstantInput(block.fields.TEXT.value, preserveStrings);
         case 'checkbox':
             return this.createConstantInput(true).toType(InputType.BOOLEAN);
