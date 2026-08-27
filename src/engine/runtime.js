@@ -1294,7 +1294,6 @@ class Runtime extends EventEmitter {
         for (const menuName in extensionInfo.menus) {
             if (Object.prototype.hasOwnProperty.call(extensionInfo.menus, menuName)) {
                 if (
-                    extensionInfo.menus[menuName] &&
                     extensionInfo.menus[menuName]?.acceptText === true &&
                     typeof extensionInfo.menus[menuName].acceptReporters === 'undefined'
                 ) {
@@ -1893,7 +1892,6 @@ class Runtime extends EventEmitter {
             let fieldName;
             if (argInfo.menu) {
                 if (
-                    context.categoryInfo.menuInfo[argInfo.menu] &&
                     context.categoryInfo.menuInfo[argInfo.menu]?.acceptText === true &&
                     typeof context.categoryInfo.menuInfo[argInfo.menu].acceptReporters === 'undefined'
                 ) {
