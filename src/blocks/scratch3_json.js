@@ -224,79 +224,40 @@ class Scratch3JSONBlocks {
     }
 
     mapValue (args, util) {
-        const contexts = util.thread.mapContexts;
+        const contexts = util.thread.jsonMapContexts;
         if (contexts && contexts.length > 0) {
             return contexts[contexts.length - 1].value ?? '';
         }
-        return util.thread.currentMapValue ?? '';
+        return '';
     }
 
     mapIndex (args, util) {
-        const contexts = util.thread.mapContexts;
+        const contexts = util.thread.jsonMapContexts;
         if (contexts && contexts.length > 0) {
             return contexts[contexts.length - 1].index ?? '';
         }
-        return util.thread.currentMapIndex ?? '';
+        return '';
     }
 
-    map (args, util) {
+    async map (args, util) {
         const {thread, sequencer} = util;
-        const arr = Cast.toArray(args.ARRAY);
+        const array = Cast.toArray(args.ARRAY);
 
-        const currentBlockId = thread.peekStack();
+        const currentOperation = thread.peekStackFrame().op;
+        const currentBlockId = currentOperation ? currentOperation.id : thread.peekStack();
         const blockContainer = thread.blockContainer || thread.target.blocks;
         const currentBlock = blockContainer.getBlock(currentBlockId);
         const mapperBlockId = currentBlock && currentBlock.inputs.METHOD ?
             currentBlock.inputs.METHOD.block : null;
 
-        const contexts = thread.mapContexts = thread.mapContexts || [];
-        const baseDepth = contexts.length;
+        const parentContexts = thread.jsonMapContexts || [];
         const result = [];
-        const NEEDS_ENGINE = {};
 
-        const setContext = index => {
-            contexts.length = baseDepth;
-            contexts.push({value: arr[index], index});
-        };
-
-        const finishAsynchronously = async (startIndex, pendingValue) => {
-            let pending = pendingValue;
-            for (let i = startIndex; i < arr.length; i++) {
-                setContext(i);
-                let value = pending;
-                pending = undefined;
-                if (value === NEEDS_ENGINE) {
-                    value = await execute.evaluateBlockWithEngine(sequencer, thread, mapperBlockId);
-                } else if (typeof value === 'undefined') {
-                    try {
-                        value = execute.evaluateBlockSynchronously(sequencer, thread, mapperBlockId);
-                    } catch (error) {
-                        if (!(error instanceof execute.EngineEvaluationRequiredError)) throw error;
-                        value = await execute.evaluateBlockWithEngine(sequencer, thread, mapperBlockId);
-                    }
-                }
-                if (execute.isPromise(value)) value = await value;
-                result.push(typeof value === 'undefined' ? '' : value);
-            }
-            contexts.length = baseDepth;
-            return result;
-        };
-
-        let i = 0;
-        try {
-            for (; i < arr.length; i++) {
-                setContext(i);
-                const value = execute.evaluateBlockSynchronously(sequencer, thread, mapperBlockId);
-                if (execute.isPromise(value)) {
-                    return finishAsynchronously(i, value);
-                }
-                result.push(typeof value === 'undefined' ? '' : value);
-            }
-        } catch (error) {
-            if (!(error instanceof execute.EngineEvaluationRequiredError)) throw error;
-            return finishAsynchronously(i, NEEDS_ENGINE);
+        for (let index = 0; index < array.length; index++) {
+            const jsonMapContexts = parentContexts.concat({value: array[index], index});
+            const value = await execute.evaluateReporter(sequencer, thread, mapperBlockId, {jsonMapContexts});
+            result.push(value ?? '');
         }
-        contexts.length = baseDepth;
         return result;
     }
 }

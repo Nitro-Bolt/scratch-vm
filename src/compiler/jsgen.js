@@ -378,32 +378,33 @@ class JSGenerator {
             return vars?.index ?? '0';
         }
         case InputOpcode.JSON_MAP: {
-            // yield is not fully known at generation time, so
-            // we just always yield. :tada:
             this.yielded();
             const array = this.descendInput(node.array);
+            const value = this.localVariables.next();
+            const index = this.localVariables.next();
+            if (!this.foreachVarsStack) this.foreachVarsStack = [];
+            this.foreachVarsStack.push({value, index});
             const mapper = this.descendInput(node.mapper);
+            this.foreachVarsStack.pop();
             return [
                 `(yield* (function* () {`,
-                `const arr = toArray(yield* (function* () { return ${array}; })());`,
+                `const arr = toArray(${array});`,
                 `const res = [];`,
-                `const oldVal = thread.currentMapValue;`,
-                `const oldIdx = thread.currentMapIndex;`,
-                `for (let i = 0; i < arr.length; i++) {`,
-                `thread.currentMapValue = arr[i];`,
-                `thread.currentMapIndex = i;`,
+                `for (const [${index}, ${value}] of arr.entries()) {`,
                 `res.push(yield* (function* () { return ${mapper}; })());`,
                 `}`,
-                `thread.currentMapValue = oldVal;`,
-                `thread.currentMapIndex = oldIdx;`,
                 `return res;`,
                 `})())`
             ].join('\n');
         }
-        case InputOpcode.JSON_MAP_VALUE:
-            return `nullCoalsh(thread.currentMapValue, "")`;
-        case InputOpcode.JSON_MAP_INDEX:
-            return `nullCoalsh(thread.currentMapIndex, "")`;
+        case InputOpcode.JSON_MAP_VALUE: {
+            const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_MAP_INDEX: {
+            const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
+            return vars?.index ?? '""';
+        }
 
         case InputOpcode.LOOKS_SIZE_GET:
             return 'Math.round(target.size)';
