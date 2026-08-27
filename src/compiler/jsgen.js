@@ -141,6 +141,12 @@ class JSGenerator {
         /** @type {{value: string, index: string}[] | null} */
         this.foreachVarsStack = null;
 
+        /** @type {{value: string, index: string}[] | null} */
+        this.mapVarsStack = null;
+
+        /** @type {{value: string, index: string}[] | null} */
+        this.filterVarsStack = null;
+
         /** @type {string[] | null} */
         this.forEachInRangeStack = null;
     }
@@ -382,10 +388,10 @@ class JSGenerator {
             const array = this.descendInput(node.array);
             const value = this.localVariables.next();
             const index = this.localVariables.next();
-            if (!this.foreachVarsStack) this.foreachVarsStack = [];
-            this.foreachVarsStack.push({value, index});
+            if (!this.mapVarsStack) this.mapVarsStack = [];
+            this.mapVarsStack.push({value, index});
             const mapper = this.descendInput(node.mapper);
-            this.foreachVarsStack.pop();
+            this.mapVarsStack.pop();
             return [
                 `(yield* (function* () {`,
                 `const arr = toArray(${array});`,
@@ -398,11 +404,41 @@ class JSGenerator {
             ].join('\n');
         }
         case InputOpcode.JSON_MAP_VALUE: {
-            const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
+            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
             return vars?.value ?? '""';
         }
         case InputOpcode.JSON_MAP_INDEX: {
-            const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
+            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
+            return vars?.index ?? '""';
+        }
+        case InputOpcode.JSON_FILTER: {
+            this.yielded();
+            const array = this.descendInput(node.array);
+            const value = this.localVariables.next();
+            const index = this.localVariables.next();
+            if (!this.filterVarsStack) this.filterVarsStack = [];
+            this.filterVarsStack.push({value, index});
+            const mapper = this.descendInput(node.mapper);
+            this.filterVarsStack.pop();
+            return [
+                `(yield* (function* () {`,
+                `const arr = toArray(${array});`,
+                `const res = [];`,
+                `for (const [${index}, ${value}] of arr.entries()) {`,
+                `if (yield* (function* () { return ${mapper}; })()) {`,
+                `res.push(${value});`,
+                `}`,
+                `}`,
+                `return res;`,
+                `})())`
+            ].join('\n');
+        }
+        case InputOpcode.JSON_FILTER_VALUE: {
+            const vars = this.filterVarsStack?.[this.filterVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_FILTER_INDEX: {
+            const vars = this.filterVarsStack?.[this.filterVarsStack.length - 1];
             return vars?.index ?? '""';
         }
 

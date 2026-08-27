@@ -42,7 +42,10 @@ class Scratch3JSONBlocks {
             json_foreach_index: this.forEachIndex,
             json_map: this.map,
             json_map_value: this.mapValue,
-            json_map_index: this.mapIndex
+            json_map_index: this.mapIndex,
+            json_filter: this.filter,
+            json_filter_value: this.filterValue,
+            json_filter_index: this.filterIndex
         };
     }
 
@@ -257,6 +260,44 @@ class Scratch3JSONBlocks {
             const jsonMapContexts = parentContexts.concat({value: array[index], index});
             const value = await execute.evaluateReporter(sequencer, thread, mapperBlockId, {jsonMapContexts});
             result.push(value ?? '');
+        }
+        return result;
+    }
+
+    filterValue (args, util) {
+        const contexts = util.thread.jsonFilterContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].value ?? '';
+        }
+        return '';
+    }
+
+    filterIndex (args, util) {
+        const contexts = util.thread.jsonFilterContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].index ?? '';
+        }
+        return '';
+    }
+
+    async filter (args, util) {
+        const {thread, sequencer} = util;
+        const array = Cast.toArray(args.ARRAY);
+
+        const currentOperation = thread.peekStackFrame().op;
+        const currentBlockId = currentOperation ? currentOperation.id : thread.peekStack();
+        const blockContainer = thread.blockContainer || thread.target.blocks;
+        const currentBlock = blockContainer.getBlock(currentBlockId);
+        const mapperBlockId = currentBlock && currentBlock.inputs.METHOD ?
+            currentBlock.inputs.METHOD.block : null;
+
+        const parentContexts = thread.jsonFilterContexts || [];
+        const result = [];
+
+        for (let index = 0; index < array.length; index++) {
+            const jsonFilterContexts = parentContexts.concat({value: array[index], index});
+            const value = await execute.evaluateReporter(sequencer, thread, mapperBlockId, {jsonFilterContexts});
+            if (value) result.push(array[index]);
         }
         return result;
     }

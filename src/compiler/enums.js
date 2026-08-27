@@ -379,6 +379,9 @@ const InputOpcode = {
     JSON_MAP: 'json.map',
     JSON_MAP_VALUE: 'json.mapValue',
     JSON_MAP_INDEX: 'json.mapIndex',
+    JSON_FILTER: 'json.filter',
+    JSON_FILTER_VALUE: 'json.filterValue',
+    JSON_FILTER_INDEX: 'json.filterIndex',
 
     PROCEDURE_CALL: 'procedures.call',
     PROCEDURE_ARGUMENT: 'procedures.argument',

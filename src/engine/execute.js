@@ -21,7 +21,8 @@ const blockFunctionProfilerFrame = 'blockFunction';
 // execute's normal, flattened input list. This supports higher-order reporters
 // which need to evaluate an input more than once.
 const deferredInputs = {
-    json_map: new Set(['METHOD'])
+    json_map: new Set(['METHOD']),
+    json_filter: new Set(['METHOD'])
 };
 
 /**
