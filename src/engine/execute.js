@@ -22,7 +22,8 @@ const blockFunctionProfilerFrame = 'blockFunction';
 // which need to evaluate an input more than once.
 const deferredInputs = {
     json_map: new Set(['METHOD']),
-    json_filter: new Set(['METHOD'])
+    json_filter: new Set(['METHOD']),
+    json_sort: new Set(['METHOD'])
 };
 
 /**
