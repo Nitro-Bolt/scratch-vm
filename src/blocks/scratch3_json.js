@@ -45,7 +45,10 @@ class Scratch3JSONBlocks {
             json_map_index: this.mapIndex,
             json_filter: this.filter,
             json_filter_value: this.filterValue,
-            json_filter_index: this.filterIndex
+            json_filter_index: this.filterIndex,
+            json_sort: this.sort,
+            json_sort_a: this.sortA,
+            json_sort_b: this.sortB
         };
     }
 
@@ -300,6 +303,61 @@ class Scratch3JSONBlocks {
             if (value) result.push(array[index]);
         }
         return result;
+    }
+    
+    sortA (args, util) {
+        const contexts = util.thread.jsonSortContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].a ?? '';
+        }
+        return '';
+    }
+    
+    sortB (args, util) {
+        const contexts = util.thread.jsonSortContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].b ?? '';
+        }
+        return '';
+    }
+    
+    async sort (args, util) {
+        const {thread, sequencer} = util;
+        const array = Cast.toArray(args.ARRAY);
+    
+        const currentOperation = thread.peekStackFrame().op;
+        const currentBlockId = currentOperation ? currentOperation.id : thread.peekStack();
+        const blockContainer = thread.blockContainer || thread.target.blocks;
+        const currentBlock = blockContainer.getBlock(currentBlockId);
+        const mapperBlockId = currentBlock && currentBlock.inputs.METHOD ?
+            currentBlock.inputs.METHOD.block : null;
+    
+        const parentContexts = thread.jsonSortContexts || [];
+        const result = [];
+    
+        for (let index = 0; index < array.length; index++) {
+            const jsonSortContexts = parentContexts.concat({
+                a: array[index],
+                b: index
+            });
+    
+            const key = await execute.evaluateReporter(sequencer, thread, mapperBlockId, {jsonSortContexts});
+            result.push({
+                value: array[index],
+                key,
+                index
+            });
+        }
+    
+        result.sort((a, b) => {
+            const keyA = Cast.toNumber(a.key);
+            const keyB = Cast.toNumber(b.key);
+            if (keyA < keyB) return -1;
+            if (keyA > keyB) return 1;
+            return a.index - b.index;
+        });
+    
+        return result.map(item => item.value);
     }
 }
 

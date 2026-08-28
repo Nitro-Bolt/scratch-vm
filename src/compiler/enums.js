@@ -382,6 +382,9 @@ const InputOpcode = {
     JSON_FILTER: 'json.filter',
     JSON_FILTER_VALUE: 'json.filterValue',
     JSON_FILTER_INDEX: 'json.filterIndex',
+    JSON_SORT: 'json.sort',
+    JSON_SORT_A: 'json.sortA',
+    JSON_SORT_B: 'json.sortB',
 
     PROCEDURE_CALL: 'procedures.call',
     PROCEDURE_ARGUMENT: 'procedures.argument',

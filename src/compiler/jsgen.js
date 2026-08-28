@@ -140,13 +140,12 @@ class JSGenerator {
 
         /** @type {{value: string, index: string}[] | null} */
         this.foreachVarsStack = null;
-
         /** @type {{value: string, index: string}[] | null} */
         this.mapVarsStack = null;
-
         /** @type {{value: string, index: string}[] | null} */
         this.filterVarsStack = null;
-
+        /** @type {{value: string, index: string}[] | null} */
+        this.sortVarsStack = null;
         /** @type {string[] | null} */
         this.forEachInRangeStack = null;
     }
@@ -440,6 +439,40 @@ class JSGenerator {
         case InputOpcode.JSON_FILTER_INDEX: {
             const vars = this.filterVarsStack?.[this.filterVarsStack.length - 1];
             return vars?.index ?? '""';
+        }
+        case InputOpcode.JSON_SORT: {
+            this.yielded();
+            const array = this.descendInput(node.array);
+            const a = this.localVariables.next();
+            const b = this.localVariables.next();
+            if (!this.sortVarsStack) this.sortVarsStack = [];
+            this.sortVarsStack.push({a, b});
+            const mapper = this.descendInput(node.mapper);
+            this.sortVarsStack.pop();
+            return [
+                `(yield* (function* () {`,
+                `const arr = toArray(${array});`,
+                `const res = [];`,
+                `for (const [${b}, ${a}] of arr.entries()) {`,
+                `const key = yield* (function* () { return ${mapper}; })();`,
+                `res.push({ value: ${a}, key, index: ${b} });`,
+                `}`,
+                `res.sort((x, y) => {`,
+                `if (x.key < y.key) return -1;`,
+                `if (x.key > y.key) return 1;`,
+                `return x.index - y.index;`,
+                `});`,
+                `return res.map(x => x.value);`,
+                `})())`
+            ].join('\n');
+        }
+        case InputOpcode.JSON_SORT_A: {
+            const vars = this.sortVarsStack?.[this.sortVarsStack.length - 1];
+            return vars?.a ?? '""';
+        }
+        case InputOpcode.JSON_SORT_B: {
+            const vars = this.sortVarsStack?.[this.sortVarsStack.length - 1];
+            return vars?.b ?? '""';
         }
 
         case InputOpcode.LOOKS_SIZE_GET:
@@ -1207,7 +1240,7 @@ class JSGenerator {
             if (!this.foreachVarsStack) this.foreachVarsStack = [];
             this.foreachVarsStack.push({value: valVar, index: indVar});
 
-            this.source += `for (const [${indVar}, ${valVar}] of [...${array}].entries()) {\n`;
+            this.source += `for (const [${indVar}, ${valVar}] of toArray(${array}).entries()) {\n`;
             if (node.substack) this.descendStack(node.substack, new Frame(true));
             this.yieldLoop();
             this.source += `}\n`;

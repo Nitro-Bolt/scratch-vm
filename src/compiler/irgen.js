@@ -571,7 +571,7 @@ class ScriptTreeGenerator {
             if (methodInput && methodInput.block) {
                 mapper = this.descendInputOfBlock(block, 'METHOD').toType(InputType.BOOLEAN);
             } else {
-                mapper = this.createConstantInput('');
+                mapper = this.createConstantInput(false);
             }
             // yield is not fully known at generation time, so
             // we just always yield. :tada:
@@ -584,6 +584,27 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_FILTER_VALUE, InputType.ANY);
         case 'json_filter_index':
             return new IntermediateInput(InputOpcode.JSON_FILTER_INDEX, InputType.NUMBER | InputType.STRING_NAN);
+        case 'json_sort': {
+            const array = this.descendInputOfBlock(block, 'ARRAY', false,
+                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY);
+            const methodInput = block.inputs.METHOD;
+            let mapper;
+            if (methodInput && methodInput.block) {
+                mapper = this.descendInputOfBlock(block, 'METHOD').toType(InputType.NUMBER);
+            } else {
+                mapper = this.createConstantInput(0);
+            }
+            // yield is not fully known at generation time, so
+            // we just always yield. :tada:
+            return new IntermediateInput(InputOpcode.JSON_SORT, InputType.ARRAY, {
+                array,
+                mapper
+            }, true);
+        }
+        case 'json_sort_a':
+            return new IntermediateInput(InputOpcode.JSON_SORT_A, InputType.ANY);
+        case 'json_sort_b':
+            return new IntermediateInput(InputOpcode.JSON_SORT_B, InputType.ANY);
 
         case 'event_broadcast_menu': {
             const broadcastOption = block.fields.BROADCAST_OPTION;
