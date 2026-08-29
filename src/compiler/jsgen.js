@@ -167,23 +167,23 @@ class JSGenerator {
             warpTimer: this.warpTimer,
             debug: this.debug,
             isInHat: this.isInHat,
-            get _frames() {
+            get _frames () {
                 gen.warnUnsupportedAPI();
                 return gen.frames;
             },
-            get _currentFrame() {
+            get _currentFrame () {
                 gen.warnUnsupportedAPI();
                 return gen.currentFrame;
             },
-            get _source() {
+            get _source () {
                 gen.warnUnsupportedAPI();
                 return gen.source;
             },
-            get _ir() {
+            get _ir () {
                 gen.warnUnsupportedAPI();
                 return gen.ir;
             },
-            get _script() {
+            get _script () {
                 gen.warnUnsupportedAPI();
                 return gen.script;
             },
