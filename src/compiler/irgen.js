@@ -1015,18 +1015,27 @@ class ScriptTreeGenerator {
                     // nb: it might be a compiled extension block.
                     if (typeof this.runtime._compilerInterfaces[block.opcode] === 'function') {
                         const inputs = Object.fromEntries(Object.keys(block.inputs)
-                            .map((input) =>
-                                [input, this.descendInputOfBlock(block, input)]
-                        ));
+                            .filter(name => !name.startsWith('SUBSTACK'))
+                            .map(name =>
+                                [name, this.descendInputOfBlock(block, name)]
+                            ));
+                        const substacks = Object.fromEntries(Object.keys(block.inputs)
+                            .filter(name => name.startsWith('SUBSTACK'))
+                            .map(name => {
+                                const branchNum = name === 'SUBSTACK' ? 1 : +name.substring('SUBSTACK'.length);
+                                return [branchNum, this.descendSubstack(block, name)];
+                            })
+                        );
                         const fields = Object.fromEntries(Object.entries(block.fields)
                             .map(([name, field]) => [name, this.createConstantInput(field.value)]
-                        ));
+                            ));
 
                         return new IntermediateInput(StackOpcode.EXT_COMPILED_BLOCK, InputType.ANY, {
                             func: this.runtime._compilerInterfaces[block.opcode],
-                            ...inputs,
-                            ...fields
-                        });
+                            inputs,
+                            fields,
+                            substacks
+                        }, this.analyzeLoop());
                     }
 
                     const type = blockInfo.info.blockType;
@@ -1565,18 +1574,26 @@ class ScriptTreeGenerator {
                         }
 
                         const inputs = Object.fromEntries(Object.keys(block.inputs)
-                            .map((input) =>
+                            .filter(name => !name.startsWith('SUBSTACK'))
+                            .map(input =>
                                 [input, this.descendInputOfBlock(block, input)]
-                        ));
+                            ));
+                        const substacks = Object.fromEntries(Object.keys(block.inputs)
+                            .filter(name => name.startsWith('SUBSTACK'))
+                            .map(name => {
+                                const branchNum = name === 'SUBSTACK' ? 1 : +name.substring('SUBSTACK'.length);
+                                return [branchNum, this.descendSubstack(block, name)];
+                            }));
                         const fields = Object.fromEntries(Object.entries(block.fields)
                             .map(([name, field]) => [name, this.createConstantInput(field.value)]
-                        ));
+                            ));
 
                         return new IntermediateStackBlock(StackOpcode.EXT_COMPILED_BLOCK, {
                             func: this.runtime._compilerInterfaces[block.opcode],
-                            ...inputs,
-                            ...fields
-                        });
+                            inputs,
+                            fields,
+                            substacks
+                        }, this.analyzeLoop());
                     }
 
                     if (type === BlockType.COMMAND || type === BlockType.CONDITIONAL || type === BlockType.LOOP) {

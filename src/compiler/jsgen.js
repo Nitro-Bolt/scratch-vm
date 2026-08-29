@@ -226,19 +226,24 @@ class JSGenerator {
 
         case InputOpcode.EXT_COMPILED_BLOCK: {
             const compileCall = node.func;
-            delete node.func;
-            console.log(node);
 
             const args = Object.fromEntries(
-                Object.entries(node).map(([name, input]) => {
-                    if (input instanceof IntermediateInput) {
-                        return [name, this.descendInput(input)];
-                    }
-                    return [name, input];
-                }
-            ));
+                Object.entries({...node.inputs, ...node.fields})
+                    .map(([name, input]) => [name, this.descendInput(input)])
+            );
 
-            return compileCall(args);
+            const util = {
+                target: this.target,
+                runtime: this.target.runtime,
+                /**
+                 * @param {number} branchNum
+                 * @param {boolean} isLoop
+                 */
+                compileBranch: (branchNum, isLoop = false) =>
+                    this.compileStackToSource(node.substacks[branchNum], isLoop)
+            };
+
+            return compileCall(args, util) || '';
         }
 
         case InputOpcode.CONSTANT:
@@ -854,19 +859,25 @@ class JSGenerator {
 
         case StackOpcode.EXT_COMPILED_BLOCK: {
             const compileCall = node.func;
-            delete node.func;
-            console.log(node);
 
             const args = Object.fromEntries(
-                Object.entries(node).map(([name, input]) => {
-                    if (input instanceof IntermediateInput) {
-                        return [name, this.descendInput(input)];
-                    }
-                    return [name, input];
-                }
-            ));
+                Object.entries({...node.inputs, ...node.fields})
+                    .map(([name, input]) => [name, this.descendInput(input)])
+            );
 
-            this.source += compileCall(args);
+            const util = {
+                target: this.target,
+                runtime: this.target.runtime,
+                /**
+                 * @param {number} branchNum
+                 * @param {boolean} isLoop
+                 * @returns {string}
+                 */
+                compileBranch: (branchNum, isLoop = false) =>
+                    this.compileStackToSource(node.substacks[branchNum], isLoop)
+            };
+
+            this.source += compileCall(args, util) || '';
             break;
         }
 
@@ -1470,14 +1481,37 @@ class JSGenerator {
         // TODO: allow if/else to inherit values
         this.pushFrame(frame);
 
-        for (let i = 0; i < stack.blocks.length; i++) {
-            frame.isLastBlock = i === stack.blocks.length - 1;
-            this.descendStackedBlock(stack.blocks[i]);
+        try {
+            for (let i = 0; i < stack.blocks.length; i++) {
+                frame.isLastBlock = i === stack.blocks.length - 1;
+                this.descendStackedBlock(stack.blocks[i]);
+            }
+        } finally {
+            // Leaving a stack -- any assumptions made in the current stack do not apply outside of it
+            // TODO: in if/else this might create an extra unused object
+            this.popFrame();
+        }
+    }
+
+    /**
+     * Compile a stack into a standalone source fragment.
+     * @param {IntermediateStack} stack
+     * @param {boolean} isLoop
+     * @returns {string}
+     */
+    compileStackToSource (stack, isLoop) {
+        if (!stack) {
+            return '';
         }
 
-        // Leaving a stack -- any assumptions made in the current stack do not apply outside of it
-        // TODO: in if/else this might create an extra unused object
-        this.popFrame();
+        const outerSource = this.source;
+        this.source = '';
+        try {
+            this.descendStack(stack, new Frame(isLoop));
+            return this.source;
+        } finally {
+            this.source = outerSource;
+        }
     }
 
     /**
