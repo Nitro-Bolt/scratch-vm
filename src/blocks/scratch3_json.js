@@ -1,4 +1,5 @@
 const Cast = require('../util/cast');
+const execute = require('../engine/execute');
 
 class Scratch3JSONBlocks {
     constructor (runtime) {
@@ -38,7 +39,16 @@ class Scratch3JSONBlocks {
             json_reverse_array: this.reverseArray,
             json_foreach: this.forEach,
             json_foreach_value: this.forEachValue,
-            json_foreach_index: this.forEachIndex
+            json_foreach_index: this.forEachIndex,
+            json_map: this.map,
+            json_map_value: this.mapValue,
+            json_map_index: this.mapIndex,
+            json_filter: this.filter,
+            json_filter_value: this.filterValue,
+            json_filter_index: this.filterIndex,
+            json_sort: this.sort,
+            json_sort_a: this.sortA,
+            json_sort_b: this.sortB
         };
     }
 
@@ -217,6 +227,141 @@ class Scratch3JSONBlocks {
         };
         stackFrame.index++;
         util.startBranch(1, true);
+    }
+
+    _getMethodBlockId (util) {
+        const {thread} = util;
+        const currentFrame = thread.peekStackFrame();
+        const currentOperation = currentFrame && currentFrame.op;
+        const currentBlockId = currentOperation ? currentOperation.id : thread.peekStack();
+        const blockContainer = thread.blockContainer || thread.target.blocks;
+        const currentBlock = blockContainer.getBlock(currentBlockId);
+        return currentBlock && currentBlock.inputs.METHOD ? currentBlock.inputs.METHOD.block : null;
+    }
+
+    _evaluateMethod (sequencer, thread, methodBlockId, context) {
+        return execute.evaluateReporter(sequencer, thread, methodBlockId, context);
+    }
+
+    mapValue (args, util) {
+        const contexts = util.thread.jsonMapContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].value ?? '';
+        }
+        return '';
+    }
+
+    mapIndex (args, util) {
+        const contexts = util.thread.jsonMapContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].index ?? '';
+        }
+        return '';
+    }
+
+    async map (args, util) {
+        const {thread, sequencer} = util;
+        const array = Cast.toArray(args.ARRAY);
+        const methodBlockId = this._getMethodBlockId(util);
+        const parentContexts = thread.jsonMapContexts || [];
+        const result = [];
+
+        for (let index = 0; index < array.length; index++) {
+            const jsonMapContexts = parentContexts.concat({value: array[index], index});
+            const value = await this._evaluateMethod(sequencer, thread, methodBlockId, {jsonMapContexts});
+            if (thread.status === 4 /* STATUS_DONE */) return result;
+            result.push(value ?? '');
+        }
+        return result;
+    }
+
+    filterValue (args, util) {
+        const contexts = util.thread.jsonFilterContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].value ?? '';
+        }
+        return '';
+    }
+
+    filterIndex (args, util) {
+        const contexts = util.thread.jsonFilterContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].index ?? '';
+        }
+        return '';
+    }
+
+    async filter (args, util) {
+        const {thread, sequencer} = util;
+        const array = Cast.toArray(args.ARRAY);
+        const methodBlockId = this._getMethodBlockId(util);
+        const parentContexts = thread.jsonFilterContexts || [];
+        const result = [];
+
+        for (let index = 0; index < array.length; index++) {
+            const jsonFilterContexts = parentContexts.concat({value: array[index], index});
+            const value = await this._evaluateMethod(sequencer, thread, methodBlockId, {jsonFilterContexts});
+            if (thread.status === 4 /* STATUS_DONE */) return result;
+            if (Cast.toBoolean(value)) result.push(array[index]);
+        }
+        return result;
+    }
+
+    sortA (args, util) {
+        const contexts = util.thread.jsonSortContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].a ?? '';
+        }
+        return '';
+    }
+
+    sortB (args, util) {
+        const contexts = util.thread.jsonSortContexts;
+        if (contexts && contexts.length > 0) {
+            return contexts[contexts.length - 1].b ?? '';
+        }
+        return '';
+    }
+
+    async sort (args, util) {
+        const {thread, sequencer} = util;
+        const array = Cast.toArray(args.ARRAY);
+        const methodBlockId = this._getMethodBlockId(util);
+        const parentContexts = thread.jsonSortContexts || [];
+        let result = array.map((value, index) => ({value, index}));
+
+        for (let width = 1; width < result.length; width *= 2) {
+            const merged = [];
+            for (let start = 0; start < result.length; start += width * 2) {
+                const middle = Math.min(start + width, result.length);
+                const end = Math.min(start + (width * 2), result.length);
+                let left = start;
+                let right = middle;
+
+                while (left < middle && right < end) {
+                    const jsonSortContexts = parentContexts.concat({
+                        a: result[left].value,
+                        b: result[right].value
+                    });
+                    const comparison = await this._evaluateMethod(
+                        sequencer,
+                        thread,
+                        methodBlockId,
+                        {jsonSortContexts}
+                    );
+                    if (thread.status === 4 /* STATUS_DONE */) return result.map(item => item.value);
+                    if (Cast.toNumber(comparison) <= 0) {
+                        merged.push(result[left++]);
+                    } else {
+                        merged.push(result[right++]);
+                    }
+                }
+                merged.push(...result.slice(left, middle), ...result.slice(right, end));
+            }
+            result = merged;
+        }
+
+        return result.map(item => item.value);
     }
 }
 

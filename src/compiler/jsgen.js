@@ -140,7 +140,12 @@ class JSGenerator {
 
         /** @type {{value: string, index: string}[] | null} */
         this.foreachVarsStack = null;
-
+        /** @type {{value: string, index: string}[] | null} */
+        this.mapVarsStack = null;
+        /** @type {{value: string, index: string}[] | null} */
+        this.filterVarsStack = null;
+        /** @type {{value: string, index: string}[] | null} */
+        this.sortVarsStack = null;
         /** @type {string[] | null} */
         this.forEachInRangeStack = null;
     }
@@ -376,6 +381,108 @@ class JSGenerator {
         case InputOpcode.JSON_FOREACH_INDEX: {
             const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
             return vars?.index ?? '0';
+        }
+        case InputOpcode.JSON_MAP: {
+            this.yielded();
+            const array = this.descendInput(node.array);
+            const value = this.localVariables.next();
+            const index = this.localVariables.next();
+            if (!this.mapVarsStack) this.mapVarsStack = [];
+            this.mapVarsStack.push({value, index});
+            const mapper = this.descendInput(node.mapper);
+            this.mapVarsStack.pop();
+            return [
+                `(yield* (function* () {`,
+                `const arr = toArray(${array});`,
+                `const res = [];`,
+                `for (const [${index}, ${value}] of arr.entries()) {`,
+                `res.push(yield* (function* () { return ${mapper}; })());`,
+                `}`,
+                `return res;`,
+                `})())`
+            ].join('\n');
+        }
+        case InputOpcode.JSON_MAP_VALUE: {
+            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_MAP_INDEX: {
+            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
+            return vars?.index ?? '""';
+        }
+        case InputOpcode.JSON_FILTER: {
+            this.yielded();
+            const array = this.descendInput(node.array);
+            const value = this.localVariables.next();
+            const index = this.localVariables.next();
+            if (!this.filterVarsStack) this.filterVarsStack = [];
+            this.filterVarsStack.push({value, index});
+            const mapper = this.descendInput(node.mapper);
+            this.filterVarsStack.pop();
+            return [
+                `(yield* (function* () {`,
+                `const arr = toArray(${array});`,
+                `const res = [];`,
+                `for (const [${index}, ${value}] of arr.entries()) {`,
+                `if (yield* (function* () { return ${mapper}; })()) {`,
+                `res.push(${value});`,
+                `}`,
+                `}`,
+                `return res;`,
+                `})())`
+            ].join('\n');
+        }
+        case InputOpcode.JSON_FILTER_VALUE: {
+            const vars = this.filterVarsStack?.[this.filterVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_FILTER_INDEX: {
+            const vars = this.filterVarsStack?.[this.filterVarsStack.length - 1];
+            return vars?.index ?? '""';
+        }
+        case InputOpcode.JSON_SORT: {
+            this.yielded();
+            const array = this.descendInput(node.array);
+            const a = this.localVariables.next();
+            const b = this.localVariables.next();
+            if (!this.sortVarsStack) this.sortVarsStack = [];
+            this.sortVarsStack.push({a, b});
+            const mapper = this.descendInput(node.mapper);
+            this.sortVarsStack.pop();
+            return [
+                `(yield* (function* () {`,
+                `let ${a};`,
+                `let ${b};`,
+                `let res = toArray(${array});`,
+                `for (let width = 1; width < res.length; width *= 2) {`,
+                `const merged = [];`,
+                `for (let start = 0; start < res.length; start += width * 2) {`,
+                `const middle = Math.min(start + width, res.length);`,
+                `const end = Math.min(start + width * 2, res.length);`,
+                `let left = start;`,
+                `let right = middle;`,
+                `while (left < middle && right < end) {`,
+                `${a} = res[left];`,
+                `${b} = res[right];`,
+                `const comparison = yield* (function* () { return ${mapper}; })();`,
+                `if (comparison <= 0) merged.push(res[left++]);`,
+                `else merged.push(res[right++]);`,
+                `}`,
+                `merged.push(...res.slice(left, middle), ...res.slice(right, end));`,
+                `}`,
+                `res = merged;`,
+                `}`,
+                `return res;`,
+                `})())`
+            ].join('\n');
+        }
+        case InputOpcode.JSON_SORT_A: {
+            const vars = this.sortVarsStack?.[this.sortVarsStack.length - 1];
+            return vars?.a ?? '""';
+        }
+        case InputOpcode.JSON_SORT_B: {
+            const vars = this.sortVarsStack?.[this.sortVarsStack.length - 1];
+            return vars?.b ?? '""';
         }
 
         case InputOpcode.LOOKS_SIZE_GET:
@@ -1136,7 +1243,7 @@ class JSGenerator {
             if (!this.foreachVarsStack) this.foreachVarsStack = [];
             this.foreachVarsStack.push({value: valVar, index: indVar});
 
-            this.source += `for (const [${indVar}, ${valVar}] of [...${array}].entries()) {\n`;
+            this.source += `for (const [${indVar}, ${valVar}] of toArray(${array}).entries()) {\n`;
             if (node.substack) this.descendStack(node.substack, new Frame(true));
             this.yieldLoop();
             this.source += `}\n`;
