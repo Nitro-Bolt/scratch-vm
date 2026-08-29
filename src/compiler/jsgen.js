@@ -143,6 +143,57 @@ class JSGenerator {
 
         /** @type {string[] | null} */
         this.forEachInRangeStack = null;
+
+        /** @type {boolean} */
+        this.warnedUnsupportedAPI = false;
+    }
+
+    warnUnsupportedAPI () {
+        if (!this.warnedUnsupportedAPI) {
+            this.warnedUnsupportedAPI = true;
+            console.warn("You are using unsupported compiler API's which may break in the future.");
+        }
+    }
+
+    /** @param {Record<string, any>} node */
+    makeCompilerUtil (node) {
+        const gen = this;
+        return {
+            target: this.target,
+            runtime: this.target.runtime,
+            localVariables: this.localVariables,
+            isProcedure: this.isProcedure,
+            isWarp: this.isWarp,
+            warpTimer: this.warpTimer,
+            debug: this.debug,
+            isInHat: this.isInHat,
+            get _frames() {
+                gen.warnUnsupportedAPI();
+                return gen.frames;
+            },
+            get _currentFrame() {
+                gen.warnUnsupportedAPI();
+                return gen.currentFrame;
+            },
+            get _source() {
+                gen.warnUnsupportedAPI();
+                return gen.source;
+            },
+            get _ir() {
+                gen.warnUnsupportedAPI();
+                return gen.ir;
+            },
+            get _script() {
+                gen.warnUnsupportedAPI();
+                return gen.script;
+            },
+            /**
+             * @param {number} branchNum
+             * @param {boolean} isLoop
+             */
+            compileBranch: (branchNum, isLoop = false) =>
+                this.compileStackToSource(node.substacks[branchNum], isLoop)
+        };
     }
 
     /**
@@ -231,17 +282,7 @@ class JSGenerator {
                 Object.entries({...node.inputs, ...node.fields})
                     .map(([name, input]) => [name, this.descendInput(input)])
             );
-
-            const util = {
-                target: this.target,
-                runtime: this.target.runtime,
-                /**
-                 * @param {number} branchNum
-                 * @param {boolean} isLoop
-                 */
-                compileBranch: (branchNum, isLoop = false) =>
-                    this.compileStackToSource(node.substacks[branchNum], isLoop)
-            };
+            const util = this.makeCompilerUtil(node);
 
             return compileCall(args, util) || '';
         }
@@ -864,18 +905,7 @@ class JSGenerator {
                 Object.entries({...node.inputs, ...node.fields})
                     .map(([name, input]) => [name, this.descendInput(input)])
             );
-
-            const util = {
-                target: this.target,
-                runtime: this.target.runtime,
-                /**
-                 * @param {number} branchNum
-                 * @param {boolean} isLoop
-                 * @returns {string}
-                 */
-                compileBranch: (branchNum, isLoop = false) =>
-                    this.compileStackToSource(node.substacks[branchNum], isLoop)
-            };
+            const util = this.makeCompilerUtil(node);
 
             this.source += compileCall(args, util) || '';
             break;
