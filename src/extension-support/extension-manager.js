@@ -509,7 +509,7 @@ class ExtensionManager {
 
             // If the menu description is in short form (items only) then normalize it to general form: an object with
             // its items listed in an `items` property.
-            if (!menuInfo.items) {
+            if (!menuInfo.items && !menuInfo.optionMapping) {
                 menuInfo = {
                     items: menuInfo
                 };
@@ -546,6 +546,9 @@ class ExtensionManager {
         const menuItems = menuFunc.call(extensionObject, editingTargetID).map(
             item => {
                 item = maybeFormatMessage(item, extensionMessageContext);
+                if (item === '---') {
+                    return 'separator';
+                }
                 switch (typeof item) {
                 case 'object':
                     return [

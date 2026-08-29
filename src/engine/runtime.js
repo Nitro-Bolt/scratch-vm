@@ -78,6 +78,9 @@ const ArgumentTypeMap = (() => {
             fieldName: 'NUM'
         }
     };
+    map[ArgumentType.SLIDER] = {
+        slider: true
+    };
     map[ArgumentType.COLOR] = {
         shadow: {
             type: 'colour_picker',
@@ -1291,15 +1294,20 @@ class Runtime extends EventEmitter {
         for (const menuName in extensionInfo.menus) {
             if (Object.prototype.hasOwnProperty.call(extensionInfo.menus, menuName)) {
                 if (
-                    extensionInfo.menus[menuName].acceptText === true &&
+                    extensionInfo.menus[menuName]?.acceptText === true &&
                     typeof extensionInfo.menus[menuName].acceptReporters === 'undefined'
                 ) {
                     extensionInfo.menus[menuName].acceptReporters = true;
                 }
 
                 const menuInfo = extensionInfo.menus[menuName];
-                const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuInfo, categoryInfo);
-                categoryInfo.menus.push(convertedMenu);
+                // Dependent menus are fields on another block, so they cannot also
+                // be emitted as standalone shadow blocks: their parent field would
+                // not exist there.
+                if (!menuInfo.parentName) {
+                    const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuInfo, categoryInfo);
+                    categoryInfo.menus.push(convertedMenu);
+                }
                 categoryInfo.menuInfo[menuName] = menuInfo;
             }
         }
@@ -1377,6 +1385,9 @@ class Runtime extends EventEmitter {
             const extensionMessageContext = this.makeMessageContextForTarget();
             return menuItems.map(item => {
                 const formattedItem = maybeFormatMessage(item, extensionMessageContext);
+                if (formattedItem === '---') {
+                    return 'separator';
+                }
                 switch (typeof formattedItem) {
                 case 'string':
                     return [formattedItem, formattedItem];
@@ -1410,14 +1421,14 @@ class Runtime extends EventEmitter {
                 type: menuId,
                 inputsInline: true,
                 output: 'String',
-                colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
-                colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
-                colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
+                colour: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color1,
+                colourSecondary: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color2,
+                colourTertiary: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color3,
                 outputShape: menuInfo.acceptReporters === true ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
-                        type: menuInfo.acceptText ? 'field_textdropdown' : 'field_dropdown',
+                        type: menuInfo?.acceptText ? 'field_textdropdown' : 'field_dropdown',
                         name: menuName,
                         options: menuItems
                     }
@@ -1873,19 +1884,38 @@ class Runtime extends EventEmitter {
                 argJSON.check = argTypeInfo.check;
             }
 
+            const noAcceptReporters = typeof argInfo.acceptReporters !== 'undefined' &&
+                argInfo.acceptReporters === false;
+            const canMultiline = argInfo.type === ArgumentType.STRING &&
+                argInfo.canMultiline === true;
+
             let valueName;
             let shadowType;
             let fieldName;
             if (argInfo.menu) {
                 if (
-                    context.categoryInfo.menuInfo[argInfo.menu].acceptText === true &&
+                    context.categoryInfo.menuInfo[argInfo.menu]?.acceptText === true &&
                     typeof context.categoryInfo.menuInfo[argInfo.menu].acceptReporters === 'undefined'
                 ) {
                     context.categoryInfo.menuInfo[argInfo.menu].acceptReporters = true;
                 }
 
                 const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
-                if (menuInfo.acceptReporters) {
+                if (menuInfo.parentName) {
+                    const optionMapping = {};
+                    for (const parentValue in menuInfo.optionMapping) {
+                        if (Object.prototype.hasOwnProperty.call(menuInfo.optionMapping, parentValue)) {
+                            optionMapping[parentValue] = this._convertMenuItems(menuInfo.optionMapping[parentValue]);
+                        }
+                    }
+                    argJSON.type = 'field_dependent_dropdown';
+                    argJSON.parentName = menuInfo.parentName;
+                    argJSON.optionMapping = optionMapping;
+                    argJSON.defaultOptions = this._convertMenuItems(menuInfo.defaultOptions || []);
+                    valueName = null;
+                    shadowType = null;
+                    fieldName = name;
+                } else if (menuInfo.acceptReporters) {
                     valueName = name;
                     shadowType = this._makeExtensionMenuId(
                         argInfo.menu,
@@ -1893,7 +1923,7 @@ class Runtime extends EventEmitter {
                     );
                     fieldName = argInfo.menu;
                 } else {
-                    if (menuInfo.acceptText) {
+                    if (menuInfo?.acceptText) {
                         argJSON.type = 'field_textdropdown';
                         argJSON.text = defaultValue || '';
                     } else {
@@ -1904,10 +1934,56 @@ class Runtime extends EventEmitter {
                     shadowType = null;
                     fieldName = name;
                 }
+            } else if (argInfo.type === ArgumentType.STRING && noAcceptReporters) {
+                argJSON.type = 'field_input';
+                argJSON.text = defaultValue || '';
+                if (canMultiline) argJSON.multiline = true;
+                valueName = null;
+                shadowType = null;
+                fieldName = name;
+            } else if (argInfo.type === ArgumentType.NUMBER && noAcceptReporters) {
+                argJSON.type = 'field_number';
+                argJSON.value = defaultValue || '';
+                valueName = null;
+                shadowType = null;
+                fieldName = name;
             } else {
                 valueName = name;
-                shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
-                fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+                if (argTypeInfo.slider) {
+                    shadowType = `${context.categoryInfo.id}_${context.blockInfo.opcode}_${name}_slider`;
+                    fieldName = 'NUM';
+                    const fieldJSON = {
+                        type: 'field_slider',
+                        name: fieldName
+                    };
+                    if (defaultValue !== null) fieldJSON.value = defaultValue;
+                    if (typeof argInfo.min !== 'undefined') fieldJSON.min = argInfo.min;
+                    if (typeof argInfo.max !== 'undefined') fieldJSON.max = argInfo.max;
+                    if (typeof argInfo.precision !== 'undefined') fieldJSON.precision = argInfo.precision;
+                    if (!context.categoryInfo.blocks.some(block => block.json && block.json.type === shadowType)) {
+                        context.categoryInfo.blocks.push({
+                            info: {hideFromPalette: true},
+                            json: {
+                                type: shadowType,
+                                message0: '%1',
+                                args0: [fieldJSON],
+                                inputsInline: true,
+                                output: 'Number',
+                                outputShape: ScratchBlocksConstants.OUTPUT_SHAPE_ROUND,
+                                colour: '#FFFFFF',
+                                colourSecondary: '#FFFFFF',
+                                colourTertiary: '#FFFFFF'
+                            },
+                            xml: ''
+                        });
+                    }
+                } else {
+                    shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
+                    fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+                    if (canMultiline && shadowType === 'text') {
+                        shadowType = 'text_multiline';
+                    }
+                }
 
                 if (typeof argInfo.shadow === 'string') {
                     shadowType = `${context.categoryInfo.id}_${argInfo.shadow}`;

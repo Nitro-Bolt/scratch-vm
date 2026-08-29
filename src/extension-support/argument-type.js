@@ -9,6 +9,11 @@ const ArgumentType = {
     ANGLE: 'angle',
 
     /**
+     * Numeric value with a slider picker
+     */
+    SLIDER: 'slider',
+
+    /**
      * Boolean value with hexagonal placeholder
      */
     BOOLEAN: 'Boolean',

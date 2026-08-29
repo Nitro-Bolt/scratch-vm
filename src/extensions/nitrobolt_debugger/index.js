@@ -28,6 +28,12 @@ class NitroBoltDebuggerBlocks {
          * @type {Object.<string, {start: ?number, durations: Array.<number>}>}
          */
         this.timers = {};
+
+        /**
+         * Used to mark a thread as resuming (compiler)
+         * @type {Symbol}
+         */
+        this.breakpointResuming = Symbol('breakpointResuming');
     }
 
     /**
@@ -130,7 +136,18 @@ class NitroBoltDebuggerBlocks {
         };
     }
 
-    breakpoint () {
+    breakpoint (args, util) {
+        if (util.thread.isCompiled && util.thread[this.breakpointResuming]) {
+            util.thread[this.breakpointResuming] = false;
+            return;
+        }
+        if (util.thread.isCompiled) {
+            util.thread[this.breakpointResuming] = true;
+        } else {
+            util.thread.goToNextBlock();
+        }
+        util.yield();
+        util.thread.isPaused = true;
         this.runtime.breakpoint();
     }
 
