@@ -571,7 +571,7 @@ class ScriptTreeGenerator {
             if (methodInput && methodInput.block) {
                 mapper = this.descendInputOfBlock(block, 'METHOD').toType(InputType.BOOLEAN);
             } else {
-                mapper = this.createConstantInput(false);
+                mapper = this.createConstantInput(false).toType(InputType.BOOLEAN);
             }
             // The method may suspend while evaluating a custom reporter.
             return new IntermediateInput(InputOpcode.JSON_FILTER, InputType.ARRAY, {
