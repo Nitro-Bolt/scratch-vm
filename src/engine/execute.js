@@ -26,6 +26,12 @@ const deferredInputs = {
     json_sort: new Set(['METHOD'])
 };
 
+const inheritedReporterContextProperties = [
+    'jsonMapContexts',
+    'jsonFilterContexts',
+    'jsonSortContexts'
+];
+
 /**
  * Profiler frame ID for 'blockFunction'.
  * @type {number}
@@ -435,7 +441,26 @@ const evaluateReporter = async function (sequencer, thread, blockId, context = {
     engineThread.target = thread.target;
     engineThread.blockContainer = thread.blockContainer || thread.target.blocks;
     engineThread.pushStack(blockId);
+
+    for (const property of inheritedReporterContextProperties) {
+        if (thread[property]) engineThread[property] = thread[property];
+    }
     Object.assign(engineThread, context);
+
+    const callerFrame = thread.peekStackFrame();
+    const engineFrame = engineThread.peekStackFrame();
+    if (callerFrame) engineFrame.warpMode = callerFrame.warpMode;
+    let callerParams = null;
+    for (let i = thread.stackFrames.length - 1; i >= 0; i--) {
+        if (thread.stackFrames[i].params) {
+            callerParams = thread.stackFrames[i].params;
+            break;
+        }
+    }
+    if (callerParams) {
+        engineThread.initParams();
+        Object.assign(engineFrame.params, callerParams);
+    }
 
     const WORK_TIME = 0.75 * sequencer.runtime.currentStepTime;
     const timer = new Timer();
@@ -444,6 +469,8 @@ const evaluateReporter = async function (sequencer, thread, blockId, context = {
         engineThread.status !== Thread.STATUS_DONE &&
         engineThread.stack.length > 0
     ) {
+        if (thread.status === Thread.STATUS_DONE) return '';
+
         if (timer.timeElapsed() >= WORK_TIME) {
             await new Promise(resolve => setTimeout(resolve, 0));
             timer.start();
@@ -661,4 +688,3 @@ const execute = function (sequencer, thread) {
 
 module.exports = execute;
 module.exports.evaluateReporter = evaluateReporter;
-module.exports.isPromise = isPromise;

@@ -229,6 +229,20 @@ class Scratch3JSONBlocks {
         util.startBranch(1, true);
     }
 
+    _getMethodBlockId (util) {
+        const {thread} = util;
+        const currentFrame = thread.peekStackFrame();
+        const currentOperation = currentFrame && currentFrame.op;
+        const currentBlockId = currentOperation ? currentOperation.id : thread.peekStack();
+        const blockContainer = thread.blockContainer || thread.target.blocks;
+        const currentBlock = blockContainer.getBlock(currentBlockId);
+        return currentBlock && currentBlock.inputs.METHOD ? currentBlock.inputs.METHOD.block : null;
+    }
+
+    _evaluateMethod (sequencer, thread, methodBlockId, context) {
+        return execute.evaluateReporter(sequencer, thread, methodBlockId, context);
+    }
+
     mapValue (args, util) {
         const contexts = util.thread.jsonMapContexts;
         if (contexts && contexts.length > 0) {
@@ -248,20 +262,14 @@ class Scratch3JSONBlocks {
     async map (args, util) {
         const {thread, sequencer} = util;
         const array = Cast.toArray(args.ARRAY);
-
-        const currentOperation = thread.peekStackFrame().op;
-        const currentBlockId = currentOperation ? currentOperation.id : thread.peekStack();
-        const blockContainer = thread.blockContainer || thread.target.blocks;
-        const currentBlock = blockContainer.getBlock(currentBlockId);
-        const mapperBlockId = currentBlock && currentBlock.inputs.METHOD ?
-            currentBlock.inputs.METHOD.block : null;
-
+        const methodBlockId = this._getMethodBlockId(util);
         const parentContexts = thread.jsonMapContexts || [];
         const result = [];
 
         for (let index = 0; index < array.length; index++) {
             const jsonMapContexts = parentContexts.concat({value: array[index], index});
-            const value = await execute.evaluateReporter(sequencer, thread, mapperBlockId, {jsonMapContexts});
+            const value = await this._evaluateMethod(sequencer, thread, methodBlockId, {jsonMapContexts});
+            if (thread.status === 4 /* STATUS_DONE */) return result;
             result.push(value ?? '');
         }
         return result;
@@ -286,25 +294,19 @@ class Scratch3JSONBlocks {
     async filter (args, util) {
         const {thread, sequencer} = util;
         const array = Cast.toArray(args.ARRAY);
-
-        const currentOperation = thread.peekStackFrame().op;
-        const currentBlockId = currentOperation ? currentOperation.id : thread.peekStack();
-        const blockContainer = thread.blockContainer || thread.target.blocks;
-        const currentBlock = blockContainer.getBlock(currentBlockId);
-        const mapperBlockId = currentBlock && currentBlock.inputs.METHOD ?
-            currentBlock.inputs.METHOD.block : null;
-
+        const methodBlockId = this._getMethodBlockId(util);
         const parentContexts = thread.jsonFilterContexts || [];
         const result = [];
 
         for (let index = 0; index < array.length; index++) {
             const jsonFilterContexts = parentContexts.concat({value: array[index], index});
-            const value = await execute.evaluateReporter(sequencer, thread, mapperBlockId, {jsonFilterContexts});
-            if (value) result.push(array[index]);
+            const value = await this._evaluateMethod(sequencer, thread, methodBlockId, {jsonFilterContexts});
+            if (thread.status === 4 /* STATUS_DONE */) return result;
+            if (Cast.toBoolean(value)) result.push(array[index]);
         }
         return result;
     }
-    
+
     sortA (args, util) {
         const contexts = util.thread.jsonSortContexts;
         if (contexts && contexts.length > 0) {
@@ -312,7 +314,7 @@ class Scratch3JSONBlocks {
         }
         return '';
     }
-    
+
     sortB (args, util) {
         const contexts = util.thread.jsonSortContexts;
         if (contexts && contexts.length > 0) {
@@ -320,43 +322,45 @@ class Scratch3JSONBlocks {
         }
         return '';
     }
-    
+
     async sort (args, util) {
         const {thread, sequencer} = util;
         const array = Cast.toArray(args.ARRAY);
-    
-        const currentOperation = thread.peekStackFrame().op;
-        const currentBlockId = currentOperation ? currentOperation.id : thread.peekStack();
-        const blockContainer = thread.blockContainer || thread.target.blocks;
-        const currentBlock = blockContainer.getBlock(currentBlockId);
-        const mapperBlockId = currentBlock && currentBlock.inputs.METHOD ?
-            currentBlock.inputs.METHOD.block : null;
-    
+        const methodBlockId = this._getMethodBlockId(util);
         const parentContexts = thread.jsonSortContexts || [];
-        const result = [];
-    
-        for (let index = 0; index < array.length; index++) {
-            const jsonSortContexts = parentContexts.concat({
-                a: array[index],
-                b: index
-            });
-    
-            const key = await execute.evaluateReporter(sequencer, thread, mapperBlockId, {jsonSortContexts});
-            result.push({
-                value: array[index],
-                key,
-                index
-            });
+        let result = array.map((value, index) => ({value, index}));
+
+        for (let width = 1; width < result.length; width *= 2) {
+            const merged = [];
+            for (let start = 0; start < result.length; start += width * 2) {
+                const middle = Math.min(start + width, result.length);
+                const end = Math.min(start + (width * 2), result.length);
+                let left = start;
+                let right = middle;
+
+                while (left < middle && right < end) {
+                    const jsonSortContexts = parentContexts.concat({
+                        a: result[left].value,
+                        b: result[right].value
+                    });
+                    const comparison = await this._evaluateMethod(
+                        sequencer,
+                        thread,
+                        methodBlockId,
+                        {jsonSortContexts}
+                    );
+                    if (thread.status === 4 /* STATUS_DONE */) return result.map(item => item.value);
+                    if (Cast.toNumber(comparison) <= 0) {
+                        merged.push(result[left++]);
+                    } else {
+                        merged.push(result[right++]);
+                    }
+                }
+                merged.push(...result.slice(left, middle), ...result.slice(right, end));
+            }
+            result = merged;
         }
-    
-        result.sort((a, b) => {
-            const keyA = Cast.toNumber(a.key);
-            const keyB = Cast.toNumber(b.key);
-            if (keyA < keyB) return -1;
-            if (keyA > keyB) return 1;
-            return a.index - b.index;
-        });
-    
+
         return result.map(item => item.value);
     }
 }

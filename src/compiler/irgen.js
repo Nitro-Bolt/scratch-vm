@@ -552,8 +552,7 @@ class ScriptTreeGenerator {
             } else {
                 mapper = this.createConstantInput('');
             }
-            // yield is not fully known at generation time, so
-            // we just always yield. :tada:
+            // The method may suspend while evaluating a custom reporter.
             return new IntermediateInput(InputOpcode.JSON_MAP, InputType.ARRAY, {
                 array,
                 mapper
@@ -573,8 +572,7 @@ class ScriptTreeGenerator {
             } else {
                 mapper = this.createConstantInput(false);
             }
-            // yield is not fully known at generation time, so
-            // we just always yield. :tada:
+            // The method may suspend while evaluating a custom reporter.
             return new IntermediateInput(InputOpcode.JSON_FILTER, InputType.ARRAY, {
                 array,
                 mapper
@@ -594,8 +592,7 @@ class ScriptTreeGenerator {
             } else {
                 mapper = this.createConstantInput(0);
             }
-            // yield is not fully known at generation time, so
-            // we just always yield. :tada:
+            // The comparator may suspend while evaluating a custom reporter.
             return new IntermediateInput(InputOpcode.JSON_SORT, InputType.ARRAY, {
                 array,
                 mapper
