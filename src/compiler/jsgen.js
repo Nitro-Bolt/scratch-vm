@@ -148,6 +148,57 @@ class JSGenerator {
         this.sortVarsStack = null;
         /** @type {string[] | null} */
         this.forEachInRangeStack = null;
+
+        /** @type {boolean} */
+        this.warnedUnsupportedAPI = false;
+    }
+
+    warnUnsupportedAPI () {
+        if (!this.warnedUnsupportedAPI) {
+            this.warnedUnsupportedAPI = true;
+            console.warn("You are using unsupported compiler API's which may break in the future.");
+        }
+    }
+
+    /** @param {Record<string, any>} node */
+    makeCompilerUtil (node) {
+        const gen = this;
+        return {
+            target: this.target,
+            runtime: this.target.runtime,
+            localVariables: this.localVariables,
+            isProcedure: this.isProcedure,
+            isWarp: this.isWarp,
+            warpTimer: this.warpTimer,
+            debug: this.debug,
+            isInHat: this.isInHat,
+            get _frames () {
+                gen.warnUnsupportedAPI();
+                return gen.frames;
+            },
+            get _currentFrame () {
+                gen.warnUnsupportedAPI();
+                return gen.currentFrame;
+            },
+            get _source () {
+                gen.warnUnsupportedAPI();
+                return gen.source;
+            },
+            get _ir () {
+                gen.warnUnsupportedAPI();
+                return gen.ir;
+            },
+            get _script () {
+                gen.warnUnsupportedAPI();
+                return gen.script;
+            },
+            /**
+             * @param {number} branchNum
+             * @param {boolean} isLoop
+             */
+            compileBranch: (branchNum, isLoop = false) =>
+                this.compileStackToSource(node.substacks[branchNum], isLoop)
+        };
     }
 
     /**
@@ -228,6 +279,18 @@ class JSGenerator {
 
         case InputOpcode.OLD_COMPILER_COMPATIBILITY_LAYER:
             return this.oldCompilerStub.descendInputFromNewCompiler(block);
+
+        case InputOpcode.EXT_COMPILED_BLOCK: {
+            const compileCall = node.func;
+
+            const args = Object.fromEntries(
+                Object.entries({...node.inputs, ...node.fields})
+                    .map(([name, input]) => [name, this.descendInput(input)])
+            );
+            const util = this.makeCompilerUtil(node);
+
+            return compileCall(args, util) || '';
+        }
 
         case InputOpcode.CONSTANT:
             if (block.isAlwaysType(InputType.NUMBER)) {
@@ -935,6 +998,19 @@ class JSGenerator {
         case InputOpcode.OLD_COMPILER_COMPATIBILITY_LAYER:
             return this.oldCompilerStub.descendStackedBlockFromNewCompiler(block);
 
+        case StackOpcode.EXT_COMPILED_BLOCK: {
+            const compileCall = node.func;
+
+            const args = Object.fromEntries(
+                Object.entries({...node.inputs, ...node.fields})
+                    .map(([name, input]) => [name, this.descendInput(input)])
+            );
+            const util = this.makeCompilerUtil(node);
+
+            this.source += compileCall(args, util) || '';
+            break;
+        }
+
         case StackOpcode.HAT_EDGE:
             this.isInHat = true;
             this.source += '{\n';
@@ -1535,14 +1611,37 @@ class JSGenerator {
         // TODO: allow if/else to inherit values
         this.pushFrame(frame);
 
-        for (let i = 0; i < stack.blocks.length; i++) {
-            frame.isLastBlock = i === stack.blocks.length - 1;
-            this.descendStackedBlock(stack.blocks[i]);
+        try {
+            for (let i = 0; i < stack.blocks.length; i++) {
+                frame.isLastBlock = i === stack.blocks.length - 1;
+                this.descendStackedBlock(stack.blocks[i]);
+            }
+        } finally {
+            // Leaving a stack -- any assumptions made in the current stack do not apply outside of it
+            // TODO: in if/else this might create an extra unused object
+            this.popFrame();
+        }
+    }
+
+    /**
+     * Compile a stack into a standalone source fragment.
+     * @param {IntermediateStack} stack
+     * @param {boolean} isLoop
+     * @returns {string}
+     */
+    compileStackToSource (stack, isLoop) {
+        if (!stack) {
+            return '';
         }
 
-        // Leaving a stack -- any assumptions made in the current stack do not apply outside of it
-        // TODO: in if/else this might create an extra unused object
-        this.popFrame();
+        const outerSource = this.source;
+        this.source = '';
+        try {
+            this.descendStack(stack, new Frame(isLoop));
+            return this.source;
+        } finally {
+            this.source = outerSource;
+        }
     }
 
     /**

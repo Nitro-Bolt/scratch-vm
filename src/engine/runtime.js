@@ -324,6 +324,12 @@ class Runtime extends EventEmitter {
         this._flowing = {};
 
         /**
+         * Map of opcodes allowing extensions to hook into the JavaScript compiler.
+         * @type {Record<string, function>}
+         */
+        this._compilerInterfaces = {};
+
+        /**
          * A list of script block IDs that were glowing during the previous frame.
          * @type {!Array.<!string>}
          */
@@ -1349,6 +1355,11 @@ class Runtime extends EventEmitter {
                     const opcode = convertedBlock.json.type;
                     if (blockInfo.blockType !== BlockType.EVENT) {
                         this._primitives[opcode] = convertedBlock.info.func;
+                        
+                        // nb: add support for compiled blocks in extensions
+                        if (typeof convertedBlock.info.compiler === 'function') {
+                            this._compilerInterfaces[opcode] = convertedBlock.info.compiler;
+                        }
                     }
                     if (blockInfo.blockType === BlockType.EVENT || blockInfo.blockType === BlockType.HAT) {
                         this._hats[opcode] = {
