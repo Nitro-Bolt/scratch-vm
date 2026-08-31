@@ -1091,7 +1091,10 @@ class ScriptTreeGenerator {
                 const blockInfo = this.getBlockInfo(block.opcode);
                 if (blockInfo) {
                     // nb: it might be a compiled extension block.
-                    if (typeof this.runtime._compilerInterfaces[block.opcode] === 'function') {
+                    const compilerInterface = this.runtime._compilerInterfaces[block.opcode];
+                    const inputCompiler = typeof compilerInterface === 'function' ?
+                        compilerInterface : compilerInterface && compilerInterface.input;
+                    if (typeof inputCompiler === 'function') {
                         const inputs = Object.fromEntries(Object.keys(block.inputs)
                             .filter(name => !name.startsWith('SUBSTACK'))
                             .map(name =>
@@ -1109,7 +1112,7 @@ class ScriptTreeGenerator {
                             ));
 
                         return new IntermediateInput(StackOpcode.EXT_COMPILED_BLOCK, InputType.ANY, {
-                            func: this.runtime._compilerInterfaces[block.opcode],
+                            func: inputCompiler,
                             inputs,
                             fields,
                             substacks
@@ -1709,12 +1712,22 @@ class ScriptTreeGenerator {
                     const type = blockInfo.info.blockType;
 
                     // nb: it might be a compiled extension block.
-                    if (typeof this.runtime._compilerInterfaces[block.opcode] === 'function') {
+                    const compilerInterface = this.runtime._compilerInterfaces[block.opcode];
+                    if (compilerInterface && typeof compilerInterface === 'object' && compilerInterface.stack === null) {
+                        return new IntermediateStackBlock(StackOpcode.NOP);
+                    }
+                    const hasExplicitStackCompiler = compilerInterface &&
+                        typeof compilerInterface === 'object' && typeof compilerInterface.stack === 'function';
+                    const stackCompiler = typeof compilerInterface === 'function' ? compilerInterface :
+                        hasExplicitStackCompiler ? compilerInterface.stack : compilerInterface && compilerInterface.input;
+                    if (typeof stackCompiler === 'function') {
                         if (
-                            type === BlockType.REPORTER ||
-                            type === BlockType.BOOLEAN ||
-                            type === BlockType.OBJECT ||
-                            type === BlockType.ARRAY
+                            !hasExplicitStackCompiler && (
+                                type === BlockType.REPORTER ||
+                                type === BlockType.BOOLEAN ||
+                                type === BlockType.OBJECT ||
+                                type === BlockType.ARRAY
+                            )
                         ) {
                             const visualReport = this.descendVisualReport(block);
                             if (visualReport) {
@@ -1738,7 +1751,7 @@ class ScriptTreeGenerator {
                             ));
 
                         return new IntermediateStackBlock(StackOpcode.EXT_COMPILED_BLOCK, {
-                            func: this.runtime._compilerInterfaces[block.opcode],
+                            func: stackCompiler,
                             inputs,
                             fields,
                             substacks

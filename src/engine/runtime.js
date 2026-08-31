@@ -1355,9 +1355,12 @@ class Runtime extends EventEmitter {
                     const opcode = convertedBlock.json.type;
                     if (blockInfo.blockType !== BlockType.EVENT) {
                         this._primitives[opcode] = convertedBlock.info.func;
-                        
+
                         // nb: add support for compiled blocks in extensions
-                        if (typeof convertedBlock.info.compiler === 'function') {
+                        if (
+                            typeof convertedBlock.info.compiler === 'function' ||
+                            (convertedBlock.info.compiler && typeof convertedBlock.info.compiler === 'object')
+                        ) {
                             this._compilerInterfaces[opcode] = convertedBlock.info.compiler;
                         }
                     }

@@ -197,7 +197,22 @@ class JSGenerator {
              * @param {boolean} isLoop
              */
             compileBranch: (branchNum, isLoop = false) =>
-                this.compileStackToSource(node.substacks[branchNum], isLoop)
+                this.compileStackToSource(node.substacks[branchNum], isLoop),
+            /**
+             * @param {number} branchNum
+             * @param {string[]} parameters
+             * @param {string} fallback JavaScript source for the value returned when the branch reaches its end.
+             */
+            compileFunction: (branchNum, parameters = [], fallback = 'undefined') => {
+                const oldReturns = this.allowReturns;
+                this.allowReturns = true;
+                try {
+                    const body = this.compileStackToSource(node.substacks[branchNum], false);
+                    return `function* (${parameters.join(', ')}) {\n${body}return ${fallback};\n}`;
+                } finally {
+                    this.allowReturns = oldReturns;
+                }
+            }
         };
     }
 
