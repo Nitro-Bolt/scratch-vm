@@ -2610,7 +2610,7 @@ class Runtime extends EventEmitter {
         optMatchFields, optTarget) {
         if (this.paused) {
             // Runtime is paused.
-            return;
+            return [];
         }
 
         if (!Object.prototype.hasOwnProperty.call(this._hats, requestedHatOpcode)) {
