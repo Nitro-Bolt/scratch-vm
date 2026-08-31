@@ -1693,8 +1693,12 @@ class Runtime extends EventEmitter {
             }
         }
 
-        if (blockInfo.blockType === BlockType.REPORTER || blockInfo.blockType === BlockType.BOOLEAN) {
-            if (!blockInfo.disableMonitor && context.inputList.length === 0) {
+        if (blockInfo.blockType === BlockType.REPORTER ||
+            blockInfo.blockType === BlockType.BOOLEAN ||
+            blockInfo.blockType === BlockType.ARRAY) {
+            const hasExtendableArgument = Object.values(blockInfo.arguments || {})
+                .some(argument => argument.type === ArgumentType.EXTENDABLE);
+            if (!blockInfo.disableMonitor && context.inputList.length === 0 && !hasExtendableArgument) {
                 blockJSON.checkboxInFlyout = true;
             }
         } else if (
