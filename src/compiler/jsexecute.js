@@ -224,8 +224,7 @@ runtimeFunctions.waitThreads = `const waitThreads = function*(threads) {
  * @param {*|null} branchInfo Extra information object for CONDITIONAL and LOOP blocks. See createBranchInfo().
  * @returns {*} the value returned by the block, if any.
  */
-runtimeFunctions.executeInCompatibilityLayer = `let hasResumedFromPromise = false;
-const waitPromise = function*(promise) {
+runtimeFunctions.waitPromise = `const waitPromise = function*(promise) {
     const thread = globalState.thread;
     let returnValue;
 
@@ -248,7 +247,9 @@ const waitPromise = function*(promise) {
     yield;
 
     return returnValue;
-};
+}`;
+
+runtimeFunctions.executeInCompatibilityLayer = `let hasResumedFromPromise = false;
 const isPromise = value => (
     // see engine/execute.js
     value !== null &&

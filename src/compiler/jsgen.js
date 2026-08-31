@@ -319,6 +319,17 @@ class JSGenerator {
                 return `"${sanitize(node.value.toString())}"`;
             } throw new Error(`JS: Unknown constant input type '${block.type}'.`);
 
+        case InputOpcode.PEN_PAPER_EXISTS:
+            return `${PEN_EXT}._paperExists(${this.descendInput(node.paper)})`;
+        case InputOpcode.PEN_PAPERS:
+            return `${PEN_EXT}._paperMenu()`;
+        case InputOpcode.PEN_PAPER_INDEX:
+            return `${PEN_EXT}._paperIndex(${this.descendInput(node.paper)})`;
+        case InputOpcode.PEN_CURRENT_PAPER:
+            return `${PEN_EXT}._currentPaper`;
+        case InputOpcode.PEN_PAPER_VISIBLE:
+            return `${PEN_EXT}._paperIsVisible(${this.descendInput(node.paper)})`;
+
         case InputOpcode.SENSING_KEY_DOWN:
             return `runtime.ioDevices.keyboard.getKeyIsDown(${this.descendInput(node.key)})`;
 
@@ -1431,6 +1442,9 @@ class JSGenerator {
         case StackOpcode.PEN_CLEAR:
             this.source += `${PEN_EXT}.clear();\n`;
             break;
+        case StackOpcode.PEN_PAPER_CLEAR:
+            this.source += `${PEN_EXT}._clearPaper(${this.descendInput(node.paper)});\n`;
+            break;
         case StackOpcode.PEN_DOWN:
             this.source += `${PEN_EXT}._penDown(target);\n`;
             break;
@@ -1463,6 +1477,58 @@ class JSGenerator {
             break;
         case StackOpcode.PEN_STAMP:
             this.source += `${PEN_EXT}._stamp(target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT:
+            this.source += `yield* waitPromise(${PEN_EXT}._printText(` +
+                `${this.descendInput(node.text)}, ${this.descendInput(node.x)}, ` +
+                `${this.descendInput(node.y)}, target));\n`;
+            this.yielded();
+            break;
+        case StackOpcode.PEN_PRINT_FONT_SET:
+            this.source += `${PEN_EXT}._setPrintFont(${this.descendInput(node.font)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_FONT_SIZE_SET:
+            this.source += `${PEN_EXT}._setPrintFontSize(${this.descendInput(node.size)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_COLOR_SET:
+            this.source += `${PEN_EXT}._setPrintColor(${this.descendInput(node.target)}, ` +
+                `${this.descendInput(node.color)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_STROKE_WIDTH_SET:
+            this.source += `${PEN_EXT}._setPrintStrokeWidth(${this.descendInput(node.width)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_FONT_WEIGHT_SET:
+            this.source += `${PEN_EXT}._setPrintFontWeight(${this.descendInput(node.weight)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_ITALIC_SET:
+            this.source += `${PEN_EXT}._setPrintItalic(${this.descendInput(node.state)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_WORD_WRAP_SET:
+            this.source += `${PEN_EXT}._setPrintWordWrap(${this.descendInput(node.state)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_ALIGNMENT_SET:
+            this.source += `${PEN_EXT}._setPrintAlignment(${this.descendInput(node.alignment)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PAPER_CREATE:
+            this.source += `${PEN_EXT}._createPaper(${this.descendInput(node.paper)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_REMOVE:
+            this.source += `${PEN_EXT}._removePaper(${this.descendInput(node.paper)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_COMBINE:
+            this.source += `${PEN_EXT}._combinePapers(${this.descendInput(node.mode)}, ` +
+                `${this.descendInput(node.source)}, ${this.descendInput(node.destination)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_INDEX_SET:
+            this.source += `${PEN_EXT}._setPaperIndex(${this.descendInput(node.paper)}, ` +
+                `${this.descendInput(node.index)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_SWITCH:
+            this.source += `${PEN_EXT}._switchPaper(${this.descendInput(node.paper)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_VISIBILITY_SET:
+            this.source += `${PEN_EXT}._setPaperVisibility(${this.descendInput(node.visibility)}, ` +
+                `${this.descendInput(node.paper)});\n`;
             break;
         case StackOpcode.PEN_UP:
             this.source += `${PEN_EXT}._penUp(target);\n`;
