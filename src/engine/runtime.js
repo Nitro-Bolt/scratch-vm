@@ -3672,6 +3672,34 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Look up the registered custom type class for a value's constructor.
+     * @param {*} value Value to inspect.
+     * @returns {?Function} the registered class definition, or null.
+     * @private
+     */
+    _getCustomTypeClass (value) {
+        if (value === null || typeof value !== 'object') {
+            return null;
+        }
+        const typeId = this._customTypeIds.get(value.constructor);
+        return typeId ? (this.customTypes.get(typeId) || null) : null;
+    }
+
+    /**
+     * Look up a custom type's visualReport and get the HTML string for a value.
+     * @param {*} value Value to render.
+     * @returns {?string} HTML string, or null.
+     * @private
+     */
+    _getCustomTypeVisualReport (value) {
+        const classDef = this._getCustomTypeClass(value);
+        if (classDef && typeof classDef.visualReport === 'function') {
+            return classDef.visualReport(value);
+        }
+        return null;
+    }
+
+    /**
      * Emit value for reporter to show in the blocks.
      * @param {Target} target The target that the block was run in.
      * @param {string} blockId ID for the block.
@@ -3681,9 +3709,18 @@ class Runtime extends EventEmitter {
      */
     visualReport (target, blockId, value, error = false, html) {
         if (target === this.getEditingTarget()) {
+            if (!html) {
+                html = this._getCustomTypeVisualReport(value);
+            }
+            let reportValue = value;
+            if (this._getCustomTypeClass(value) && typeof reportValue.valueOf === 'function') {
+                try {
+                    reportValue = reportValue.valueOf();
+                } catch (e) { /* empty */ }
+            }
             this.emit(Runtime.VISUAL_REPORT, {
                 id: blockId,
-                value: safeStringify(value),
+                value: safeStringify(reportValue),
                 error,
                 html: html ? safeStringify(html) : null
             });
