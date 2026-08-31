@@ -270,6 +270,23 @@ class ScriptTreeGenerator {
         case 'checkbox':
             return this.createConstantInput(true).toType(InputType.BOOLEAN);
 
+        case 'pen_paperExists':
+            return new IntermediateInput(InputOpcode.PEN_PAPER_EXISTS, InputType.BOOLEAN, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_allPapers':
+            return new IntermediateInput(InputOpcode.PEN_PAPERS, InputType.ARRAY);
+        case 'pen_paperIndex':
+            return new IntermediateInput(InputOpcode.PEN_PAPER_INDEX, InputType.NUMBER_WHOLE | InputType.STRING_NAN, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_currentPaper':
+            return new IntermediateInput(InputOpcode.PEN_CURRENT_PAPER, InputType.STRING);
+        case 'pen_paperIsVisible':
+            return new IntermediateInput(InputOpcode.PEN_PAPER_VISIBLE, InputType.BOOLEAN, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+
         case 'argument_reporter_string_number': {
             const name = block.fields.VALUE.value;
             // lastIndexOf because multiple parameters with the same name will use the value of the last definition
@@ -1502,6 +1519,10 @@ class ScriptTreeGenerator {
 
         case 'pen_clear':
             return new IntermediateStackBlock(StackOpcode.PEN_CLEAR);
+        case 'pen_clearPaper':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_CLEAR, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
         case 'pen_changePenColorParamBy':
             return new IntermediateStackBlock(StackOpcode.PEN_COLOR_PARAM_CHANGE, {
                 param: this.descendInputOfBlock(block, 'COLOR_PARAM').toType(InputType.STRING),
@@ -1546,6 +1567,73 @@ class ScriptTreeGenerator {
             });
         case 'pen_stamp':
             return new IntermediateStackBlock(StackOpcode.PEN_STAMP);
+        case 'pen_printText':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT, {
+                text: this.descendInputOfBlock(block, 'TEXT').toType(InputType.STRING),
+                x: this.descendInputOfBlock(block, 'X').toType(InputType.NUMBER),
+                y: this.descendInputOfBlock(block, 'Y').toType(InputType.NUMBER)
+            }, true);
+        case 'pen_setPrintFont':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_FONT_SET, {
+                font: this.descendInputOfBlock(block, 'FONT').toType(InputType.STRING)
+            });
+        case 'pen_setPrintFontSize':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_FONT_SIZE_SET, {
+                size: this.descendInputOfBlock(block, 'SIZE').toType(InputType.NUMBER)
+            });
+        case 'pen_setPrintColor':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_COLOR_SET, {
+                target: this.descendInputOfBlock(block, 'TARGET').toType(InputType.STRING),
+                color: this.descendInputOfBlock(block, 'COLOR')
+            });
+        case 'pen_setPrintStrokeWidth':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_STROKE_WIDTH_SET, {
+                width: this.descendInputOfBlock(block, 'WIDTH').toType(InputType.NUMBER)
+            });
+        case 'pen_setPrintFontWeight':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_FONT_WEIGHT_SET, {
+                weight: this.descendInputOfBlock(block, 'WEIGHT').toType(InputType.STRING)
+            });
+        case 'pen_setPrintItalic':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_ITALIC_SET, {
+                state: this.descendInputOfBlock(block, 'STATE').toType(InputType.STRING)
+            });
+        case 'pen_setPrintWordWrap':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_WORD_WRAP_SET, {
+                state: this.descendInputOfBlock(block, 'STATE').toType(InputType.STRING)
+            });
+        case 'pen_setPrintAlignment':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_ALIGNMENT_SET, {
+                alignment: this.descendInputOfBlock(block, 'ALIGNMENT').toType(InputType.STRING)
+            });
+        case 'pen_createPaper':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_CREATE, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_removePaper':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_REMOVE, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_combinePapers':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_COMBINE, {
+                mode: this.descendInputOfBlock(block, 'MODE').toType(InputType.STRING),
+                source: this.descendInputOfBlock(block, 'SOURCE').toType(InputType.STRING),
+                destination: this.descendInputOfBlock(block, 'DESTINATION').toType(InputType.STRING)
+            });
+        case 'pen_setPaperIndex':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_INDEX_SET, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING),
+                index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER)
+            });
+        case 'pen_switchPaper':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_SWITCH, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_setPaperVisibility':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_VISIBILITY_SET, {
+                visibility: this.descendInputOfBlock(block, 'VISIBILITY').toType(InputType.STRING),
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
 
         case 'procedures_call': {
             const procedureCode = block.mutation.proccode;
