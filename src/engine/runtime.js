@@ -339,12 +339,18 @@ class Runtime extends EventEmitter {
         this._customTypeIds = new WeakMap();
 
         /**
-         * Precomputed custom-type argument cast functions per opcode:
-         * opcode -> {argumentName: castFunction}. Populated when extension
-         * blocks are registered; consumed by execute.js's BlockCached.
+         * Precomputed custom-type argument cast functions per opcode.
+         * Populated when extension blocks are registered.
          * @type {Map.<string, Object.<string, Function>>}
          */
         this._customArgumentCasters = new Map();
+
+        /**
+         * Registry of registered custom block shapes. The shape
+         * definitions provided through Scratch.BlockShapes.register.
+         * @type {Map.<string, Object>}
+         */
+        this.blockShapes = new Map();
 
         /**
          * A list of script block IDs that were glowing during the previous frame.
@@ -899,6 +905,22 @@ class Runtime extends EventEmitter {
      */
     static get EXTENSION_FIELD_ADDED () {
         return 'EXTENSION_FIELD_ADDED';
+    }
+
+    /**
+     * Event name for reporting that an extension registered a custom block shape.
+     * @const {string}
+     */
+    static get EXTENSION_SHAPE_ADDED () {
+        return 'EXTENSION_SHAPE_ADDED';
+    }
+
+    /**
+     * Event name for reporting that an extension removed a custom block shape.
+     * @const {string}
+     */
+    static get EXTENSION_SHAPE_REMOVED () {
+        return 'EXTENSION_SHAPE_REMOVED';
     }
 
     /**
@@ -1681,6 +1703,12 @@ class Runtime extends EventEmitter {
             const typeDefinition = this.customTypes.get(blockInfo.outputType);
             if (typeof typeDefinition.shape === 'number') {
                 blockJSON.outputShape = typeDefinition.shape;
+            } else if (typeof typeDefinition.shape === 'string' &&
+                this.hasBlockShape(typeDefinition.shape)) {
+                // A registered custom block shape name is passed straight through
+                // as a string so scratch-blocks can resolve it against its own
+                // shape registry.
+                blockJSON.outputShape = typeDefinition.shape;
             }
         }
 
@@ -1928,8 +1956,11 @@ class Runtime extends EventEmitter {
                 // nb: slots typed as a registered custom type only accept reporters
                 // whose outputType is exactly that type.
                 argJSON.check = argInfo.type;
-                if (typeof this.customTypes.get(argInfo.type).shape === 'number') {
-                    argJSON.outputShape = this.customTypes.get(argInfo.type).shape;
+                const argTypeShape = this.customTypes.get(argInfo.type).shape;
+                if (typeof argTypeShape === 'number') {
+                    argJSON.outputShape = argTypeShape;
+                } else if (typeof argTypeShape === 'string' && this.hasBlockShape(argTypeShape)) {
+                    argJSON.outputShape = argTypeShape;
                 }
             }
 
@@ -2436,6 +2467,63 @@ class Runtime extends EventEmitter {
      */
     getCustomType (typeId) {
         return this.customTypes.get(typeId) || null;
+    }
+
+    /**
+     * Register a namespaced custom block shape.
+     * @param {string} name - ID for the custom block shape.
+     * @param {Object} definition - the shape definition.
+     */
+    registerBlockShape (name, definition) {
+        if (!CustomTypes.isValidTypeId(name)) {
+            throw new Error(
+                `Invalid block shape ID: ${name}.`
+            );
+        }
+        if (!definition || typeof definition !== 'object') {
+            throw new Error(`Block shape ${name} must be an object definition.`);
+        }
+        if (typeof definition.leftEdge !== 'function' || typeof definition.rightEdge !== 'function') {
+            // TODO: Maybe make rightEdge function optional?
+            throw new Error(`Block shape ${name} must define leftEdge and rightEdge functions.`);
+        }
+        const existing = this.blockShapes.get(name);
+        if (existing === definition) {
+            return;
+        }
+        if (existing) {
+            throw new Error(`Block shape "${name}" is already registered by another definition.`);
+        }
+        this.blockShapes.set(name, definition);
+        this.emit(Runtime.EXTENSION_SHAPE_ADDED, {name, definition});
+    }
+
+    /**
+     * Remove a previously registered custom block shape.
+     * @param {string} name - the namespaced ID of the shape to remove.
+     */
+    unregisterBlockShape (name) {
+        if (this.blockShapes.delete(name)) {
+            this.emit(Runtime.EXTENSION_SHAPE_REMOVED, {name});
+        }
+    }
+
+    /**
+     * Check whether a custom block shape is registered.
+     * @param {string} name - the namespaced ID of the shape.
+     * @returns {boolean} true if registered.
+     */
+    hasBlockShape (name) {
+        return this.blockShapes.has(name);
+    }
+
+    /**
+     * Look up a registered custom block shape definition.
+     * @param {string} name - the namespaced ID of the shape.
+     * @returns {?Object} the shape definition, or null when not registered.
+     */
+    getBlockShape (name) {
+        return this.blockShapes.get(name) || null;
     }
 
     /**

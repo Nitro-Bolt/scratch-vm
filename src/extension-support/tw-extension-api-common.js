@@ -70,6 +70,60 @@ const typesAPI = {
     }
 };
 
+/**
+ * Custom block shapes API exposed to extensions as Scratch.BlockShapes.
+ */
+const blockShapesAPI = {
+    /**
+     * Register a custom block shape definition under an ID.
+     * Must be called while the extension is loading.
+     * @param {string} name - an ID like "ddeStar".
+     * @param {Object} definition - shape definition.
+     */
+    register (name, definition) {
+        const runtime = getCurrentRuntime();
+        if (runtime) {
+            return runtime.registerBlockShape(name, definition);
+        }
+        throw new Error(
+            'Scratch.BlockShapes.register requires a VM context. Sandboxed extensions cannot define custom ' +
+            'block shapes because their definitions cannot be shared with the main thread.'
+        );
+    },
+
+    /**
+     * Remove a previously registered custom block shape.
+     * @param {string} name - the ID of the shape.
+     */
+    unregister (name) {
+        const runtime = getCurrentRuntime();
+        if (runtime) {
+            return runtime.unregisterBlockShape(name);
+        }
+        throw new Error('Scratch.BlockShapes.unregister requires a VM context.');
+    },
+
+    /**
+     * Check whether a custom block shape ID is currently registered.
+     * @param {string} name - the ID of the shape.
+     * @returns {boolean} true if registered.
+     */
+    has (name) {
+        const runtime = getCurrentRuntime();
+        return runtime ? runtime.hasBlockShape(name) : false;
+    },
+
+    /**
+     * Get a registered custom block shape definition.
+     * @param {string} name - the ID of the shape.
+     * @returns {?Object} the shape definition, or null when not registered.
+     */
+    get (name) {
+        const runtime = getCurrentRuntime();
+        return runtime ? runtime.getBlockShape(name) : null;
+    }
+};
+
 const Scratch = {
     ArgumentType,
     BlockType,
@@ -77,7 +131,7 @@ const Scratch = {
     TargetType,
     Cast,
     types: typesAPI,
+    BlockShapes: blockShapesAPI,
     external
 };
-
 module.exports = Scratch;

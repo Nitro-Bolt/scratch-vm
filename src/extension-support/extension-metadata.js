@@ -26,8 +26,8 @@
  * @property {Boolean} [duplicateOnDrag] - sets whether a block can duplicate on drag,
  * this will also hide it from pallete.
  * @property {int} [branchCount] - for flow control blocks, the number of branches/substacks for this block.
- * @property {string} [outputType] - for reporter/boolean blocks, a namespaced custom type ID
- * ("extensionId:typeName") registered via Scratch.types.register. Reporters with a custom outputType
+ * @property {string} [outputType] - for reporter/boolean blocks, a namespaced custom type ID registered
+ * via Scratch.types.register. Reporters with a custom outputType
  * only connect to argument slots expecting that type, and take their connection shape from the type class.
  * @property {Object.<ExtensionArgumentMetadata>} [arguments] - map of argument placeholder to metadata about each arg.
  */
