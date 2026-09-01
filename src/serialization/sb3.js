@@ -298,6 +298,11 @@ const compressInputTree = function (block, blocks) {
  * @return {?string} The extension ID, if it exists and is not a core extension.
  */
 const getExtensionIdForOpcode = function (opcode) {
+    // text_multiline is a generic input shadow used by extension blocks. It is
+    // compiled like the core text primitive and does not belong to the
+    // Animated Text extension, despite sharing its `text_` prefix.
+    if (opcode === 'text_multiline') return;
+
     // Allowed ID characters are those matching the regular expression [\w-]: A-Z, a-z, 0-9, and hyphen ("-").
     const index = opcode.indexOf('_');
     const forbiddenSymbols = /[^\w-]/g;
