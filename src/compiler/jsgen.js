@@ -1544,17 +1544,32 @@ class JSGenerator {
      */
     generateCompatibilityLayerCall (node, setFlags, frameName = null) {
         const opcode = node.opcode;
+        const casters = this.target.runtime._customArgumentCasters.get(opcode);
 
         let result = 'yield* executeInCompatibilityLayer({';
 
         for (const inputName of Object.keys(node.inputs)) {
             const input = node.inputs[inputName];
-            const compiledInput = this.descendInput(input);
+            let compiledInput = this.descendInput(input);
+            const caster = casters && casters[inputName];
+            if (caster) {
+                const casterRef = this.evaluateOnce(
+                    `runtime._customArgumentCasters.get(${JSON.stringify(opcode)})[${JSON.stringify(inputName)}]`
+                );
+                compiledInput = `${casterRef}(${compiledInput})`;
+            }
             result += `"${sanitize(inputName)}":${compiledInput},`;
         }
         for (const fieldName of Object.keys(node.fields)) {
-            const field = node.fields[fieldName];
-            result += `"${sanitize(fieldName)}":"${sanitize(field)}",`;
+            let field = node.fields[fieldName];
+            const caster = casters && casters[fieldName];
+            if (caster) {
+                const casterRef = this.evaluateOnce(
+                    `runtime._customArgumentCasters.get(${JSON.stringify(opcode)})[${JSON.stringify(fieldName)}]`
+                );
+                field = `${casterRef}(${JSON.stringify(field)})`;
+            }
+            result += `"${sanitize(fieldName)}":${field},`;
         }
         const opcodeFunction = this.evaluateOnce(`runtime.getOpcodeFunction("${sanitize(opcode)}")`);
         result += `}, ${opcodeFunction}, ${this.isWarp}, ${setFlags}, "${sanitize(node.id)}", ${frameName})`;
