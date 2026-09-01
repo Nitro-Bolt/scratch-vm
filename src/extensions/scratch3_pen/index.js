@@ -1271,12 +1271,12 @@ class Scratch3PenBlocks {
         );
     }
 
-    async _printText (text, x, y, target) {
+    _printText (text, x, y, target) {
         if (!text) return;
         const attributes = this._getPrintAttributes(target);
         const penSkinId = this._getPenLayerID();
         if (penSkinId < 0) return;
-        await this.runtime.renderer.penText(penSkinId, text, {
+        const result = this.runtime.renderer.penText(penSkinId, text, {
             family: this._resolvePrintFont(attributes.font),
             size: attributes.size,
             color: attributes.color,
@@ -1287,6 +1287,9 @@ class Scratch3PenBlocks {
             wordWrap: attributes.wordWrap,
             alignment: attributes.alignment
         }, x, y);
+        if (result && typeof result.then === 'function') {
+            return result.then(() => this.runtime.requestRedraw());
+        }
         this.runtime.requestRedraw();
     }
 

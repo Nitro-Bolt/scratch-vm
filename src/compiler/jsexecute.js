@@ -225,6 +225,9 @@ runtimeFunctions.waitThreads = `const waitThreads = function*(threads) {
  * @returns {*} the value returned by the block, if any.
  */
 runtimeFunctions.waitPromise = `const waitPromise = function*(promise) {
+    if (promise === null || typeof promise !== 'object' || typeof promise.then !== 'function') {
+        return promise;
+    }
     const thread = globalState.thread;
     let returnValue;
 
