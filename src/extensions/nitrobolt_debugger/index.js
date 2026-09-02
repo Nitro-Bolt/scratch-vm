@@ -159,7 +159,7 @@ class NitroBoltDebuggerBlocks {
         const message = Cast.toString(args.MESSAGE);
         const color = Cast.toNumber(args.COLOR) === 1 ? Cast.toRgbColorObject(args.COLOR_0_VALUE) : null;
 
-        this.runtime.emitDebuggerLog(args.TYPE, message, util.target, color);
+        this.runtime.emitDebuggerLog(args.TYPE, message, util.target, color, util.thread.topBlock);
         switch (args.TYPE) {
         case 'warn':
             console.warn(message);
