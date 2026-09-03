@@ -737,10 +737,21 @@ class VirtualMachine extends EventEmitter {
      * @param {?JSZip} zip Optional zipped project containing assets to be loaded.
      * @returns {Promise} Promise that resolves after the project has loaded
      */
+    /**
+     * Say what the project load is currently doing, for the loading screen.
+     * @param {string} stage One of unzipping, parsing, checking, building, installing.
+     * @param {number} [loaded] How much of this stage is done, in bytes or items.
+     * @param {number} [total] How much there is in total, in the same unit.
+     */
+    emitLoadProgress (stage, loaded, total) {
+        this.emit('LOAD_PROGRESS', {stage, loaded, total});
+    }
+
     deserializeProject (projectJSON, zip) {
         // Clear the current runtime
         this.clear();
 
+        this.emitLoadProgress('building');
         if (typeof performance !== 'undefined') {
             performance.mark('scratch-vm-deserialize-start');
         }
@@ -774,6 +785,7 @@ class VirtualMachine extends EventEmitter {
                         log.error(e);
                     }
                 }
+                this.emitLoadProgress('installing');
                 return this.installTargets(targets, extensions, true);
             });
     }
@@ -2269,10 +2281,10 @@ class VirtualMachine extends EventEmitter {
     emitWorkspaceUpdate () {
         // Create a list of broadcast message Ids according to the stage variables
         const stageVariables = this.runtime.getTargetForStage().variables;
-        let messageIds = [];
+        const messageIds = new Set();
         for (const varId in stageVariables) {
             if (stageVariables[varId].type === Variable.BROADCAST_MESSAGE_TYPE) {
-                messageIds.push(varId);
+                messageIds.add(varId);
             }
         }
         // Go through all blocks on all targets, removing referenced
@@ -2282,19 +2294,13 @@ class VirtualMachine extends EventEmitter {
             const currBlocks = currTarget.blocks._blocks;
             for (const blockId in currBlocks) {
                 if (currBlocks[blockId].fields.BROADCAST_OPTION) {
-                    const id = currBlocks[blockId].fields.BROADCAST_OPTION.id;
-                    const index = messageIds.indexOf(id);
-                    if (index !== -1) {
-                        messageIds = messageIds.slice(0, index)
-                            .concat(messageIds.slice(index + 1));
-                    }
+                    messageIds.delete(currBlocks[blockId].fields.BROADCAST_OPTION.id);
                 }
             }
         }
         // Anything left in messageIds is not referenced by a block, so delete it.
-        for (let i = 0; i < messageIds.length; i++) {
-            const id = messageIds[i];
-            delete this.runtime.getTargetForStage().variables[id];
+        for (const id of messageIds) {
+            delete stageVariables[id];
         }
         const globalVarMap = Object.assign({}, this.runtime.getTargetForStage().variables);
         const localVarMap = this.editingTarget.isStage ?
@@ -2308,17 +2314,32 @@ class VirtualMachine extends EventEmitter {
             .filter(c => c.blockId === null);
         const workspaceGroups = Object.values(this.editingTarget.groups || {});
 
-        const xmlString = `<xml xmlns="http://www.w3.org/1999/xhtml">
-                            <variables>
+        const target = this.editingTarget;
+        // Everything except the blocks. Serializing the blocks to a string so
+        // the editor can parse them back into a DOM costs more than building
+        // the blocks does, so they are handed over as-is in `blocks` below and
+        // `xml` is only built if something actually asks for it.
+        const headerXml = `<variables>
                                 ${globalVariables.map(v => v.toXML()).join()}
                                 ${localVariables.map(v => v.toXML(true)).join()}
                             </variables>
                             ${workspaceComments.map(c => c.toXML()).join()}
-                            ${workspaceGroups.map(g => g.toXML()).join()}
-                            ${this.editingTarget.blocks.toXML(this.editingTarget.comments)}
-                        </xml>`;
+                            ${workspaceGroups.map(g => g.toXML()).join()}`;
 
-        this.emit('workspaceUpdate', {xml: xmlString});
+        this.emit('workspaceUpdate', {
+            get xml () {
+                return `<xml xmlns="http://www.w3.org/1999/xhtml">
+                            ${headerXml}
+                            ${target.blocks.toXML(target.comments)}
+                        </xml>`;
+            },
+            headerXml: `<xml xmlns="http://www.w3.org/1999/xhtml">${headerXml}</xml>`,
+            blocks: {
+                blocks: target.blocks._blocks,
+                scripts: target.blocks.getScripts(),
+                comments: target.comments
+            }
+        });
     }
 
     /**
