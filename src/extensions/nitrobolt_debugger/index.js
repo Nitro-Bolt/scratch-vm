@@ -286,7 +286,7 @@ class NitroBoltDebuggerBlocks {
     memory () {
         const vm = window.vm;
         let byteLength = 0;
-        for (const target of vm.runtime.targets) {
+        for (const target of this.runtime.targets) {
             Object.values(target.variables).forEach(v => {
                 if (typeof v.value === 'string') {
                     // todo: should this account for non-ASCII characters?
