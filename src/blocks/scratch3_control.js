@@ -256,7 +256,7 @@ class Scratch3ControlBlocks {
     }
 
     forEachInRange (args, util) {
-        const {stackFrame, thread} = util;
+        const {stackFrame} = util;
 
         if (typeof stackFrame.index === 'undefined') {
             const from = Math.round(Cast.toNumber(args.FROM));
@@ -273,11 +273,11 @@ class Scratch3ControlBlocks {
         const done = step > 0 ? index > to : index < to;
 
         if (done) {
-            delete thread.stackFrames[thread.stackFrames.length - 1].forEachInRangeItem;
+            delete stackFrame.forEachInRangeItem;
             return;
         }
 
-        thread.stackFrames[thread.stackFrames.length - 1].forEachInRangeItem = index;
+        stackFrame.forEachInRangeItem = index;
         stackFrame.index += step;
         util.startBranch(1, true);
     }
