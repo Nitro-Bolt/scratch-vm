@@ -44,13 +44,24 @@ const isValidTypeId = typeId =>
  * @returns {Function} (value) => castValue
  */
 const makeCastFunction = classDef => {
+    const defaultInstance = () => {
+        try {
+            return new classDef();
+        } catch (e) {
+            return void 0;
+        }
+    };
+    const fallbackForEmpty = value => (
+        typeof value === 'undefined' || value === null || value === '' ?
+            defaultInstance() : value
+    );
     if (typeof classDef.cast === 'function') {
         const boundCast = classDef.cast.bind(classDef);
         return value => {
             try {
                 return boundCast(value);
             } catch (e) {
-                return value;
+                return fallbackForEmpty(value);
             }
         };
     }
@@ -59,7 +70,7 @@ const makeCastFunction = classDef => {
             if (value instanceof classDef) return value;
             return new classDef(value);
         } catch (e) {
-            return value;
+            return fallbackForEmpty(value);
         }
     };
 };

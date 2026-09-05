@@ -388,6 +388,11 @@ class BlockCached {
                         caster(inputCached._shadowValue) :
                         inputCached._shadowValue;
                 }
+            } else if (this._argCasters) {
+                const caster = this._argCasters[inputName];
+                if (caster) {
+                    this._argValues[inputName] = caster(void 0);
+                }
             }
         }
 
