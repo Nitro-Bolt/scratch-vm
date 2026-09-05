@@ -498,7 +498,9 @@ test('reorderTarget', t => {
 
 test('emitWorkspaceUpdate', t => {
     const vm = new VirtualMachine();
+    let serializationCount = 0;
     const blocksToXML = comments => {
+        serializationCount++;
         let blockString = 'blocks\n';
         if (comments) {
             for (const commentId in comments) {
@@ -562,11 +564,22 @@ test('emitWorkspaceUpdate', t => {
             }
         }
     ];
+    for (const target of vm.runtime.targets) {
+        target.blocks._blocks = {};
+        target.blocks.getScripts = () => [];
+    }
     vm.editingTarget = vm.runtime.targets[2];
 
-    let xml = null;
-    vm.emit = (event, data) => (xml = data.xml);
+    let payload = null;
+    vm.emit = (event, data) => (payload = data);
     vm.emitWorkspaceUpdate();
+    t.equal(serializationCount, 0, 'descriptions do not serialize block XML');
+    t.equal(payload.blocks.blocks, vm.editingTarget.blocks._blocks, 'block descriptions stay live');
+    t.equal(payload.blocks.comments, vm.editingTarget.comments, 'comments stay live');
+    t.same(payload.blocks.scripts, [], 'includes script order');
+    t.equal(payload.headerXml.indexOf('blocks'), -1, 'header excludes blocks');
+    const xml = payload.xml;
+    t.equal(serializationCount, 1, 'XML remains available to older consumers');
     t.notEqual(xml.indexOf('global'), -1);
     t.notEqual(xml.indexOf('local'), -1);
     t.equal(xml.indexOf('unused'), -1);
