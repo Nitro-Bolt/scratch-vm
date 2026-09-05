@@ -117,6 +117,17 @@ class NitroBoltDebuggerBlocks {
                             defaultValue: 'timer'
                         }
                     }
+                },
+                '---',
+                {
+                    opcode: 'cloneCount',
+                    blockType: BlockType.REPORTER,
+                    text: 'clone count'
+                },
+                {
+                    opcode: 'memory',
+                    blockType: BlockType.REPORTER,
+                    text: 'used memory'
                 }
             ],
             menus: {
@@ -159,7 +170,7 @@ class NitroBoltDebuggerBlocks {
         const message = Cast.toString(args.MESSAGE);
         const color = Cast.toNumber(args.COLOR) === 1 ? Cast.toRgbColorObject(args.COLOR_0_VALUE) : null;
 
-        this.runtime.emitDebuggerLog(args.TYPE, message, util.target, color);
+        this.runtime.emitDebuggerLog(args.TYPE, message, util.target, color, util.thread.topBlock);
         switch (args.TYPE) {
         case 'warn':
             console.warn(message);
@@ -266,6 +277,30 @@ class NitroBoltDebuggerBlocks {
         default:
             return stats.average || 0;
         }
+    }
+
+    cloneCount () {
+        return this.runtime._cloneCounter;
+    }
+
+    memory () {
+        const vm = window.vm;
+        let byteLength = 0;
+        for (const target of this.runtime.targets) {
+            Object.values(target.variables).forEach(v => {
+                if (typeof v.value === 'string') {
+                    // todo: should this account for non-ASCII characters?
+                    byteLength += v.value.length;
+                } else if (typeof v.value === 'object') {
+                    // not very accurate, but good enough.
+                    byteLength += JSON.stringify(v.value).length;
+                }
+            });
+        }
+        for (const asset of vm.assets) {
+            byteLength += asset.data.byteLength || 0;
+        }
+        return byteLength;
     }
 }
 
