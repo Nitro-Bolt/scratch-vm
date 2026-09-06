@@ -39,6 +39,8 @@
  * or a namespaced custom type ID ("extensionId:typeName") registered via Scratch.types.register.
  * Custom-typed arguments are automatically cast with CustomClass.cast(value) before the block runs.
  * @property {*} [defaultValue] - the default value of this argument.
+ * @property {Boolean} [canMultiline] - for string arguments, use a multiline
+ * text input which grows to display all lines.
  * @property {string} [menu] - the name of the menu to use for this argument, if any.
  * @property {number} [min] - minimum value for a slider argument.
  * @property {number} [max] - maximum value for a slider argument.

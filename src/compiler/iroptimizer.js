@@ -155,6 +155,7 @@ class IROptimizer {
         case InputOpcode.VAR_GET:
             return state.getVariableType(inputs.variable);
 
+        case InputOpcode.EXT_COMPILED_BLOCK:
         case InputOpcode.ADDON_CALL:
             break;
 
@@ -521,6 +522,7 @@ class IROptimizer {
         inputBlock.type = newType;
 
         switch (inputBlock.opcode) {
+        case InputOpcode.EXT_COMPILED_BLOCK:
         case InputOpcode.ADDON_CALL:
             modified = state.clear() || modified;
             break;
@@ -611,6 +613,7 @@ class IROptimizer {
             this.addPossibleExitState(state);
             break;
         }
+        case StackOpcode.EXT_COMPILED_BLOCK:
         case StackOpcode.CONTROL_WAIT_UNTIL: {
             modified = state.clear() || modified;
             modified = this.analyzeInputs(inputs, state) || modified;

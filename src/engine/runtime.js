@@ -353,6 +353,12 @@ class Runtime extends EventEmitter {
         this.blockShapes = new Map();
 
         /**
+         * Map of opcodes allowing extensions to hook into the JavaScript compiler.
+         * @type {Record<string, function>}
+         */
+        this._compilerInterfaces = {};
+
+        /**
          * A list of script block IDs that were glowing during the previous frame.
          * @type {!Array.<!string>}
          */
@@ -1346,7 +1352,7 @@ class Runtime extends EventEmitter {
         for (const menuName in extensionInfo.menus) {
             if (Object.prototype.hasOwnProperty.call(extensionInfo.menus, menuName)) {
                 if (
-                    extensionInfo.menus[menuName].acceptText === true &&
+                    extensionInfo.menus[menuName]?.acceptText === true &&
                     typeof extensionInfo.menus[menuName].acceptReporters === 'undefined'
                 ) {
                     extensionInfo.menus[menuName].acceptReporters = true;
@@ -1401,6 +1407,14 @@ class Runtime extends EventEmitter {
                     const opcode = convertedBlock.json.type;
                     if (blockInfo.blockType !== BlockType.EVENT) {
                         this._primitives[opcode] = convertedBlock.info.func;
+
+                        // nb: add support for compiled blocks in extensions
+                        if (
+                            typeof convertedBlock.info.compiler === 'function' ||
+                            (convertedBlock.info.compiler && typeof convertedBlock.info.compiler === 'object')
+                        ) {
+                            this._compilerInterfaces[opcode] = convertedBlock.info.compiler;
+                        }
                     }
                     this._updateCustomArgumentCasters(opcode, blockInfo);
                     if (blockInfo.blockType === BlockType.EVENT || blockInfo.blockType === BlockType.HAT) {
@@ -1438,6 +1452,9 @@ class Runtime extends EventEmitter {
             const extensionMessageContext = this.makeMessageContextForTarget();
             return menuItems.map(item => {
                 const formattedItem = maybeFormatMessage(item, extensionMessageContext);
+                if (formattedItem === '---') {
+                    return 'separator';
+                }
                 switch (typeof formattedItem) {
                 case 'string':
                     return [formattedItem, formattedItem];
@@ -1471,14 +1488,14 @@ class Runtime extends EventEmitter {
                 type: menuId,
                 inputsInline: true,
                 output: 'String',
-                colour: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color1,
-                colourSecondary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color2,
-                colourTertiary: menuInfo.acceptText ? '#FFFFFF' : categoryInfo.color3,
+                colour: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color1,
+                colourSecondary: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color2,
+                colourTertiary: menuInfo?.acceptText ? '#FFFFFF' : categoryInfo.color3,
                 outputShape: menuInfo.acceptReporters === true ?
                     ScratchBlocksConstants.OUTPUT_SHAPE_ROUND : ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
                 args0: [
                     {
-                        type: menuInfo.acceptText ? 'field_textdropdown' : 'field_dropdown',
+                        type: menuInfo?.acceptText ? 'field_textdropdown' : 'field_dropdown',
                         name: menuName,
                         options: menuItems
                     }
@@ -1749,8 +1766,12 @@ class Runtime extends EventEmitter {
             }
         }
 
-        if (blockInfo.blockType === BlockType.REPORTER || blockInfo.blockType === BlockType.BOOLEAN) {
-            if (!blockInfo.disableMonitor && context.inputList.length === 0) {
+        if (blockInfo.blockType === BlockType.REPORTER ||
+            blockInfo.blockType === BlockType.BOOLEAN ||
+            blockInfo.blockType === BlockType.ARRAY) {
+            const hasExtendableArgument = Object.values(blockInfo.arguments || {})
+                .some(argument => argument.type === ArgumentType.EXTENDABLE);
+            if (!blockInfo.disableMonitor && context.inputList.length === 0 && !hasExtendableArgument) {
                 blockJSON.checkboxInFlyout = true;
             }
         } else if (
@@ -1964,12 +1985,17 @@ class Runtime extends EventEmitter {
                 }
             }
 
+            const noAcceptReporters = typeof argInfo.acceptReporters !== 'undefined' &&
+                argInfo.acceptReporters === false;
+            const canMultiline = argInfo.type === ArgumentType.STRING &&
+                argInfo.canMultiline === true;
+
             let valueName;
             let shadowType;
             let fieldName;
             if (argInfo.menu) {
                 if (
-                    context.categoryInfo.menuInfo[argInfo.menu].acceptText === true &&
+                    context.categoryInfo.menuInfo[argInfo.menu]?.acceptText === true &&
                     typeof context.categoryInfo.menuInfo[argInfo.menu].acceptReporters === 'undefined'
                 ) {
                     context.categoryInfo.menuInfo[argInfo.menu].acceptReporters = true;
@@ -1998,7 +2024,7 @@ class Runtime extends EventEmitter {
                     );
                     fieldName = argInfo.menu;
                 } else {
-                    if (menuInfo.acceptText) {
+                    if (menuInfo?.acceptText) {
                         argJSON.type = 'field_textdropdown';
                         argJSON.text = defaultValue || '';
                     } else {
@@ -2009,13 +2035,16 @@ class Runtime extends EventEmitter {
                     shadowType = null;
                     fieldName = name;
                 }
-            } else if (
-                argInfo.type === ArgumentType.STRING &&
-                typeof argInfo.acceptReporters !== 'undefined' &&
-                argInfo.acceptReporters === false
-            ) {
+            } else if (argInfo.type === ArgumentType.STRING && noAcceptReporters) {
                 argJSON.type = 'field_input';
                 argJSON.text = defaultValue || '';
+                if (canMultiline) argJSON.multiline = true;
+                valueName = null;
+                shadowType = null;
+                fieldName = name;
+            } else if (argInfo.type === ArgumentType.NUMBER && noAcceptReporters) {
+                argJSON.type = 'field_number';
+                argJSON.value = defaultValue || '';
                 valueName = null;
                 shadowType = null;
                 fieldName = name;
@@ -2052,6 +2081,9 @@ class Runtime extends EventEmitter {
                 } else {
                     shadowType = (argTypeInfo.shadow && argTypeInfo.shadow.type) || null;
                     fieldName = (argTypeInfo.shadow && argTypeInfo.shadow.fieldName) || null;
+                    if (canMultiline && shadowType === 'text') {
+                        shadowType = 'text_multiline';
+                    }
                 }
 
                 if (typeof argInfo.shadow === 'string') {
@@ -2825,7 +2857,7 @@ class Runtime extends EventEmitter {
         optMatchFields, optTarget) {
         if (this.paused) {
             // Runtime is paused.
-            return;
+            return [];
         }
 
         if (!Object.prototype.hasOwnProperty.call(this._hats, requestedHatOpcode)) {

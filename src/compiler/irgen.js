@@ -265,9 +265,27 @@ class ScriptTreeGenerator {
         case 'math_whole_number':
             return this.createConstantInput(block.fields.NUM.value, preserveStrings);
         case 'text':
+        case 'text_multiline':
             return this.createConstantInput(block.fields.TEXT.value, preserveStrings);
         case 'checkbox':
             return this.createConstantInput(true).toType(InputType.BOOLEAN);
+
+        case 'pen_paperExists':
+            return new IntermediateInput(InputOpcode.PEN_PAPER_EXISTS, InputType.BOOLEAN, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_allPapers':
+            return new IntermediateInput(InputOpcode.PEN_PAPERS, InputType.ARRAY);
+        case 'pen_paperIndex':
+            return new IntermediateInput(InputOpcode.PEN_PAPER_INDEX, InputType.NUMBER_WHOLE | InputType.STRING_NAN, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_currentPaper':
+            return new IntermediateInput(InputOpcode.PEN_CURRENT_PAPER, InputType.STRING);
+        case 'pen_paperIsVisible':
+            return new IntermediateInput(InputOpcode.PEN_PAPER_VISIBLE, InputType.BOOLEAN, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
 
         case 'argument_reporter_string_number': {
             const name = block.fields.VALUE.value;
@@ -542,6 +560,66 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);
         case 'json_foreach_index':
             return new IntermediateInput(InputOpcode.JSON_FOREACH_INDEX, InputType.NUMBER);
+        case 'json_map': {
+            const array = this.descendInputOfBlock(block, 'ARRAY', false,
+                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY);
+            const methodInput = block.inputs.METHOD;
+            let mapper;
+            if (methodInput && methodInput.block) {
+                mapper = this.descendInputOfBlock(block, 'METHOD');
+            } else {
+                mapper = this.createConstantInput('');
+            }
+            // The method may suspend while evaluating a custom reporter.
+            return new IntermediateInput(InputOpcode.JSON_MAP, InputType.ARRAY, {
+                array,
+                mapper
+            }, true);
+        }
+        case 'json_map_value':
+            return new IntermediateInput(InputOpcode.JSON_MAP_VALUE, InputType.ANY);
+        case 'json_map_index':
+            return new IntermediateInput(InputOpcode.JSON_MAP_INDEX, InputType.NUMBER | InputType.STRING_NAN);
+        case 'json_filter': {
+            const array = this.descendInputOfBlock(block, 'ARRAY', false,
+                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY);
+            const methodInput = block.inputs.METHOD;
+            let mapper;
+            if (methodInput && methodInput.block) {
+                mapper = this.descendInputOfBlock(block, 'METHOD').toType(InputType.BOOLEAN);
+            } else {
+                mapper = this.createConstantInput(false).toType(InputType.BOOLEAN);
+            }
+            // The method may suspend while evaluating a custom reporter.
+            return new IntermediateInput(InputOpcode.JSON_FILTER, InputType.ARRAY, {
+                array,
+                mapper
+            }, true);
+        }
+        case 'json_filter_value':
+            return new IntermediateInput(InputOpcode.JSON_FILTER_VALUE, InputType.ANY);
+        case 'json_filter_index':
+            return new IntermediateInput(InputOpcode.JSON_FILTER_INDEX, InputType.NUMBER | InputType.STRING_NAN);
+        case 'json_sort': {
+            const array = this.descendInputOfBlock(block, 'ARRAY', false,
+                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY);
+            const methodInput = block.inputs.METHOD;
+            let mapper;
+            if (methodInput && methodInput.block) {
+                mapper = this.descendInputOfBlock(block, 'METHOD').toType(InputType.NUMBER);
+            } else {
+                mapper = this.createConstantInput(0);
+            }
+            // The comparator may suspend while evaluating a custom reporter.
+            return new IntermediateInput(InputOpcode.JSON_SORT, InputType.ARRAY, {
+                array,
+                mapper
+            }, true);
+        }
+        case 'json_sort_a':
+            return new IntermediateInput(InputOpcode.JSON_SORT_A, InputType.ANY);
+        case 'json_sort_b':
+            return new IntermediateInput(InputOpcode.JSON_SORT_B, InputType.ANY);
 
         case 'event_broadcast_menu': {
             const broadcastOption = block.fields.BROADCAST_OPTION;
@@ -1012,6 +1090,35 @@ class ScriptTreeGenerator {
                 // It might be an extension block.
                 const blockInfo = this.getBlockInfo(block.opcode);
                 if (blockInfo) {
+                    // nb: it might be a compiled extension block.
+                    const compilerInterface = this.runtime._compilerInterfaces[block.opcode];
+                    const inputCompiler = typeof compilerInterface === 'function' ?
+                        compilerInterface : compilerInterface && compilerInterface.input;
+                    if (typeof inputCompiler === 'function') {
+                        const inputs = Object.fromEntries(Object.keys(block.inputs)
+                            .filter(name => !name.startsWith('SUBSTACK'))
+                            .map(name =>
+                                [name, this.descendInputOfBlock(block, name)]
+                            ));
+                        const substacks = Object.fromEntries(Object.keys(block.inputs)
+                            .filter(name => name.startsWith('SUBSTACK'))
+                            .map(name => {
+                                const branchNum = name === 'SUBSTACK' ? 1 : +name.substring('SUBSTACK'.length);
+                                return [branchNum, this.descendSubstack(block, name)];
+                            })
+                        );
+                        const fields = Object.fromEntries(Object.entries(block.fields)
+                            .map(([name, field]) => [name, this.createConstantInput(field.value)]
+                            ));
+
+                        return new IntermediateInput(StackOpcode.EXT_COMPILED_BLOCK, InputType.ANY, {
+                            func: inputCompiler,
+                            inputs,
+                            fields,
+                            substacks
+                        }, this.analyzeLoop());
+                    }
+
                     const type = blockInfo.info.blockType;
                     if (
                         type === BlockType.REPORTER ||
@@ -1441,6 +1548,10 @@ class ScriptTreeGenerator {
 
         case 'pen_clear':
             return new IntermediateStackBlock(StackOpcode.PEN_CLEAR);
+        case 'pen_clearPaper':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_CLEAR, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
         case 'pen_changePenColorParamBy':
             return new IntermediateStackBlock(StackOpcode.PEN_COLOR_PARAM_CHANGE, {
                 param: this.descendInputOfBlock(block, 'COLOR_PARAM').toType(InputType.STRING),
@@ -1485,6 +1596,73 @@ class ScriptTreeGenerator {
             });
         case 'pen_stamp':
             return new IntermediateStackBlock(StackOpcode.PEN_STAMP);
+        case 'pen_printText':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT, {
+                text: this.descendInputOfBlock(block, 'TEXT').toType(InputType.STRING),
+                x: this.descendInputOfBlock(block, 'X').toType(InputType.NUMBER),
+                y: this.descendInputOfBlock(block, 'Y').toType(InputType.NUMBER)
+            }, true);
+        case 'pen_setPrintFont':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_FONT_SET, {
+                font: this.descendInputOfBlock(block, 'FONT').toType(InputType.STRING)
+            });
+        case 'pen_setPrintFontSize':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_FONT_SIZE_SET, {
+                size: this.descendInputOfBlock(block, 'SIZE').toType(InputType.NUMBER)
+            });
+        case 'pen_setPrintColor':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_COLOR_SET, {
+                target: this.descendInputOfBlock(block, 'TARGET').toType(InputType.STRING),
+                color: this.descendInputOfBlock(block, 'COLOR')
+            });
+        case 'pen_setPrintStrokeWidth':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_STROKE_WIDTH_SET, {
+                width: this.descendInputOfBlock(block, 'WIDTH').toType(InputType.NUMBER)
+            });
+        case 'pen_setPrintFontWeight':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_FONT_WEIGHT_SET, {
+                weight: this.descendInputOfBlock(block, 'WEIGHT').toType(InputType.STRING)
+            });
+        case 'pen_setPrintItalic':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_ITALIC_SET, {
+                state: this.descendInputOfBlock(block, 'STATE').toType(InputType.STRING)
+            });
+        case 'pen_setPrintWordWrap':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_WORD_WRAP_SET, {
+                state: this.descendInputOfBlock(block, 'STATE').toType(InputType.STRING)
+            });
+        case 'pen_setPrintAlignment':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_ALIGNMENT_SET, {
+                alignment: this.descendInputOfBlock(block, 'ALIGNMENT').toType(InputType.STRING)
+            });
+        case 'pen_createPaper':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_CREATE, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_removePaper':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_REMOVE, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_combinePapers':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_COMBINE, {
+                mode: this.descendInputOfBlock(block, 'MODE').toType(InputType.STRING),
+                source: this.descendInputOfBlock(block, 'SOURCE').toType(InputType.STRING),
+                destination: this.descendInputOfBlock(block, 'DESTINATION').toType(InputType.STRING)
+            });
+        case 'pen_setPaperIndex':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_INDEX_SET, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING),
+                index: this.descendInputOfBlock(block, 'INDEX').toType(InputType.NUMBER)
+            });
+        case 'pen_switchPaper':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_SWITCH, {
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
+        case 'pen_setPaperVisibility':
+            return new IntermediateStackBlock(StackOpcode.PEN_PAPER_VISIBILITY_SET, {
+                visibility: this.descendInputOfBlock(block, 'VISIBILITY').toType(InputType.STRING),
+                paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
+            });
 
         case 'procedures_call': {
             const procedureCode = block.mutation.proccode;
@@ -1532,6 +1710,54 @@ class ScriptTreeGenerator {
                 const blockInfo = this.getBlockInfo(block.opcode);
                 if (blockInfo) {
                     const type = blockInfo.info.blockType;
+
+                    // nb: it might be a compiled extension block.
+                    const compilerInterface = this.runtime._compilerInterfaces[block.opcode];
+                    if (compilerInterface && typeof compilerInterface === 'object' && compilerInterface.stack === null) {
+                        return new IntermediateStackBlock(StackOpcode.NOP);
+                    }
+                    const hasExplicitStackCompiler = compilerInterface &&
+                        typeof compilerInterface === 'object' && typeof compilerInterface.stack === 'function';
+                    const stackCompiler = typeof compilerInterface === 'function' ? compilerInterface :
+                        hasExplicitStackCompiler ? compilerInterface.stack : compilerInterface && compilerInterface.input;
+                    if (typeof stackCompiler === 'function') {
+                        if (
+                            !hasExplicitStackCompiler && (
+                                type === BlockType.REPORTER ||
+                                type === BlockType.BOOLEAN ||
+                                type === BlockType.OBJECT ||
+                                type === BlockType.ARRAY
+                            )
+                        ) {
+                            const visualReport = this.descendVisualReport(block);
+                            if (visualReport) {
+                                return visualReport;
+                            }
+                        }
+
+                        const inputs = Object.fromEntries(Object.keys(block.inputs)
+                            .filter(name => !name.startsWith('SUBSTACK'))
+                            .map(input =>
+                                [input, this.descendInputOfBlock(block, input)]
+                            ));
+                        const substacks = Object.fromEntries(Object.keys(block.inputs)
+                            .filter(name => name.startsWith('SUBSTACK'))
+                            .map(name => {
+                                const branchNum = name === 'SUBSTACK' ? 1 : +name.substring('SUBSTACK'.length);
+                                return [branchNum, this.descendSubstack(block, name)];
+                            }));
+                        const fields = Object.fromEntries(Object.entries(block.fields)
+                            .map(([name, field]) => [name, this.createConstantInput(field.value)]
+                            ));
+
+                        return new IntermediateStackBlock(StackOpcode.EXT_COMPILED_BLOCK, {
+                            func: stackCompiler,
+                            inputs,
+                            fields,
+                            substacks
+                        }, this.analyzeLoop());
+                    }
+
                     if (type === BlockType.COMMAND || type === BlockType.CONDITIONAL || type === BlockType.LOOP) {
                         return this.descendCompatLayerStack(block);
                     }

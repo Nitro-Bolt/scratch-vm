@@ -761,6 +761,10 @@ class Blocks {
         if (Object.prototype.hasOwnProperty.call(this._blocks, block.id)) {
             return;
         }
+        // Older serialized blocks and direct VM consumers may not provide this metadata.
+        if (typeof block.monitorMode !== 'string') {
+            block.monitorMode = 'default';
+        }
         // Create new block.
         this._blocks[block.id] = block;
         // Push block id to scripts array.
@@ -928,7 +932,7 @@ class Blocks {
                     mode = 'list';
                     break;
                 default:
-                    mode = 'default';
+                    mode = block.monitorMode;
                     break;
                 }
                 if (!this.runtime.requestShowMonitor(block.id)) {

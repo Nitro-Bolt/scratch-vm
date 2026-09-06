@@ -140,9 +140,80 @@ class JSGenerator {
 
         /** @type {{value: string, index: string}[] | null} */
         this.foreachVarsStack = null;
-
+        /** @type {{value: string, index: string}[] | null} */
+        this.mapVarsStack = null;
+        /** @type {{value: string, index: string}[] | null} */
+        this.filterVarsStack = null;
+        /** @type {{value: string, index: string}[] | null} */
+        this.sortVarsStack = null;
         /** @type {string[] | null} */
         this.forEachInRangeStack = null;
+
+        /** @type {boolean} */
+        this.warnedUnsupportedAPI = false;
+    }
+
+    warnUnsupportedAPI () {
+        if (!this.warnedUnsupportedAPI) {
+            this.warnedUnsupportedAPI = true;
+            console.warn("You are using unsupported compiler API's which may break in the future.");
+        }
+    }
+
+    /** @param {Record<string, any>} node */
+    makeCompilerUtil (node) {
+        const gen = this;
+        return {
+            target: this.target,
+            runtime: this.target.runtime,
+            localVariables: this.localVariables,
+            isProcedure: this.isProcedure,
+            isWarp: this.isWarp,
+            warpTimer: this.warpTimer,
+            debug: this.debug,
+            isInHat: this.isInHat,
+            get _frames () {
+                gen.warnUnsupportedAPI();
+                return gen.frames;
+            },
+            get _currentFrame () {
+                gen.warnUnsupportedAPI();
+                return gen.currentFrame;
+            },
+            get _source () {
+                gen.warnUnsupportedAPI();
+                return gen.source;
+            },
+            get _ir () {
+                gen.warnUnsupportedAPI();
+                return gen.ir;
+            },
+            get _script () {
+                gen.warnUnsupportedAPI();
+                return gen.script;
+            },
+            /**
+             * @param {number} branchNum
+             * @param {boolean} isLoop
+             */
+            compileBranch: (branchNum, isLoop = false) =>
+                this.compileStackToSource(node.substacks[branchNum], isLoop),
+            /**
+             * @param {number} branchNum
+             * @param {string[]} parameters
+             * @param {string} fallback JavaScript source for the value returned when the branch reaches its end.
+             */
+            compileFunction: (branchNum, parameters = [], fallback = 'undefined') => {
+                const oldReturns = this.allowReturns;
+                this.allowReturns = true;
+                try {
+                    const body = this.compileStackToSource(node.substacks[branchNum], false);
+                    return `function* (${parameters.join(', ')}) {\n${body}return ${fallback};\n}`;
+                } finally {
+                    this.allowReturns = oldReturns;
+                }
+            }
+        };
     }
 
     /**
@@ -224,6 +295,18 @@ class JSGenerator {
         case InputOpcode.OLD_COMPILER_COMPATIBILITY_LAYER:
             return this.oldCompilerStub.descendInputFromNewCompiler(block);
 
+        case InputOpcode.EXT_COMPILED_BLOCK: {
+            const compileCall = node.func;
+
+            const args = Object.fromEntries(
+                Object.entries({...node.inputs, ...node.fields})
+                    .map(([name, input]) => [name, this.descendInput(input)])
+            );
+            const util = this.makeCompilerUtil(node);
+
+            return compileCall(args, util) || '';
+        }
+
         case InputOpcode.CONSTANT:
             if (block.isAlwaysType(InputType.NUMBER)) {
                 if (typeof node.value !== 'number') throw new Error(`JS: '${block.type}' type constant had ${typeof node.value} type value. Expected number.`);
@@ -250,6 +333,17 @@ class JSGenerator {
             } else if (block.isSometimesType(InputType.STRING)) {
                 return `"${sanitize(node.value.toString())}"`;
             } throw new Error(`JS: Unknown constant input type '${block.type}'.`);
+
+        case InputOpcode.PEN_PAPER_EXISTS:
+            return `${PEN_EXT}._paperExists(${this.descendInput(node.paper)})`;
+        case InputOpcode.PEN_PAPERS:
+            return `${PEN_EXT}._paperMenu()`;
+        case InputOpcode.PEN_PAPER_INDEX:
+            return `${PEN_EXT}._paperIndex(${this.descendInput(node.paper)})`;
+        case InputOpcode.PEN_CURRENT_PAPER:
+            return `${PEN_EXT}._currentPaper`;
+        case InputOpcode.PEN_PAPER_VISIBLE:
+            return `${PEN_EXT}._paperIsVisible(${this.descendInput(node.paper)})`;
 
         case InputOpcode.SENSING_KEY_DOWN:
             return `runtime.ioDevices.keyboard.getKeyIsDown(${this.descendInput(node.key)})`;
@@ -376,6 +470,108 @@ class JSGenerator {
         case InputOpcode.JSON_FOREACH_INDEX: {
             const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
             return vars?.index ?? '0';
+        }
+        case InputOpcode.JSON_MAP: {
+            this.yielded();
+            const array = this.descendInput(node.array);
+            const value = this.localVariables.next();
+            const index = this.localVariables.next();
+            if (!this.mapVarsStack) this.mapVarsStack = [];
+            this.mapVarsStack.push({value, index});
+            const mapper = this.descendInput(node.mapper);
+            this.mapVarsStack.pop();
+            return [
+                `(yield* (function* () {`,
+                `const arr = toArray(${array});`,
+                `const res = [];`,
+                `for (const [${index}, ${value}] of arr.entries()) {`,
+                `res.push(yield* (function* () { return ${mapper}; })());`,
+                `}`,
+                `return res;`,
+                `})())`
+            ].join('\n');
+        }
+        case InputOpcode.JSON_MAP_VALUE: {
+            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_MAP_INDEX: {
+            const vars = this.mapVarsStack?.[this.mapVarsStack.length - 1];
+            return vars?.index ?? '""';
+        }
+        case InputOpcode.JSON_FILTER: {
+            this.yielded();
+            const array = this.descendInput(node.array);
+            const value = this.localVariables.next();
+            const index = this.localVariables.next();
+            if (!this.filterVarsStack) this.filterVarsStack = [];
+            this.filterVarsStack.push({value, index});
+            const mapper = this.descendInput(node.mapper);
+            this.filterVarsStack.pop();
+            return [
+                `(yield* (function* () {`,
+                `const arr = toArray(${array});`,
+                `const res = [];`,
+                `for (const [${index}, ${value}] of arr.entries()) {`,
+                `if (yield* (function* () { return ${mapper}; })()) {`,
+                `res.push(${value});`,
+                `}`,
+                `}`,
+                `return res;`,
+                `})())`
+            ].join('\n');
+        }
+        case InputOpcode.JSON_FILTER_VALUE: {
+            const vars = this.filterVarsStack?.[this.filterVarsStack.length - 1];
+            return vars?.value ?? '""';
+        }
+        case InputOpcode.JSON_FILTER_INDEX: {
+            const vars = this.filterVarsStack?.[this.filterVarsStack.length - 1];
+            return vars?.index ?? '""';
+        }
+        case InputOpcode.JSON_SORT: {
+            this.yielded();
+            const array = this.descendInput(node.array);
+            const a = this.localVariables.next();
+            const b = this.localVariables.next();
+            if (!this.sortVarsStack) this.sortVarsStack = [];
+            this.sortVarsStack.push({a, b});
+            const mapper = this.descendInput(node.mapper);
+            this.sortVarsStack.pop();
+            return [
+                `(yield* (function* () {`,
+                `let ${a};`,
+                `let ${b};`,
+                `let res = toArray(${array});`,
+                `for (let width = 1; width < res.length; width *= 2) {`,
+                `const merged = [];`,
+                `for (let start = 0; start < res.length; start += width * 2) {`,
+                `const middle = Math.min(start + width, res.length);`,
+                `const end = Math.min(start + width * 2, res.length);`,
+                `let left = start;`,
+                `let right = middle;`,
+                `while (left < middle && right < end) {`,
+                `${a} = res[left];`,
+                `${b} = res[right];`,
+                `const comparison = yield* (function* () { return ${mapper}; })();`,
+                `if (comparison <= 0) merged.push(res[left++]);`,
+                `else merged.push(res[right++]);`,
+                `}`,
+                `merged.push(...res.slice(left, middle), ...res.slice(right, end));`,
+                `}`,
+                `res = merged;`,
+                `}`,
+                `return res;`,
+                `})())`
+            ].join('\n');
+        }
+        case InputOpcode.JSON_SORT_A: {
+            const vars = this.sortVarsStack?.[this.sortVarsStack.length - 1];
+            return vars?.a ?? '""';
+        }
+        case InputOpcode.JSON_SORT_B: {
+            const vars = this.sortVarsStack?.[this.sortVarsStack.length - 1];
+            return vars?.b ?? '""';
         }
 
         case InputOpcode.LOOKS_SIZE_GET:
@@ -758,13 +954,6 @@ class JSGenerator {
             const operand = this.descendInput(node.operand);
             const _then = this.descendInput(node.then);
             const _else = this.descendInput(node.else);
-
-            if (node.operand.isConstant(true)) {
-                return `${_then}`;
-            } else if (node.operand.isConstant(false)) {
-                return `${_else}`;
-            }
-
             return `(${operand} ? ${_then} : ${_else})`;
         }
         case InputOpcode.CONTROL_COUNTER:
@@ -834,6 +1023,19 @@ class JSGenerator {
 
         case InputOpcode.OLD_COMPILER_COMPATIBILITY_LAYER:
             return this.oldCompilerStub.descendStackedBlockFromNewCompiler(block);
+
+        case StackOpcode.EXT_COMPILED_BLOCK: {
+            const compileCall = node.func;
+
+            const args = Object.fromEntries(
+                Object.entries({...node.inputs, ...node.fields})
+                    .map(([name, input]) => [name, this.descendInput(input)])
+            );
+            const util = this.makeCompilerUtil(node);
+
+            this.source += compileCall(args, util) || '';
+            break;
+        }
 
         case StackOpcode.HAT_EDGE:
             this.isInHat = true;
@@ -1143,7 +1345,7 @@ class JSGenerator {
             if (!this.foreachVarsStack) this.foreachVarsStack = [];
             this.foreachVarsStack.push({value: valVar, index: indVar});
 
-            this.source += `for (const [${indVar}, ${valVar}] of [...${array}].entries()) {\n`;
+            this.source += `for (const [${indVar}, ${valVar}] of toArray(${array}).entries()) {\n`;
             if (node.substack) this.descendStack(node.substack, new Frame(true));
             this.yieldLoop();
             this.source += `}\n`;
@@ -1255,6 +1457,9 @@ class JSGenerator {
         case StackOpcode.PEN_CLEAR:
             this.source += `${PEN_EXT}.clear();\n`;
             break;
+        case StackOpcode.PEN_PAPER_CLEAR:
+            this.source += `${PEN_EXT}._clearPaper(${this.descendInput(node.paper)});\n`;
+            break;
         case StackOpcode.PEN_DOWN:
             this.source += `${PEN_EXT}._penDown(target);\n`;
             break;
@@ -1287,6 +1492,58 @@ class JSGenerator {
             break;
         case StackOpcode.PEN_STAMP:
             this.source += `${PEN_EXT}._stamp(target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT:
+            this.source += `yield* waitPromise(${PEN_EXT}._printText(` +
+                `${this.descendInput(node.text)}, ${this.descendInput(node.x)}, ` +
+                `${this.descendInput(node.y)}, target));\n`;
+            this.yielded();
+            break;
+        case StackOpcode.PEN_PRINT_FONT_SET:
+            this.source += `${PEN_EXT}._setPrintFont(${this.descendInput(node.font)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_FONT_SIZE_SET:
+            this.source += `${PEN_EXT}._setPrintFontSize(${this.descendInput(node.size)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_COLOR_SET:
+            this.source += `${PEN_EXT}._setPrintColor(${this.descendInput(node.target)}, ` +
+                `${this.descendInput(node.color)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_STROKE_WIDTH_SET:
+            this.source += `${PEN_EXT}._setPrintStrokeWidth(${this.descendInput(node.width)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_FONT_WEIGHT_SET:
+            this.source += `${PEN_EXT}._setPrintFontWeight(${this.descendInput(node.weight)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_ITALIC_SET:
+            this.source += `${PEN_EXT}._setPrintItalic(${this.descendInput(node.state)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_WORD_WRAP_SET:
+            this.source += `${PEN_EXT}._setPrintWordWrap(${this.descendInput(node.state)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_ALIGNMENT_SET:
+            this.source += `${PEN_EXT}._setPrintAlignment(${this.descendInput(node.alignment)}, target);\n`;
+            break;
+        case StackOpcode.PEN_PAPER_CREATE:
+            this.source += `${PEN_EXT}._createPaper(${this.descendInput(node.paper)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_REMOVE:
+            this.source += `${PEN_EXT}._removePaper(${this.descendInput(node.paper)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_COMBINE:
+            this.source += `${PEN_EXT}._combinePapers(${this.descendInput(node.mode)}, ` +
+                `${this.descendInput(node.source)}, ${this.descendInput(node.destination)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_INDEX_SET:
+            this.source += `${PEN_EXT}._setPaperIndex(${this.descendInput(node.paper)}, ` +
+                `${this.descendInput(node.index)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_SWITCH:
+            this.source += `${PEN_EXT}._switchPaper(${this.descendInput(node.paper)});\n`;
+            break;
+        case StackOpcode.PEN_PAPER_VISIBILITY_SET:
+            this.source += `${PEN_EXT}._setPaperVisibility(${this.descendInput(node.visibility)}, ` +
+                `${this.descendInput(node.paper)});\n`;
             break;
         case StackOpcode.PEN_UP:
             this.source += `${PEN_EXT}._penUp(target);\n`;
@@ -1435,14 +1692,37 @@ class JSGenerator {
         // TODO: allow if/else to inherit values
         this.pushFrame(frame);
 
-        for (let i = 0; i < stack.blocks.length; i++) {
-            frame.isLastBlock = i === stack.blocks.length - 1;
-            this.descendStackedBlock(stack.blocks[i]);
+        try {
+            for (let i = 0; i < stack.blocks.length; i++) {
+                frame.isLastBlock = i === stack.blocks.length - 1;
+                this.descendStackedBlock(stack.blocks[i]);
+            }
+        } finally {
+            // Leaving a stack -- any assumptions made in the current stack do not apply outside of it
+            // TODO: in if/else this might create an extra unused object
+            this.popFrame();
+        }
+    }
+
+    /**
+     * Compile a stack into a standalone source fragment.
+     * @param {IntermediateStack} stack
+     * @param {boolean} isLoop
+     * @returns {string}
+     */
+    compileStackToSource (stack, isLoop) {
+        if (!stack) {
+            return '';
         }
 
-        // Leaving a stack -- any assumptions made in the current stack do not apply outside of it
-        // TODO: in if/else this might create an extra unused object
-        this.popFrame();
+        const outerSource = this.source;
+        this.source = '';
+        try {
+            this.descendStack(stack, new Frame(isLoop));
+            return this.source;
+        } finally {
+            this.source = outerSource;
+        }
     }
 
     /**
