@@ -37,6 +37,7 @@ class Scratch3JSONBlocks {
             json_array_length: this.arrayLength,
             json_slice_array: this.sliceArray,
             json_reverse_array: this.reverseArray,
+            json_split: this.split,
             json_foreach: this.forEach,
             json_foreach_value: this.forEachValue,
             json_foreach_index: this.forEachIndex,
@@ -182,6 +183,14 @@ class Scratch3JSONBlocks {
 
     reverseArray (args) {
         return [...Cast.toArray(args.ARR)].reverse();
+    }
+
+    split (args) {
+        const delimiter = Cast.toString(args.DELIMITER);
+        if (args.MODE === 'JOIN') {
+            return Cast.toArray(args.INPUT).join(delimiter);
+        }
+        return Cast.toString(args.INPUT).split(delimiter);
     }
 
     forEachValue (args, util) {

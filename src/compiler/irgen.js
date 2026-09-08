@@ -556,6 +556,15 @@ class ScriptTreeGenerator {
                 array: this.descendInputOfBlock(block, 'ARR', false,
                     new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
             });
+        case 'json_split': {
+            const isJoin = block.fields.MODE.value.toLowerCase() === 'join';
+            return new IntermediateInput(InputOpcode.JSON_SPLIT,
+                isJoin ? InputType.STRING : InputType.ARRAY, {
+                    mode: isJoin ? 'join' : 'split',
+                    input: this.descendInputOfBlock(block, 'INPUT').toType(isJoin ? InputType.ARRAY : InputType.STRING),
+                    delimiter: this.descendInputOfBlock(block, 'DELIMITER').toType(InputType.STRING)
+                });
+        }
         case 'json_foreach_value':
             return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);
         case 'json_foreach_index':

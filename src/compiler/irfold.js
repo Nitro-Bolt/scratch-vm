@@ -413,6 +413,15 @@ class IRFolder {
                     .reverse());
             }
             break;
+        case InputOpcode.JSON_SPLIT:
+            if (has('input', 'delimiter')) {
+                const delimiter = Cast.toString(valueOf(node.delimiter));
+                if (node.mode === 'join') {
+                    return finish(Cast.toArray(valueOf(node.input)).join(delimiter));
+                }
+                return finish(Cast.toString(valueOf(node.input)).split(delimiter));
+            }
+            break;
         default:
             break;
         }
