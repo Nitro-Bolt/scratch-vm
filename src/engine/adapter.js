@@ -3,6 +3,18 @@ const html = require('htmlparser2');
 const uid = require('../util/uid');
 
 /**
+ * Convert an optional XML coordinate attribute to the VM's numeric form.
+ * @param {string|undefined} value XML attribute value.
+ * @returns {number|undefined} A finite number, or undefined.
+ */
+const parseCoordinate = value => {
+    if (typeof value === 'undefined') return;
+    const coordinate = Number(value);
+    if (!Number.isFinite(coordinate)) return;
+    return coordinate;
+};
+
+/**
  * Convert and an individual block DOM to the representation tree.
  * Based on Blockly's `domToBlockHeadless_`.
  * @param {Element} blockDOM DOM tree for an individual block.
@@ -28,8 +40,8 @@ const domToBlock = function (blockDOM, blocks, isTopBlock, parent) {
         shadow: blockDOM.name === 'shadow', // If this represents a shadow/slot.
         collapsed: blockDOM.attribs.collapsed === 'true', // If block is collapsed.
         monitorMode: blockDOM.attribs.monitor_mode, // Preferred monitor presentation.
-        x: blockDOM.attribs.x, // X position of script, if top-level.
-        y: blockDOM.attribs.y // Y position of script, if top-level.
+        x: parseCoordinate(blockDOM.attribs.x), // X position of script, if top-level.
+        y: parseCoordinate(blockDOM.attribs.y) // Y position of script, if top-level.
     };
 
     // Add the block to the representation tree.
