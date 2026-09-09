@@ -1,6 +1,8 @@
 const Cast = require('../util/cast.js');
 const log = require('./log');
 
+const UNSAFE_RE = /[<>&'"]/;
+
 /**
  * Escape a string to be safe to use in XML content.
  * CC-BY-SA: hgoebl
@@ -19,6 +21,10 @@ const xmlEscape = function (unsafe) {
             log.error('Unexpected input recieved in replaceUnsafeChars');
             return unsafe;
         }
+    }
+    // Most strings (block ids, opcodes, field names) contain nothing to escape.
+    if (!UNSAFE_RE.test(unsafe)) {
+        return unsafe;
     }
     return unsafe.replace(/[<>&'"]/g, c => {
         switch (c) {
