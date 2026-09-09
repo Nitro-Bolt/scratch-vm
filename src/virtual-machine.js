@@ -2275,8 +2275,7 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
-     * Emit an Blockly/scratch-blocks compatible XML representation
-     * of the current editing target's blocks.
+     * Emit the current editing target's workspace metadata and block descriptions.
      */
     emitWorkspaceUpdate () {
         // Create a list of broadcast message Ids according to the stage variables
@@ -2314,11 +2313,9 @@ class VirtualMachine extends EventEmitter {
             .filter(c => c.blockId === null);
         const workspaceGroups = Object.values(this.editingTarget.groups || {});
 
-        const target = this.editingTarget;
         // Everything except the blocks. Serializing the blocks to a string so
         // the editor can parse them back into a DOM costs more than building
-        // the blocks does, so they are handed over as-is in `blocks` below and
-        // `xml` is only built if something actually asks for it.
+        // the blocks does, so they are handed over as descriptions.
         const headerXml = `<variables>
                                 ${globalVariables.map(v => v.toXML()).join()}
                                 ${localVariables.map(v => v.toXML(true)).join()}
@@ -2327,17 +2324,11 @@ class VirtualMachine extends EventEmitter {
                             ${workspaceGroups.map(g => g.toXML()).join()}`;
 
         this.emit('workspaceUpdate', {
-            get xml () {
-                return `<xml xmlns="http://www.w3.org/1999/xhtml">
-                            ${headerXml}
-                            ${target.blocks.toXML(target.comments)}
-                        </xml>`;
-            },
             headerXml: `<xml xmlns="http://www.w3.org/1999/xhtml">${headerXml}</xml>`,
-            blocks: {
-                blocks: target.blocks._blocks,
-                scripts: target.blocks.getScripts(),
-                comments: target.comments
+            blockDescs: {
+                blocks: this.editingTarget.blocks._blocks,
+                scripts: this.editingTarget.blocks.getScripts(),
+                comments: this.editingTarget.comments
             }
         });
     }
