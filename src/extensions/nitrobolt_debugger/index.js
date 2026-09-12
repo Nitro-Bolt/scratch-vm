@@ -1,6 +1,7 @@
 const ArgumentType = require('../../extension-support/argument-type');
 const BlockType = require('../../extension-support/block-type');
 const Cast = require('../../util/cast');
+const formatMessage = require('format-message');
 
 /**
  * Maximum number of timers that can be created.
@@ -42,24 +43,37 @@ class NitroBoltDebuggerBlocks {
     getInfo () {
         return {
             id: 'debugger',
-            name: 'Debugger',
+            name: formatMessage({
+                id: 'nb.debugger.name',
+                default: 'Debugger',
+                description: 'Name of the NitroBolt debugger extension'
+            }),
             menuIconURI: menuIconURI,
             color1: '#29beb8',
             blocks: [
                 {
                     opcode: 'breakpoint',
                     blockType: BlockType.COMMAND,
-                    text: 'breakpoint'
+                    text: formatMessage({
+                        id: 'nb.debugger.breakpoint',
+                        default: 'breakpoint'
+                    })
                 },
                 {
                     opcode: 'clear',
                     blockType: BlockType.COMMAND,
-                    text: 'clear logs'
+                    text: formatMessage({
+                        id: 'nb.debugger.clearLogs',
+                        default: 'clear logs'
+                    })
                 },
                 {
                     opcode: 'log',
                     blockType: BlockType.COMMAND,
-                    text: '[TYPE] [MESSAGE] [COLOR]',
+                    text: formatMessage({
+                        id: 'nb.debugger.log',
+                        default: '[TYPE] [MESSAGE] [COLOR]'
+                    }),
                     arguments: {
                         TYPE: {
                             type: ArgumentType.STRING,
@@ -72,7 +86,10 @@ class NitroBoltDebuggerBlocks {
                         },
                         COLOR: {
                             type: ArgumentType.EXTENDABLE,
-                            text: 'with color [VALUE]',
+                            text: formatMessage({
+                                id: 'nb.debugger.withColor',
+                                default: 'with color [VALUE]'
+                            }),
                             arguments: {
                                 VALUE: {
                                     type: ArgumentType.COLOR,
@@ -89,7 +106,10 @@ class NitroBoltDebuggerBlocks {
                 {
                     opcode: 'timerCommand',
                     blockType: BlockType.COMMAND,
-                    text: '[OPERATION] timer [TIMER_NAME]',
+                    text: formatMessage({
+                        id: 'nb.debugger.timerCommand',
+                        default: '[OPERATION] timer [TIMER_NAME]'
+                    }),
                     arguments: {
                         OPERATION: {
                             type: ArgumentType.STRING,
@@ -105,7 +125,10 @@ class NitroBoltDebuggerBlocks {
                 {
                     opcode: 'getTimerValue',
                     blockType: BlockType.REPORTER,
-                    text: '[STAT] of timer [TIMER_NAME]',
+                    text: formatMessage({
+                        id: 'nb.debugger.timerValue',
+                        default: '[STAT] of timer [TIMER_NAME]'
+                    }),
                     arguments: {
                         STAT: {
                             type: ArgumentType.STRING,
@@ -122,26 +145,105 @@ class NitroBoltDebuggerBlocks {
                 {
                     opcode: 'cloneCount',
                     blockType: BlockType.REPORTER,
-                    text: 'clone count'
+                    text: formatMessage({
+                        id: 'nb.debugger.cloneCount',
+                        default: 'clone count'
+                    })
                 },
                 {
                     opcode: 'memory',
                     blockType: BlockType.REPORTER,
-                    text: 'used memory'
+                    text: formatMessage({
+                        id: 'nb.debugger.usedMemory',
+                        default: 'used memory'
+                    })
                 }
             ],
             menus: {
                 logType: {
                     acceptReporters: true,
-                    items: ['log', 'warn', 'error']
+                    items: [
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.logType.log',
+                                default: 'log'
+                            }),
+                            value: 'log'
+                        },
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.logType.warn',
+                                default: 'warn'
+                            }),
+                            value: 'warn'
+                        },
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.logType.error',
+                                default: 'error'
+                            }),
+                            value: 'error'
+                        }
+                    ]
                 },
                 timerOperation: {
                     acceptReporters: true,
-                    items: ['start', 'end', 'clear', 'delete']
+                    items: [
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.timerOperation.start',
+                                default: 'start'
+                            }),
+                            value: 'start'
+                        },
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.timerOperation.end',
+                                default: 'end'
+                            }),
+                            value: 'end'
+                        },
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.timerOperation.clear',
+                                default: 'clear'
+                            }),
+                            value: 'clear'
+                        },
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.timerOperation.delete',
+                                default: 'delete'
+                            }),
+                            value: 'delete'
+                        }
+                    ]
                 },
                 timerStat: {
                     acceptReporters: true,
-                    items: ['min', 'max', 'average']
+                    items: [
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.timerStat.min',
+                                default: 'min'
+                            }),
+                            value: 'min'
+                        },
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.timerStat.max',
+                                default: 'max'
+                            }),
+                            value: 'max'
+                        },
+                        {
+                            text: formatMessage({
+                                id: 'nb.debugger.timerStat.average',
+                                default: 'average'
+                            }),
+                            value: 'average'
+                        }
+                    ]
                 }
             }
         };
