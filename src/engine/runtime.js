@@ -1310,7 +1310,7 @@ class Runtime extends EventEmitter {
                 // Dependent menus are fields on another block, so they cannot also
                 // be emitted as standalone shadow blocks: their parent field would
                 // not exist there.
-                if (!menuInfo.parentName) {
+                if (!menuInfo.parentName && !menuInfo.mutator) {
                     const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuInfo, categoryInfo);
                     categoryInfo.menus.push(convertedMenu);
                 }
@@ -1413,6 +1413,87 @@ class Runtime extends EventEmitter {
             });
         }
         return menuItems;
+    }
+
+    /**
+     * Convert extension-facing mutator states into Scratch Blocks field
+     * transformations. Mutator arguments use the same metadata shape as
+     * regular block arguments.
+     * @param {object} mutator - transformations keyed by menu value
+     * @param {CategoryInfo} categoryInfo - category containing the block
+     * @returns {object} Scratch Blocks transformations
+     * @private
+     */
+    _convertMutatorTransformations (mutator, categoryInfo) {
+        const transformations = {};
+        for (const value in mutator) {
+            if (!Object.prototype.hasOwnProperty.call(mutator, value)) continue;
+            const state = mutator[value] || {};
+            const transformation = {};
+
+            if (Object.prototype.hasOwnProperty.call(state, 'output')) {
+                const outputType = state.output;
+                if (outputType === BlockType.BOOLEAN) {
+                    transformation.outputCheck = 'Boolean';
+                    transformation.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_HEXAGONAL;
+                } else if (outputType === BlockType.ARRAY) {
+                    transformation.outputCheck = 'Array';
+                    transformation.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE;
+                } else if (outputType === BlockType.OBJECT) {
+                    transformation.outputCheck = 'Object';
+                    transformation.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_OBJECT;
+                } else {
+                    transformation.outputCheck = null;
+                    transformation.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_ROUND;
+                }
+            }
+
+            const stateArguments = state.arguments || {};
+            const inputChecks = {};
+            const inputShadows = {};
+            const disconnectInputs = [];
+            for (const inputName in stateArguments) {
+                if (!Object.prototype.hasOwnProperty.call(stateArguments, inputName)) continue;
+                const argument = stateArguments[inputName] || {};
+                const typeInfo = ArgumentTypeMap[argument.type] || {};
+                disconnectInputs.push(inputName);
+                inputChecks[inputName] = typeInfo.check || null;
+
+                let shadow = typeInfo.shadow;
+                if (typeof argument.shadow === 'string') {
+                    shadow = {type: `${categoryInfo.id}_${argument.shadow}`};
+                }
+                if (!shadow && argument.type === ArgumentType.BOOLEAN &&
+                    typeof argument.defaultValue !== 'undefined') {
+                    shadow = {
+                        type: 'checkbox',
+                        fieldName: 'CHECKBOX'
+                    };
+                }
+                if (shadow) {
+                    const shadowDefinition = {opcode: shadow.type};
+                    if (shadow.fieldName && typeof argument.defaultValue !== 'undefined') {
+                        shadowDefinition.fields = {
+                            [shadow.fieldName]: argument.defaultValue
+                        };
+                    }
+                    inputShadows[inputName] = shadowDefinition;
+                } else {
+                    inputShadows[inputName] = null;
+                }
+            }
+            transformation.disconnectInputs = disconnectInputs;
+            transformation.inputChecks = inputChecks;
+            transformation.inputShadows = inputShadows;
+
+            for (const property of ['previousStatement', 'nextStatement', 'inputsInline']) {
+                if (Object.prototype.hasOwnProperty.call(state, property)) {
+                    transformation[property] = state[property];
+                }
+            }
+            transformations[value] = transformation;
+        }
+        return transformations;
     }
 
     /**
@@ -1919,7 +2000,17 @@ class Runtime extends EventEmitter {
                 }
 
                 const menuInfo = context.categoryInfo.menuInfo[argInfo.menu];
-                if (menuInfo.parentName) {
+                if (menuInfo.mutator) {
+                    argJSON.type = 'field_mutator_dropdown';
+                    argJSON.options = this._convertMenuItems(menuInfo.items);
+                    argJSON.transformations = this._convertMutatorTransformations(
+                        menuInfo.mutator,
+                        context.categoryInfo
+                    );
+                    valueName = null;
+                    shadowType = null;
+                    fieldName = name;
+                } else if (menuInfo.parentName) {
                     const optionMapping = {};
                     for (const parentValue in menuInfo.optionMapping) {
                         if (Object.prototype.hasOwnProperty.call(menuInfo.optionMapping, parentValue)) {

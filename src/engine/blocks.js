@@ -568,7 +568,8 @@ class Blocks {
             // Don't accept delete events for missing blocks,
             // or shadow blocks being obscured.
             if (!Object.prototype.hasOwnProperty.call(this._blocks, e.blockId) ||
-                this._blocks[e.blockId].shadow) {
+                (this._blocks[e.blockId].shadow &&
+                this._blocks[e.blockId].parent !== null)) {
                 return;
             }
             // Inform any runtime to forget about glows on this script.
@@ -1191,6 +1192,9 @@ class Blocks {
                 oldParent.inputs[e.oldInput].block === e.id) {
                 // This block was connected to the old parent's input.
                 oldParent.inputs[e.oldInput].block = null;
+                if (oldParent.inputs[e.oldInput].shadow === e.id) {
+                    oldParent.inputs[e.oldInput].shadow = null;
+                }
             } else if (oldParent.next === e.id) {
                 // This block was connected to the old parent's next connection.
                 oldParent.next = null;
