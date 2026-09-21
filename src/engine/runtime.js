@@ -2543,6 +2543,7 @@ class Runtime extends EventEmitter {
         }
         this.customTypes.set(typeId, classDef);
         this._customTypeIds.set(classDef, typeId);
+        CustomTypes.revivePendingValues(this, typeId, classDef);
     }
 
     /**
@@ -3089,6 +3090,7 @@ class Runtime extends EventEmitter {
         if (target.isStage && !this._stageTarget) {
             this._stageTarget = target;
         }
+        CustomTypes.reviveTargetValues(this, target);
     }
 
     /**

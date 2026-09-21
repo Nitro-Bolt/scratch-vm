@@ -86,6 +86,30 @@ const getEmptyCasterNames = (casters, isPresent) => {
     return names;
 };
 
+class PendingCustomValue {
+    /**
+     * @param {string} typeId - the saved custom type ID.
+     * @param {*} data - the saved deserialized JSON data.
+     */
+    constructor (typeId, data) {
+        this.typeId = typeId;
+        this.data = data;
+    }
+    toSerialized () {
+        const serialized = {};
+        serialized[CUSTOM_TYPE_KEY] = this.typeId;
+        serialized[CUSTOM_TYPE_DATA_KEY] = this.data;
+        return serialized;
+    }
+    toString () {
+        try {
+            return JSON.stringify(this.data);
+        } catch (e) {
+            return '';
+        }
+    }
+}
+
 /**
  * Serialize a single runtime value.
  * @param {?Runtime} runtime - the runtime owning the custom type registry.
@@ -109,6 +133,10 @@ const _serializeValue = (runtime, value, depth) => {
             if (result[i] !== value[i]) changed = true;
         }
         return changed ? result : value;
+    }
+
+    if (value instanceof PendingCustomValue) {
+        return value.toSerialized();
     }
 
     const hasToJSON = typeof value.toJSON === 'function';
@@ -155,6 +183,21 @@ const _serializeValue = (runtime, value, depth) => {
     return changed ? result : value;
 };
 
+const _reviveWithClass = (classDef, data) => {
+    if (typeof classDef.fromJSON === 'function') {
+        try {
+            return classDef.fromJSON(data);
+        } catch (e) {
+            return data;
+        }
+    }
+    try {
+        return new classDef(data);
+    } catch (e) {
+        return data;
+    }
+};
+
 /**
  * Revive a value previously produced by serializeCustomValue.
  * @param {?Runtime} runtime - the runtime owning the custom type registry.
@@ -186,20 +229,9 @@ const _deserializeValue = (runtime, value, depth) => {
         const data = _deserializeValue(runtime, value.data, depth + 1);
         const classDef = runtime ? runtime.customTypes.get(typeId) : null;
         if (!classDef) {
-            return data;
+            return new PendingCustomValue(typeId, data);
         }
-        if (typeof classDef.fromJSON === 'function') {
-            try {
-                return classDef.fromJSON(data);
-            } catch (e) {
-                return data;
-            }
-        }
-        try {
-            return new classDef(data);
-        } catch (e) {
-            return data;
-        }
+        return _reviveWithClass(classDef, data);
     }
 
     let changed = false;
@@ -211,6 +243,59 @@ const _deserializeValue = (runtime, value, depth) => {
         }
     }
     return changed ? result : value;
+};
+
+const _revivePending = (value, typeId, classDef, depth) => {
+    if (value === null || typeof value !== 'object' || depth >= MAX_WALK_DEPTH) {
+        return value;
+    }
+    if (value instanceof PendingCustomValue) {
+        return value.typeId === typeId ? _reviveWithClass(classDef, value.data) : value;
+    }
+    if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+            const revived = _revivePending(value[i], typeId, classDef, depth + 1);
+            if (revived !== value[i]) value[i] = revived;
+        }
+        return value;
+    }
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) {
+        return value;
+    }
+    for (const key in value) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+            const revived = _revivePending(value[key], typeId, classDef, depth + 1);
+            if (revived !== value[key]) value[key] = revived;
+        }
+    }
+    return value;
+};
+
+const _reviveInTarget = (target, typeId, classDef) => {
+    const variables = target && target.variables;
+    if (!variables) return;
+    for (const id in variables) {
+        const variable = variables[id];
+        if (!variable || variable.isCloud) continue;
+        variable.value = _revivePending(variable.value, typeId, classDef, 0);
+    }
+};
+
+
+const revivePendingValues = (runtime, typeId, classDef) => {
+    if (!runtime || !Array.isArray(runtime.targets)) return;
+    for (const target of runtime.targets) {
+        _reviveInTarget(target, typeId, classDef);
+    }
+};
+
+
+const reviveTargetValues = (runtime, target) => {
+    if (!runtime || !runtime.customTypes || runtime.customTypes.size === 0) return;
+    for (const [typeId, classDef] of runtime.customTypes) {
+        _reviveInTarget(target, typeId, classDef);
+    }
 };
 
 /**
@@ -234,6 +319,9 @@ module.exports = {
     isValidTypeId,
     makeCastFunction,
     getEmptyCasterNames,
+    PendingCustomValue,
+    revivePendingValues,
+    reviveTargetValues,
     serializeCustomValue,
     deserializeCustomValue
 };
