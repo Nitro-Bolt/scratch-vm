@@ -75,6 +75,17 @@ const makeCastFunction = classDef => {
     };
 };
 
+const getEmptyCasterNames = (casters, isPresent) => {
+    const names = [];
+    if (!casters) return names;
+    for (const name in casters) {
+        if (Object.prototype.hasOwnProperty.call(casters, name) && !isPresent(name)) {
+            names.push(name);
+        }
+    }
+    return names;
+};
+
 /**
  * Serialize a single runtime value.
  * @param {?Runtime} runtime - the runtime owning the custom type registry.
@@ -222,6 +233,7 @@ module.exports = {
     CUSTOM_TYPE_ID_PATTERN,
     isValidTypeId,
     makeCastFunction,
+    getEmptyCasterNames,
     serializeCustomValue,
     deserializeCustomValue
 };
