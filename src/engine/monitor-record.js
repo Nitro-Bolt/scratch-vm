@@ -11,6 +11,7 @@ const defined = obj => typeof obj !== 'undefined' && obj !== null;
  * @property {string|null} [targetId]
  * @property {string|null} [opcode]
  * @property {unknown} [value]
+ * @property {string|null} [monitorContent] Custom HTML shown instead of the value (custom types)
  * @property {unknown} [params]
  * @property {string|null} [mode]
  * @property {number|null} [sliderMin]
@@ -54,6 +55,10 @@ class MonitorRecord {
         this.targetId = delta.targetId ?? null;
         this.opcode = delta.opcode ?? null;
         this.value = delta.value ?? null;
+        /**
+         * Custom HTML from a custom type's static monitorContent, shown instead of the value.
+         */
+        this.monitorContent = delta.monitorContent ?? null;
         this.params = delta.params ?? null;
         this.mode = delta.mode ?? 'default';
         this.sliderMin = delta.sliderMin ?? 0;
@@ -83,6 +88,7 @@ class MonitorRecord {
         case 'targetId': return this.targetId;
         case 'opcode': return this.opcode;
         case 'value': return this.value;
+        case 'monitorContent': return this.monitorContent;
         case 'params': return this.params;
         case 'mode': return this.mode;
         case 'sliderMin': return this.sliderMin;
@@ -126,6 +132,11 @@ class MonitorRecord {
 
         if (defined(delta.value) && !Object.is(this.value, delta.value)) {
             this.value = delta.value;
+            didChange = true;
+        }
+
+        if (defined(delta.monitorContent) && !Object.is(this.monitorContent, delta.monitorContent)) {
+            this.monitorContent = delta.monitorContent;
             didChange = true;
         }
 

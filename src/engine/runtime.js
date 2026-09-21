@@ -3907,7 +3907,31 @@ class Runtime extends EventEmitter {
     _getCustomTypeVisualReport (value) {
         const classDef = this._getCustomTypeClass(value);
         if (classDef && typeof classDef.visualReport === 'function') {
-            return classDef.visualReport(value);
+            try {
+                const html = classDef.visualReport(value);
+                return html === null || typeof html === 'undefined' ? null : String(html);
+            } catch {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Look up a custom type's static monitorContent and get the HTML string for a value.
+     * @param {*} value Value to render.
+     * @returns {?string} HTML string, or null.
+     * @private
+     */
+    _getCustomTypeMonitorContent (value) {
+        const classDef = this._getCustomTypeClass(value);
+        if (classDef && typeof classDef.monitorContent === 'function') {
+            try {
+                const html = classDef.monitorContent(value);
+                return html === null || typeof html === 'undefined' ? null : String(html);
+            } catch {
+                return null;
+            }
         }
         return null;
     }
@@ -3962,6 +3986,11 @@ class Runtime extends EventEmitter {
     requestUpdateMonitor (delta) {
         delta = MonitorRecord.externalDeltaToJS(delta);
         const id = delta.id;
+        if (typeof delta.value !== 'undefined' && delta.value !== null) {
+            // An empty string (not null) clears the content once the value is no longer a custom type.
+            const monitorContent = this._getCustomTypeMonitorContent(delta.value);
+            delta = Object.assign({}, delta, {monitorContent: monitorContent === null ? '' : monitorContent});
+        }
         if (this._monitorState.has(id)) {
             this._monitorState.set(id, delta);
             return true;

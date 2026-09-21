@@ -82,23 +82,23 @@ test('runtime custom type registry', t => {
     const runtime = new Runtime();
     t.same(runtime.customTypes, new Map(), 'registry starts empty');
 
-    runtime.registerCustomType('tests:testType', TestType);
-    t.equal(runtime.hasCustomType('tests:testType'), true);
-    t.equal(runtime.getCustomType('tests:testType'), TestType);
+    runtime.registerCustomType('tests_counter', TestType);
+    t.equal(runtime.hasCustomType('tests_counter'), true);
+    t.equal(runtime.getCustomType('tests_counter'), TestType);
     t.equal(runtime.customTypes.size, 1);
 
     // Re-registering the identical class is a no-op.
-    runtime.registerCustomType('tests:testType', TestType);
+    runtime.registerCustomType('tests_counter', TestType);
     t.equal(runtime.customTypes.size, 1);
 
-    t.throws(() => runtime.registerCustomType('tests:testType', MinimalType), {
-        message: 'Custom type "tests:testType" is already registered by another class.'
+    t.throws(() => runtime.registerCustomType('tests_counter', MinimalType), {
+        message: 'Custom type "tests_counter" is already registered by another class.'
     });
     t.throws(() => runtime.registerCustomType('non-namespaced', TestType));
     t.throws(() => runtime.registerCustomType('ok:id', 'not a class'));
 
-    runtime.unregisterCustomType('tests:testType');
-    t.equal(runtime.hasCustomType('tests:testType'), false);
+    runtime.unregisterCustomType('tests_counter');
+    t.equal(runtime.hasCustomType('tests_counter'), false);
     t.equal(runtime.unregisterCustomType('never:existed'), undefined, 'unregistering unknown id is safe');
 
     t.end();
@@ -106,7 +106,7 @@ test('runtime custom type registry', t => {
 
 test('serialize/deserialize round trip', t => {
     const runtime = new Runtime();
-    runtime.registerCustomType('tests:testType', TestType);
+    runtime.registerCustomType('tests_counter', TestType);
 
     const original = [
         new TestType('hello'),
@@ -115,11 +115,11 @@ test('serialize/deserialize round trip', t => {
         [new TestType('nested'), {deep: new TestType(7)}]
     ];
     const serialized = CustomTypes.serializeCustomValue(runtime, original);
-    t.same(serialized[0], {_customType: 'tests:testType', data: {value: 'hello'}});
+    t.same(serialized[0], {_customType: 'tests_counter', data: {value: 'hello'}});
     t.equal(serialized[1], 42, 'primitives untouched (same reference semantics)');
     t.equal(serialized[2], 'plain');
-    t.same(serialized[3][0], {_customType: 'tests:testType', data: {value: 'nested'}});
-    t.same(serialized[3][1].deep, {_customType: 'tests:testType', data: {value: 7}});
+    t.same(serialized[3][0], {_customType: 'tests_counter', data: {value: 'nested'}});
+    t.same(serialized[3][1].deep, {_customType: 'tests_counter', data: {value: 7}});
     // JSON safe
     t.doesNotThrow(() => JSON.stringify(serialized));
 
@@ -212,17 +212,17 @@ test('runtime precomputes argument casters per opcode', t => {
     const runtime = new Runtime();
     runtime._updateCustomArgumentCasters('ext_op', {
         arguments: {
-            A: {type: 'tests:testType'},
+            A: {type: 'tests_counter'},
             B: {type: 'string'},
             C: {type: 'not:registered'}
         }
     });
     t.notOk(runtime._customArgumentCasters.has('ext_op'), 'nothing cached when type unregistered');
 
-    runtime.registerCustomType('tests:testType', TestType);
+    runtime.registerCustomType('tests_counter', TestType);
     runtime._updateCustomArgumentCasters('ext_op', {
         arguments: {
-            A: {type: 'tests:testType'},
+            A: {type: 'tests_counter'},
             B: {type: 'string'}
         }
     });
@@ -236,9 +236,34 @@ test('runtime precomputes argument casters per opcode', t => {
     t.notOk(runtime._customArgumentCasters.has('ext_op'));
 
     // Unregistering a type invalidates dependent casters.
-    runtime._updateCustomArgumentCasters('ext_op', {arguments: {A: {type: 'tests:testType'}}});
+    runtime._updateCustomArgumentCasters('ext_op', {arguments: {A: {type: 'tests_counter'}}});
     t.ok(runtime._customArgumentCasters.has('ext_op'));
-    runtime.unregisterCustomType('tests:testType');
+    runtime.unregisterCustomType('tests_counter');
     t.notOk(runtime._customArgumentCasters.has('ext_op'));
+    t.end();
+});
+
+test('static monitorContent is used for monitors', t => {
+    class Counter {
+        constructor (value) {
+            this.value = value;
+        }
+
+        static monitorContent (abc) {
+            return `<p>${abc.value}</p><hr><p>that's like ${abc.value - 53} more than 53</p>`;
+        }
+    }
+    const runtime = new Runtime();
+    runtime.registerCustomType('tests_counter', Counter);
+    runtime.requestAddMonitor({id: 'm', opcode: 'data_variable', value: 0, visible: true});
+
+    runtime.requestUpdateMonitor({id: 'm', value: new Counter(60)});
+    t.equal(
+        runtime.getMonitorState().get('m').monitorContent,
+        '<p>60</p><hr><p>that\'s like 7 more than 53</p>'
+    );
+
+    runtime.requestUpdateMonitor({id: 'm', value: 'plain'});
+    t.equal(runtime.getMonitorState().get('m').monitorContent, '', 'cleared for non-custom values');
     t.end();
 });
