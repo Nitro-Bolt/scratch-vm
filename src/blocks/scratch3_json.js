@@ -37,6 +37,7 @@ class Scratch3JSONBlocks {
             json_array_length: this.arrayLength,
             json_slice_array: this.sliceArray,
             json_reverse_array: this.reverseArray,
+            json_split: this.split,
             json_foreach: this.forEach,
             json_foreach_value: this.forEachValue,
             json_foreach_index: this.forEachIndex,
@@ -184,6 +185,14 @@ class Scratch3JSONBlocks {
         return [...Cast.toArray(args.ARR)].reverse();
     }
 
+    split (args) {
+        const delimiter = Cast.toString(args.DELIMITER);
+        if (args.MODE === 'JOIN') {
+            return Cast.toArray(args.INPUT).join(delimiter);
+        }
+        return Cast.toString(args.INPUT).split(delimiter);
+    }
+
     forEachValue (args, util) {
         const frames = util.thread.stackFrames;
         for (let i = frames.length - 1; i >= 0; i--) {
@@ -205,7 +214,7 @@ class Scratch3JSONBlocks {
     }
 
     forEach (args, util) {
-        const {stackFrame, thread} = util;
+        const {stackFrame} = util;
 
         if (typeof stackFrame.index === 'undefined') {
             const array = Cast.toArray(args.ARRAY);
@@ -217,11 +226,11 @@ class Scratch3JSONBlocks {
         }
 
         if (stackFrame.index >= stackFrame.array.length) {
-            delete thread.stackFrames[thread.stackFrames.length - 1].jsonForeachState;
+            delete stackFrame.jsonForeachState;
             return;
         }
 
-        thread.stackFrames[thread.stackFrames.length - 1].jsonForeachState = {
+        stackFrame.jsonForeachState = {
             value: stackFrame.array[stackFrame.index],
             index: stackFrame.index
         };

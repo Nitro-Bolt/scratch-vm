@@ -209,7 +209,15 @@ class JSGenerator {
                 this.allowReturns = true;
                 try {
                     const body = this.compileStackToSource(node.substacks[branchNum], false);
-                    return `function* (${parameters.join(', ')}) {\n${body}return ${fallback};\n}`;
+                    const compiledFunction =
+                        `function* (${parameters.join(', ')}) {\n${body}return ${fallback};\n}`;
+                    return `((compiledFunction, compiledThread, compiledProcedures) => ` +
+                        `function* (...compiledArguments) {\n` +
+                        `const previousProcedures = compiledThread.procedures;\n` +
+                        `compiledThread.procedures = compiledProcedures;\n` +
+                        `try {\nreturn yield* compiledFunction(...compiledArguments);\n` +
+                        `} finally {\ncompiledThread.procedures = previousProcedures;\n}\n` +
+                        `})((${compiledFunction}), thread, thread.procedures)`;
                 } finally {
                     this.allowReturns = oldReturns;
                 }
@@ -464,6 +472,8 @@ class JSGenerator {
             return `sliceArray(${this.descendInput(node.array)}, ${this.descendInput(node.start)}, ${this.descendInput(node.end)})`;
         case InputOpcode.JSON_REVERSE_ARRAY:
             return `${this.descendInput(node.array)}.slice(0).reverse()`;
+        case InputOpcode.JSON_SPLIT:
+            return `${this.descendInput(node.input)}.${node.mode === 'join' ? 'join' : 'split'}(${this.descendInput(node.delimiter)})`;
         case InputOpcode.JSON_FOREACH_VALUE: {
             const vars = this.foreachVarsStack?.[this.foreachVarsStack.length - 1];
             return vars?.value ?? '""';
