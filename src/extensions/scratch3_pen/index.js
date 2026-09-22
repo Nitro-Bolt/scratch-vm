@@ -87,11 +87,14 @@ class Scratch3PenBlocks {
         };
         this._paperOrder = ['default'];
         this._currentPaper = 'default';
+        this._penTiling = runtime.runtimeOptions.penTiling;
 
         this._onTargetCreated = this._onTargetCreated.bind(this);
         this._onTargetMoved = this._onTargetMoved.bind(this);
+        this._onRuntimeOptionsChanged = this._onRuntimeOptionsChanged.bind(this);
 
         runtime.on('targetWasCreated', this._onTargetCreated);
+        runtime.on('RUNTIME_OPTIONS_CHANGED', this._onRuntimeOptionsChanged);
         runtime.on('RUNTIME_DISPOSED', this._dispose.bind(this));
     }
 
@@ -181,15 +184,18 @@ class Scratch3PenBlocks {
         const paper = this._papers[name];
         if (!paper) return -1;
         if (paper.skinId < 0 && renderer) {
-            const skinId = renderer.createPenSkin();
-            const drawableId = renderer.createDrawable(StageLayering.PEN_LAYER);
-            if (renderer.markDrawableAsNoninteractive) {
-                renderer.markDrawableAsNoninteractive(drawableId);
+            if (this._penTiling) {
+                paper.skinId = renderer.createTiledPenSkin();
+                renderer.setTiledPenSkinVisible(paper.skinId, paper.visible);
+            } else {
+                paper.skinId = renderer.createPenSkin();
+                paper.drawableId = renderer.createDrawable(StageLayering.PEN_LAYER);
+                if (renderer.markDrawableAsNoninteractive) {
+                    renderer.markDrawableAsNoninteractive(paper.drawableId);
+                }
+                renderer.updateDrawableSkinId(paper.drawableId, paper.skinId);
+                renderer.updateDrawableVisible(paper.drawableId, paper.visible);
             }
-            renderer.updateDrawableSkinId(drawableId, skinId);
-            renderer.updateDrawableVisible(drawableId, paper.visible);
-            paper.skinId = skinId;
-            paper.drawableId = drawableId;
             this._syncPaperDrawOrder();
         }
         if (name === this._currentPaper) {
@@ -213,8 +219,27 @@ class Scratch3PenBlocks {
             const paper = this._papers[this._paperOrder[i]];
             if (paper.drawableId >= 0) {
                 renderer.setDrawableOrder(paper.drawableId, -Infinity, StageLayering.PEN_LAYER);
+            } else if (paper.skinId >= 0) {
+                renderer.setTiledPenSkinOrder(paper.skinId, -Infinity);
             }
         }
+    }
+
+    _onRuntimeOptionsChanged (runtimeOptions) {
+        const penTiling = runtimeOptions.penTiling;
+        if (penTiling === this._penTiling) return;
+        const renderer = this.runtime.renderer;
+        for (const name of Object.keys(this._papers)) {
+            const paper = this._papers[name];
+            if (paper.drawableId >= 0) renderer.destroyDrawable(paper.drawableId, StageLayering.PEN_LAYER);
+            if (paper.skinId >= 0) renderer.destroySkin(paper.skinId);
+            paper.skinId = -1;
+            paper.drawableId = -1;
+        }
+        this._penTiling = penTiling;
+        this._penSkinId = -1;
+        this._penDrawableId = -1;
+        this.runtime.requestRedraw();
     }
 
     _dispose () {
@@ -1433,7 +1458,11 @@ class Scratch3PenBlocks {
 
         if (source.skinId >= 0) {
             const destinationSkinId = this._getPaperLayerID(destinationName);
-            this.runtime.renderer.penStamp(destinationSkinId, source.drawableId);
+            if (source.drawableId >= 0) {
+                this.runtime.renderer.penStamp(destinationSkinId, source.drawableId);
+            } else {
+                this.runtime.renderer.penStampTiledLayer(destinationSkinId, source.skinId);
+            }
             this.runtime.requestRedraw();
         }
 
@@ -1505,6 +1534,8 @@ class Scratch3PenBlocks {
         paper.visible = visibility === 'show';
         if (paper.drawableId >= 0) {
             this.runtime.renderer.updateDrawableVisible(paper.drawableId, paper.visible);
+        } else if (paper.skinId >= 0) {
+            this.runtime.renderer.setTiledPenSkinVisible(paper.skinId, paper.visible);
         }
         this.runtime.requestRedraw();
     }
