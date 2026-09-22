@@ -18,7 +18,6 @@ class NitroBoltCameraBlocks {
   constructor (runtime) {
     this.runtime = runtime;
     runtime.setRuntimeOptions({fencing: false});
-    runtime.on('PROJECT_LOADED', () => this._updateProjectState());
     runtime.on('RUNTIME_DISPOSED', () => runtime.renderer.resetCameras());
   }
 
@@ -600,20 +599,6 @@ class NitroBoltCameraBlocks {
     }
   }
 
-  _updateProjectState () {
-    let projectUsesCamera = false;
-    for (let i = 0; i < this.runtime.targets.length && !projectUsesCamera; i++) {
-      const blocks = this.runtime.targets[i].blocks._blocks;
-      for (const blockId in blocks) {
-        if (Object.prototype.hasOwnProperty.call(blocks, blockId) &&
-          blocks[blockId].opcode && blocks[blockId].opcode.indexOf('camera_') === 0) {
-          projectUsesCamera = true;
-          break;
-        }
-      }
-    }
-    if (projectUsesCamera) this.runtime.setRuntimeOptions({fencing: false});
-  }
 }
 
 module.exports = NitroBoltCameraBlocks;

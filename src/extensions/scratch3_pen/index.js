@@ -1089,7 +1089,11 @@ class Scratch3PenBlocks {
     _stamp (target) { // used by compiler
         const penSkinId = this._getPenLayerID();
         if (penSkinId >= 0) {
-            this.runtime.renderer.penStamp(penSkinId, target.drawableID);
+            if (this.runtime.extensionManager.isExtensionLoaded('camera')) {
+                this.runtime.renderer.penStampInWorldSpace(penSkinId, target.drawableID);
+            } else {
+                this.runtime.renderer.penStamp(penSkinId, target.drawableID);
+            }
             this.runtime.requestRedraw();
         }
     }

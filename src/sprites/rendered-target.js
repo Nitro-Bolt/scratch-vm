@@ -1152,14 +1152,8 @@ class RenderedTarget extends Target {
         const isXChanged = Object.prototype.hasOwnProperty.call(data, 'x');
         const isYChanged = Object.prototype.hasOwnProperty.call(data, 'y');
         if (isXChanged || isYChanged) {
-            let x = isXChanged ? data.x : this.x;
-            let y = isYChanged ? data.y : this.y;
-            if (this.dragging && this.cameraName !== 'default') {
-                const renderedPosition = this.renderer.getDrawableScreenPosition(this.drawableID);
-                const renderedX = isXChanged ? data.x : renderedPosition[0];
-                const renderedY = isYChanged ? data.y : renderedPosition[1];
-                [x, y] = this.renderer.screenToCameraSpace(renderedX, renderedY, this.cameraName);
-            }
+            const x = isXChanged ? data.x : this.x;
+            const y = isYChanged ? data.y : this.y;
             this.setXY(x, y, force);
         }
         if (Object.prototype.hasOwnProperty.call(data, 'direction')) {
