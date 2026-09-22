@@ -39,6 +39,12 @@ class RenderedTarget extends Target {
         this.drawableID = null;
 
         /**
+         * Name of the camera assigned to a target.
+         * @type {string}
+         */
+        this.cameraName = 'default';
+
+        /**
          * Drag state of this rendered target. If true, x/y position can't be
          * changed by blocks.
          * @type {boolean}
@@ -178,6 +184,7 @@ class RenderedTarget extends Target {
     initDrawable (layerGroup) {
         if (this.renderer) {
             this.drawableID = this.renderer.createDrawable(layerGroup);
+            this.renderer.bindDrawableToCamera(this.drawableID, this.cameraName);
         }
         // If we're a clone, start the hats.
         if (!this.isOriginal) {
@@ -1066,6 +1073,7 @@ class RenderedTarget extends Target {
         newClone.currentCostume = this.currentCostume;
         newClone.rotationStyle = this.rotationStyle;
         newClone.effects = Clone.simple(this.effects);
+        newClone.cameraName = this.cameraName;
         newClone.variables = this.duplicateVariables();
         newClone._edgeActivatedHatValues = Clone.simple(this._edgeActivatedHatValues);
         newClone.initDrawable(StageLayering.SPRITE_LAYER);
@@ -1144,7 +1152,15 @@ class RenderedTarget extends Target {
         const isXChanged = Object.prototype.hasOwnProperty.call(data, 'x');
         const isYChanged = Object.prototype.hasOwnProperty.call(data, 'y');
         if (isXChanged || isYChanged) {
-            this.setXY(isXChanged ? data.x : this.x, isYChanged ? data.y : this.y, force);
+            let x = isXChanged ? data.x : this.x;
+            let y = isYChanged ? data.y : this.y;
+            if (this.dragging && this.cameraName !== 'default') {
+                const renderedPosition = this.renderer.getDrawableScreenPosition(this.drawableID);
+                const renderedX = isXChanged ? data.x : renderedPosition[0];
+                const renderedY = isYChanged ? data.y : renderedPosition[1];
+                [x, y] = this.renderer.screenToCameraSpace(renderedX, renderedY, this.cameraName);
+            }
+            this.setXY(x, y, force);
         }
         if (Object.prototype.hasOwnProperty.call(data, 'direction')) {
             this.setDirection(data.direction);
@@ -1184,6 +1200,7 @@ class RenderedTarget extends Target {
      */
     toJSON () {
         const costumes = this.getCostumes();
+        const camera = this.renderer.getCamera(this.cameraName);
         return {
             id: this.id,
             name: this.getName(),
@@ -1210,7 +1227,14 @@ class RenderedTarget extends Target {
             tempo: this.tempo,
             volume: this.volume,
             videoTransparency: this.videoTransparency,
-            videoState: this.videoState
+            videoState: this.videoState,
+            camera: {
+                name: camera.name,
+                x: camera.x,
+                y: camera.y,
+                zoom: camera.zoom,
+                direction: camera.direction
+            }
 
         };
     }

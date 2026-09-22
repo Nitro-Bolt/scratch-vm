@@ -157,10 +157,16 @@ class Scratch3LooksBlocks {
     _positionBubble (target) {
         if (!target.visible) return;
         const bubbleState = this._getBubbleState(target);
+        if (this.runtime.renderer.getDrawableCamera(bubbleState.drawableId) !== target.cameraName) {
+            this.runtime.renderer.bindDrawableToCamera(bubbleState.drawableId, target.cameraName);
+        }
         const [bubbleWidth, bubbleHeight] = this.runtime.renderer.getCurrentSkinSize(bubbleState.drawableId);
         let targetBounds;
+        const cameraActive = this.runtime.extensionManager.isExtensionLoaded('camera');
         try {
-            targetBounds = target.getBoundsForBubble();
+            targetBounds = cameraActive ?
+                this.runtime.renderer.getBoundsForBubbleInCameraSpace(target.drawableID) :
+                target.getBoundsForBubble();
         } catch (error_) {
             // Bounds calculation could fail (e.g. on empty costumes), in that case
             // use the x/y position of the target.
@@ -171,7 +177,7 @@ class Scratch3LooksBlocks {
                 bottom: target.y
             };
         }
-        const stageSize = this.runtime.renderer.getNativeSize();
+        const stageSize = cameraActive ? [Infinity, Infinity] : this.runtime.renderer.getNativeSize();
         const stageBounds = {
             left: -stageSize[0] / 2,
             right: stageSize[0] / 2,
@@ -231,6 +237,7 @@ class Scratch3LooksBlocks {
         } else {
             target.onTargetVisualChange = this._onTargetChanged;
             bubbleState.drawableId = this.runtime.renderer.createDrawable(StageLayering.SPRITE_LAYER);
+            this.runtime.renderer.bindDrawableToCamera(bubbleState.drawableId, target.cameraName);
             bubbleState.skinId = this.runtime.renderer.createTextSkin(type, text, bubbleState.onSpriteRight, [0, 0]);
             this.runtime.renderer.updateDrawableSkinId(bubbleState.drawableId, bubbleState.skinId);
         }
