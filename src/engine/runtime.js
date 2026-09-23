@@ -2607,9 +2607,8 @@ class Runtime extends EventEmitter {
         if (!definition || typeof definition !== 'object') {
             throw new Error(`Block shape ${name} must be an object definition.`);
         }
-        if (typeof definition.leftEdge !== 'function' || typeof definition.rightEdge !== 'function') {
-            // TODO: Maybe make rightEdge function optional?
-            throw new Error(`Block shape ${name} must define leftEdge and rightEdge functions.`);
+        if (typeof definition.leftEdge !== 'function') {
+            throw new Error(`Block shape ${name} must define a leftEdge function.`);
         }
         const existing = this.blockShapes.get(name);
         if (existing === definition) {
