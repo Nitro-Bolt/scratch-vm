@@ -24,6 +24,7 @@ const oldCompilerCompatiblity = require('./old-compiler-compatibility.js');
  * @typedef BlockInfo
  * @property {string} opcode
  * @property {BlockType} blockType
+ * @property {BlockType} [dualType]
  */
 
 /**
@@ -1128,7 +1129,7 @@ class ScriptTreeGenerator {
                         }, this.analyzeLoop());
                     }
 
-                    const type = blockInfo.info.blockType;
+                    const type = blockInfo.info.dualType || blockInfo.info.blockType;
                     if (
                         type === BlockType.REPORTER ||
                         type === BlockType.BOOLEAN ||
