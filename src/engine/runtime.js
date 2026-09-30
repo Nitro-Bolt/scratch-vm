@@ -3942,12 +3942,21 @@ class Runtime extends EventEmitter {
      */
     _getCustomTypeVisualReport (value) {
         const classDef = this._getCustomTypeClass(value);
-        if (classDef && typeof classDef.visualReport === 'function') {
-            try {
-                const html = classDef.visualReport(value);
-                return html === null || typeof html === 'undefined' ? null : String(html);
-            } catch {
-                return null;
+        if (classDef) {
+            if (typeof classDef.visualReport === 'function') {
+                try {
+                    const html = classDef.visualReport(value);
+                    return html === null || typeof html === 'undefined' ? null : String(html);
+                } catch {
+                    return null;
+                }
+            } else if (typeof classDef.monitorContent === 'function') {
+                try {
+                    const html = classDef.monitorContent(value);
+                    return html === null || typeof html === 'undefined' ? null : String(html);
+                } catch {
+                    return null;
+                }
             }
         }
         return null;
@@ -3961,12 +3970,21 @@ class Runtime extends EventEmitter {
      */
     _getCustomTypeMonitorContent (value) {
         const classDef = this._getCustomTypeClass(value);
-        if (classDef && typeof classDef.monitorContent === 'function') {
-            try {
-                const html = classDef.monitorContent(value);
-                return html === null || typeof html === 'undefined' ? null : String(html);
-            } catch {
-                return null;
+        if (classDef) {
+            if (typeof classDef.monitorContent === 'function') {
+                try {
+                    const html = classDef.monitorContent(value);
+                    return html === null || typeof html === 'undefined' ? null : String(html);
+                } catch {
+                    return null;
+                }
+            } else if (typeof classDef.visualReport === 'function') {
+                try {
+                    const html = classDef.visualReport(value);
+                    return html === null || typeof html === 'undefined' ? null : String(html);
+                } catch {
+                    return null;
+                }
             }
         }
         return null;
