@@ -205,8 +205,8 @@ class Scratch3SensingBlocks {
         let targetX = 0;
         let targetY = 0;
         if (args.DISTANCETOMENU === '_mouse_') {
-            targetX = util.ioQuery('mouse', 'getScratchX');
-            targetY = util.ioQuery('mouse', 'getScratchY');
+            targetX = util.ioQuery('mouse', 'getScratchX', [util.target]);
+            targetY = util.ioQuery('mouse', 'getScratchY', [util.target]);
         } else {
             args.DISTANCETOMENU = Cast.toString(args.DISTANCETOMENU);
             const distTarget = this.runtime.getSpriteTargetByName(
@@ -235,11 +235,11 @@ class Scratch3SensingBlocks {
     }
 
     getMouseX (args, util) {
-        return util.ioQuery('mouse', 'getScratchX');
+        return util.ioQuery('mouse', 'getScratchX', [util.target]);
     }
 
     getMouseY (args, util) {
-        return util.ioQuery('mouse', 'getScratchY');
+        return util.ioQuery('mouse', 'getScratchY', [util.target]);
     }
 
     getMouseDown (args, util) {

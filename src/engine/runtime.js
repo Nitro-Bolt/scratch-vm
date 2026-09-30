@@ -539,7 +539,8 @@ class Runtime extends EventEmitter {
         this.runtimeOptions = {
             maxClones: Runtime.MAX_CLONES,
             miscLimits: true,
-            fencing: true
+            fencing: true,
+            penTiling: false
         };
 
         this.compilerOptions = {
@@ -1664,6 +1665,36 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Add a reporter connection and shape to scratch-blocks JSON.
+     * @param {object} blockJSON - scratch-blocks block JSON
+     * @param {BlockType} reporterType - reporter type to apply
+     * @param {boolean} allowDropAnywhere - whether a round reporter accepts any input
+     * @private
+     */
+    _setReporterTypeForScratchBlocks (blockJSON, reporterType, allowDropAnywhere) {
+        switch (reporterType) {
+        case BlockType.REPORTER:
+            blockJSON.output = allowDropAnywhere ? null : 'String';
+            blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_ROUND;
+            break;
+        case BlockType.BOOLEAN:
+            blockJSON.output = 'Boolean';
+            blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_HEXAGONAL;
+            break;
+        case BlockType.OBJECT:
+            blockJSON.output = 'Object';
+            blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_OBJECT;
+            break;
+        case BlockType.ARRAY:
+            blockJSON.output = 'Array';
+            blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE;
+            break;
+        default:
+            throw new Error(`Unsupported reporter type: ${reporterType}`);
+        }
+    }
+
+    /**
      * Convert ExtensionBlockMetadata into scratch-blocks JSON & XML, and generate a proxy function.
      * @param {ExtensionBlockMetadata} blockInfo - the block to convert
      * @param {CategoryInfo} categoryInfo - the category for this block
@@ -1749,15 +1780,16 @@ class Runtime extends EventEmitter {
             if (!blockInfo.isTerminal) {
                 blockJSON.nextStatement = null; // null = available connection; undefined = terminal
             }
+            if (blockInfo.dualType) {
+                this._setReporterTypeForScratchBlocks(blockJSON, blockInfo.dualType, blockInfo.allowDropAnywhere);
+            }
             break;
         case BlockType.REPORTER:
-            blockJSON.output = blockInfo.allowDropAnywhere ? null : 'String'; // TODO: distinguish number & string here?
-            blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_ROUND;
+            this._setReporterTypeForScratchBlocks(blockJSON, BlockType.REPORTER, blockInfo.allowDropAnywhere);
             blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.BOOLEAN:
-            blockJSON.output = 'Boolean';
-            blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_HEXAGONAL;
+            this._setReporterTypeForScratchBlocks(blockJSON, BlockType.BOOLEAN, blockInfo.allowDropAnywhere);
             blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.HAT:
@@ -1779,13 +1811,11 @@ class Runtime extends EventEmitter {
             }
             break;
         case BlockType.OBJECT:
-            blockJSON.output = 'Object';
-            blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_OBJECT;
+            this._setReporterTypeForScratchBlocks(blockJSON, BlockType.OBJECT, blockInfo.allowDropAnywhere);
             blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         case BlockType.ARRAY:
-            blockJSON.output = 'Array';
-            blockJSON.outputShape = ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE;
+            this._setReporterTypeForScratchBlocks(blockJSON, BlockType.ARRAY, blockInfo.allowDropAnywhere);
             blockJSON.duplicateOnDrag = blockInfo.duplicateOnDrag === true;
             break;
         }

@@ -16,6 +16,7 @@ const defaultBuiltinExtensions = {
     coreExample: () => require('../blocks/scratch3_core_example'),
     // These are the non-core built-in extensions.
     pen: () => require('../extensions/scratch3_pen'),
+    camera: () => require('../extensions/nitrobolt_camera'),
     wedo2: () => require('../extensions/scratch3_wedo2'),
     music: () => require('../extensions/scratch3_music'),
     microbit: () => require('../extensions/scratch3_microbit'),
@@ -604,6 +605,21 @@ class ExtensionManager {
         if (typeof blockInfo.blockType === 'function' && typeof blockInfo.blockType.shape !== 'undefined') {
             blockInfo.blockShape = blockInfo.blockType.shape;
             blockInfo.blockType = BlockType.REPORTER;
+        }
+
+        if (typeof blockInfo.dualType !== 'undefined') {
+            const validDualTypes = [
+                BlockType.REPORTER,
+                BlockType.BOOLEAN,
+                BlockType.OBJECT,
+                BlockType.ARRAY
+            ];
+            if (blockInfo.blockType !== BlockType.COMMAND) {
+                throw new Error('The dualType property is only supported on command blocks');
+            }
+            if (!validDualTypes.includes(blockInfo.dualType)) {
+                throw new Error(`Invalid dual reporter type: ${blockInfo.dualType}`);
+            }
         }
 
         switch (blockInfo.blockType) {
