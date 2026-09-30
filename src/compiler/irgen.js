@@ -1723,6 +1723,12 @@ class ScriptTreeGenerator {
 
                     // nb: it might be a compiled extension block.
                     const compilerInterface = this.runtime._compilerInterfaces[block.opcode];
+                    if (blockInfo.info.dualType && !block.parent) {
+                        const visualReport = this.descendVisualReport(block);
+                        if (visualReport) {
+                            return visualReport;
+                        }
+                    }
                     if (compilerInterface && typeof compilerInterface === 'object' && compilerInterface.stack === null) {
                         return new IntermediateStackBlock(StackOpcode.NOP);
                     }
