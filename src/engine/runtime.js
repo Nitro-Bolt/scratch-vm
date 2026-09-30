@@ -1820,11 +1820,18 @@ class Runtime extends EventEmitter {
             break;
         }
 
-        // nb: reporters declaring a registered custom outputType connect only to
-        // inputs expecting that type, and take their shape from the type class.
+        // nb: reporters, including the reporter side of dual blocks, declaring
+        // a registered custom outputType connect only to inputs expecting that
+        // type, and take their shape from the type class.
+        const reporterType = blockInfo.dualType || blockInfo.blockType;
         if (
             typeof blockInfo.outputType === 'string' &&
-            (blockInfo.blockType === BlockType.REPORTER || blockInfo.blockType === BlockType.BOOLEAN) &&
+            (
+                reporterType === BlockType.REPORTER ||
+                reporterType === BlockType.BOOLEAN ||
+                reporterType === BlockType.OBJECT ||
+                reporterType === BlockType.ARRAY
+            ) &&
             this.customTypes.has(blockInfo.outputType)
         ) {
             blockJSON.output = blockInfo.outputType;
