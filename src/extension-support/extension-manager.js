@@ -596,6 +596,21 @@ class ExtensionManager {
             blockInfo.blockType = BlockType.REPORTER;
         }
 
+        if (typeof blockInfo.dualType !== 'undefined') {
+            const validDualTypes = [
+                BlockType.REPORTER,
+                BlockType.BOOLEAN,
+                BlockType.OBJECT,
+                BlockType.ARRAY
+            ];
+            if (blockInfo.blockType !== BlockType.COMMAND) {
+                throw new Error('The dualType property is only supported on command blocks');
+            }
+            if (!validDualTypes.includes(blockInfo.dualType)) {
+                throw new Error(`Invalid dual reporter type: ${blockInfo.dualType}`);
+            }
+        }
+
         switch (blockInfo.blockType) {
         case BlockType.EVENT:
             if (blockInfo.func) {
