@@ -592,12 +592,10 @@ class ExtensionManager {
         }, blockInfo);
         blockInfo.text = blockInfo.text || blockInfo.opcode;
 
-        // nb: validate custom outputType metadata. Invalid IDs are dropped so the
-        // rest of the system can safely assume outputType is a namespaced string.
+        // nb: validate custom outputType metadata.
         if (typeof blockInfo.outputType !== 'undefined' && !CustomTypes.isValidTypeId(blockInfo.outputType)) {
             log.warn(
-                `Ignoring invalid outputType "${blockInfo.outputType}" on block ${blockInfo.opcode}: ` +
-                'expected a namespaced string like "extensionId:typeName".'
+                `Ignoring invalid outputType "${blockInfo.outputType}" on block ${blockInfo.opcode}: `
             );
             delete blockInfo.outputType;
         }
