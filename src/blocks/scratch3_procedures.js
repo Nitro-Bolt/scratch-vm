@@ -32,8 +32,14 @@ class Scratch3ProcedureBlocks {
 
     call (args, util) {
         const stackFrame = util.stackFrame;
-        const isReporter = !!args.mutation.return;
-        const isGlobal = args.mutation && (args.mutation.global === true || args.mutation.global === 'true');
+        const mutation = args.mutation || {};
+        const callerBlockContainer = util.thread.blockContainer || util.target.blocks;
+        const currentBlock = callerBlockContainer.getBlock(util.thread.peekStack());
+        const isDual = mutation.dual === true || mutation.dual === 'true';
+        const isStackCall = currentBlock && (currentBlock.next ||
+            callerBlockContainer.getNextBlock(currentBlock.parent) === currentBlock.id);
+        const isReporter = !!mutation.return && (!isDual || !isStackCall);
+        const isGlobal = mutation.global === true || mutation.global === 'true';
 
         if (stackFrame.executed) {
             if (isReporter) {
@@ -49,7 +55,7 @@ class Scratch3ProcedureBlocks {
             return;
         }
 
-        const procedureCode = args.mutation.proccode;
+        const procedureCode = mutation.proccode;
         const paramNamesIdsAndDefaults = util.getProcedureParamNamesIdsAndDefaults(procedureCode, isGlobal);
 
         // If null, procedure could not be found, which can happen if custom
@@ -76,8 +82,6 @@ class Scratch3ProcedureBlocks {
             }
         }
 
-        const callerBlockContainer = util.thread.blockContainer || util.target.blocks;
-        const currentBlock = callerBlockContainer.getBlock(util.thread.peekStack());
         if (currentBlock && currentBlock.inputs) {
             let branchIndex = 0;
             const branchParamMap = {};

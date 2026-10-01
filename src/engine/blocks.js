@@ -996,6 +996,8 @@ class Blocks {
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
                 block.mutation.colour = nextMutation.colour;
+                block.mutation.output = nextMutation.output;
+                block.mutation.dual = nextMutation.dual;
                 if (Object.prototype.hasOwnProperty.call(nextMutation, 'return')) {
                     block.mutation.return = nextMutation.return;
                 } else {
@@ -1012,10 +1014,13 @@ class Blocks {
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
                 block.mutation.colour = nextMutation.colour;
+                block.mutation.output = nextMutation.output;
+                block.mutation.dual = nextMutation.dual;
                 const shapeChanged = (Number(block.mutation.return) > 0) !==
                     (Number(nextMutation.return) > 0);
                 const canChangeShape = block.topLevel && !block.next;
-                if (!shapeChanged || canChangeShape) {
+                const hasForcedOutput = nextMutation.output && nextMutation.output !== 'auto';
+                if (hasForcedOutput || !shapeChanged || canChangeShape) {
                     if (Object.prototype.hasOwnProperty.call(nextMutation, 'return')) {
                         block.mutation.return = nextMutation.return;
                     } else {

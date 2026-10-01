@@ -1676,8 +1676,9 @@ class ScriptTreeGenerator {
 
         case 'procedures_call': {
             const procedureCode = block.mutation.proccode;
+            const isDual = block.mutation.dual === true || block.mutation.dual === 'true';
 
-            if (block.mutation.return) {
+            if (block.mutation.return && (!isDual || !block.parent)) {
                 const visualReport = this.descendVisualReport(block);
                 if (visualReport) {
                     return visualReport;
