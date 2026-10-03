@@ -6,6 +6,7 @@ const ArgumentType = require('../extension-support/argument-type');
 const Blocks = require('./blocks');
 const BlocksRuntimeCache = require('./blocks-runtime-cache');
 const BlockType = require('../extension-support/block-type');
+const CustomTypes = require('../extension-support/custom-types');
 const Profiler = require('./profiler');
 const Sequencer = require('./sequencer');
 const execute = require('./execute.js');
@@ -322,6 +323,34 @@ class Runtime extends EventEmitter {
          * @type {Record<string, {conditional: boolean}>}
          */
         this._flowing = {};
+
+        /**
+         * Registry of custom data types. Keys are type IDs in the
+         * "extensionId:typeName" format, values are the registered classes.
+         * @type {Map.<string, Function>}
+         */
+        this.customTypes = new Map();
+
+        /**
+         * Reverse lookup of custom type ID by class definition, so serialization
+         * can identify instances in O(1).
+         * @type {WeakMap.<Function, string>}
+         */
+        this._customTypeIds = new WeakMap();
+
+        /**
+         * Precomputed custom-type argument cast functions per opcode.
+         * Populated when extension blocks are registered.
+         * @type {Map.<string, Object.<string, Function>>}
+         */
+        this._customArgumentCasters = new Map();
+
+        /**
+         * Registry of registered custom block shapes. The shape
+         * definitions provided through Scratch.BlockShapes.register.
+         * @type {Map.<string, Object>}
+         */
+        this.blockShapes = new Map();
 
         /**
          * Map of opcodes allowing extensions to hook into the JavaScript compiler.
@@ -886,6 +915,22 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Event name for reporting that an extension registered a custom block shape.
+     * @const {string}
+     */
+    static get EXTENSION_SHAPE_ADDED () {
+        return 'EXTENSION_SHAPE_ADDED';
+    }
+
+    /**
+     * Event name for reporting that an extension removed a custom block shape.
+     * @const {string}
+     */
+    static get EXTENSION_SHAPE_REMOVED () {
+        return 'EXTENSION_SHAPE_REMOVED';
+    }
+
+    /**
      * Event name for updating the available set of peripheral devices.
      * This causes the peripheral connection modal to update a list of
      * available peripherals.
@@ -1267,6 +1312,13 @@ class Runtime extends EventEmitter {
                 }
             }
         }
+        // Clean up cached custom-type argument casters for the removed blocks.
+        for (const block of info.blocks) {
+            const opcode = block && block.json && block.json.type;
+            if (opcode) {
+                this._customArgumentCasters.delete(opcode);
+            }
+        }
         this.emit(Runtime.BLOCKS_NEED_UPDATE);
     }
 
@@ -1365,6 +1417,7 @@ class Runtime extends EventEmitter {
                             this._compilerInterfaces[opcode] = convertedBlock.info.compiler;
                         }
                     }
+                    this._updateCustomArgumentCasters(opcode, blockInfo);
                     if (blockInfo.blockType === BlockType.EVENT || blockInfo.blockType === BlockType.HAT) {
                         this._hats[opcode] = {
                             edgeActivated: blockInfo.isEdgeActivated,
@@ -1767,6 +1820,33 @@ class Runtime extends EventEmitter {
             break;
         }
 
+        // nb: reporters, including the reporter side of dual blocks, declaring
+        // a registered custom outputType connect only to inputs expecting that
+        // type, and take their shape from the type class.
+        const reporterType = blockInfo.dualType || blockInfo.blockType;
+        if (
+            typeof blockInfo.outputType === 'string' &&
+            (
+                reporterType === BlockType.REPORTER ||
+                reporterType === BlockType.BOOLEAN ||
+                reporterType === BlockType.OBJECT ||
+                reporterType === BlockType.ARRAY
+            ) &&
+            this.customTypes.has(blockInfo.outputType)
+        ) {
+            blockJSON.output = blockInfo.outputType;
+            const typeDefinition = this.customTypes.get(blockInfo.outputType);
+            if (typeof typeDefinition.shape === 'number') {
+                blockJSON.outputShape = typeDefinition.shape;
+            } else if (typeof typeDefinition.shape === 'string' &&
+                this.hasBlockShape(typeDefinition.shape)) {
+                // A registered custom block shape name is passed straight through
+                // as a string so scratch-blocks can resolve it against its own
+                // shape registry.
+                blockJSON.outputShape = typeDefinition.shape;
+            }
+        }
+
         // Allow extensiosn to override outputShape
         if (blockInfo.blockShape) {
             blockJSON.outputShape = blockInfo.blockShape;
@@ -2011,6 +2091,16 @@ class Runtime extends EventEmitter {
                 // input slot on the block accepts Boolean reporters, so it should be
                 // shaped like a hexagon
                 argJSON.check = argTypeInfo.check;
+            } else if (typeof argInfo.type === 'string' && this.customTypes.has(argInfo.type)) {
+                // nb: slots typed as a registered custom type only accept reporters
+                // whose outputType is exactly that type.
+                argJSON.check = argInfo.type;
+                const argTypeShape = this.customTypes.get(argInfo.type).shape;
+                if (typeof argTypeShape === 'number') {
+                    argJSON.outputShape = argTypeShape;
+                } else if (typeof argTypeShape === 'string' && this.hasBlockShape(argTypeShape)) {
+                    argJSON.outputShape = argTypeShape;
+                }
             }
 
             const noAcceptReporters = typeof argInfo.acceptReporters !== 'undefined' &&
@@ -2464,6 +2554,166 @@ class Runtime extends EventEmitter {
             this._hats[opcode].edgeActivated;
     }
 
+    /**
+     * Register a namespaced custom type class. Extensions should call this
+     * through Scratch.types.register before their getInfo() is read.
+     * @param {string} typeId - namespaced ID in the "extensionId:typeName" format.
+     * @param {Function} classDef - the custom type class. May define static cast,
+     * static fromJSON, and instance toJSON/toString/valueOf members.
+     */
+    registerCustomType (typeId, classDef) {
+        if (!CustomTypes.isValidTypeId(typeId)) {
+            throw new Error(
+                `Invalid custom type ID: ${typeId}.`
+            );
+        }
+        if (typeof classDef !== 'function') {
+            throw new Error(`Custom type ${typeId} must be a class or constructor.`);
+        }
+        const existing = this.customTypes.get(typeId);
+        if (existing === classDef) {
+            // Re-registering the same class is a harmless no-op (e.g. HMR).
+            return;
+        }
+        if (existing) {
+            throw new Error(`Custom type "${typeId}" is already registered by another class.`);
+        }
+        this.customTypes.set(typeId, classDef);
+        this._customTypeIds.set(classDef, typeId);
+        CustomTypes.revivePendingValues(this, typeId, classDef);
+    }
+
+    /**
+     * Remove a previously registered custom type. Blocks already placed in the
+     * editor keep working via their cached casters, but new serialization will
+     * fall back to plain data representations.
+     * @param {string} typeId - the namespaced ID of the type to remove.
+     */
+    unregisterCustomType (typeId) {
+        const classDef = this.customTypes.get(typeId);
+        if (!classDef) {
+            return;
+        }
+        this.customTypes.delete(typeId);
+        if (this._customTypeIds.get(classDef) === typeId) {
+            this._customTypeIds.delete(classDef);
+        }
+        for (const [opcode, casters] of this._customArgumentCasters) {
+            let used = false;
+            for (const name in casters) {
+                if (casters[name].typeId === typeId) {
+                    used = true;
+                    break;
+                }
+            }
+            if (used) {
+                this._customArgumentCasters.delete(opcode);
+            }
+        }
+    }
+
+    /**
+     * Check whether a custom type is registered.
+     * @param {string} typeId - the namespaced ID of the type.
+     * @returns {boolean} true if registered.
+     */
+    hasCustomType (typeId) {
+        return this.customTypes.has(typeId);
+    }
+
+    /**
+     * Look up a registered custom type class.
+     * @param {string} typeId - the namespaced ID of the type.
+     * @returns {?Function} the class definition, or null when not registered.
+     */
+    getCustomType (typeId) {
+        return this.customTypes.get(typeId) || null;
+    }
+
+    /**
+     * Register a namespaced custom block shape.
+     * @param {string} name - ID for the custom block shape.
+     * @param {Object} definition - the shape definition.
+     */
+    registerBlockShape (name, definition) {
+        if (!CustomTypes.isValidTypeId(name)) {
+            throw new Error(
+                `Invalid block shape ID: ${name}.`
+            );
+        }
+        if (!definition || typeof definition !== 'object') {
+            throw new Error(`Block shape ${name} must be an object definition.`);
+        }
+        if (typeof definition.leftEdge !== 'function') {
+            throw new Error(`Block shape ${name} must define a leftEdge function.`);
+        }
+        const existing = this.blockShapes.get(name);
+        if (existing === definition) {
+            return;
+        }
+        if (existing) {
+            throw new Error(`Block shape "${name}" is already registered by another definition.`);
+        }
+        this.blockShapes.set(name, definition);
+        this.emit(Runtime.EXTENSION_SHAPE_ADDED, {name, definition});
+    }
+
+    /**
+     * Remove a previously registered custom block shape.
+     * @param {string} name - the namespaced ID of the shape to remove.
+     */
+    unregisterBlockShape (name) {
+        if (this.blockShapes.delete(name)) {
+            this.emit(Runtime.EXTENSION_SHAPE_REMOVED, {name});
+        }
+    }
+
+    /**
+     * Check whether a custom block shape is registered.
+     * @param {string} name - the namespaced ID of the shape.
+     * @returns {boolean} true if registered.
+     */
+    hasBlockShape (name) {
+        return this.blockShapes.has(name);
+    }
+
+    /**
+     * Look up a registered custom block shape definition.
+     * @param {string} name - the namespaced ID of the shape.
+     * @returns {?Object} the shape definition, or null when not registered.
+     */
+    getBlockShape (name) {
+        return this.blockShapes.get(name) || null;
+    }
+
+    /**
+     * Precompute per-argument cast functions for an extension block so that
+     * execute.js can apply them without registry lookups at run time.
+     * @param {string} opcode - the fully namespaced opcode of the block.
+     * @param {object} blockInfo - the extension's block metadata.
+     * @private
+     */
+    _updateCustomArgumentCasters (opcode, blockInfo) {
+        const arguments_ = blockInfo && blockInfo.arguments;
+        let casters = null;
+        if (arguments_) {
+            for (const name in arguments_) {
+                const argType = arguments_[name] && arguments_[name].type;
+                if (typeof argType === 'string' && this.customTypes.has(argType)) {
+                    const caster = CustomTypes.makeCastFunction(this.customTypes.get(argType));
+                    caster.typeId = argType;
+                    casters = casters || {};
+                    casters[name] = caster;
+                }
+            }
+        }
+        if (casters) {
+            this._customArgumentCasters.set(opcode, casters);
+        } else {
+            this._customArgumentCasters.delete(opcode);
+        }
+    }
+
 
     /**
      * Attach the audio engine
@@ -2876,6 +3126,7 @@ class Runtime extends EventEmitter {
         if (target.isStage && !this._stageTarget) {
             this._stageTarget = target;
         }
+        CustomTypes.reviveTargetValues(this, target);
     }
 
     /**
@@ -3670,6 +3921,76 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Look up the registered custom type class for a value's constructor.
+     * @param {*} value Value to inspect.
+     * @returns {?Function} the registered class definition, or null.
+     * @private
+     */
+    _getCustomTypeClass (value) {
+        if (value === null || typeof value !== 'object') {
+            return null;
+        }
+        const typeId = this._customTypeIds.get(value.constructor);
+        return typeId ? (this.customTypes.get(typeId) || null) : null;
+    }
+
+    /**
+     * Look up a custom type's visualReport and get the HTML string for a value.
+     * @param {*} value Value to render.
+     * @returns {?string} HTML string, or null.
+     * @private
+     */
+    _getCustomTypeVisualReport (value) {
+        const classDef = this._getCustomTypeClass(value);
+        if (classDef) {
+            if (typeof classDef.visualReport === 'function') {
+                try {
+                    const html = classDef.visualReport(value);
+                    return html === null || typeof html === 'undefined' ? null : String(html);
+                } catch {
+                    return null;
+                }
+            } else if (typeof classDef.monitorContent === 'function') {
+                try {
+                    const html = classDef.monitorContent(value);
+                    return html === null || typeof html === 'undefined' ? null : String(html);
+                } catch {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Look up a custom type's static monitorContent and get the HTML string for a value.
+     * @param {*} value Value to render.
+     * @returns {?string} HTML string, or null.
+     * @private
+     */
+    _getCustomTypeMonitorContent (value) {
+        const classDef = this._getCustomTypeClass(value);
+        if (classDef) {
+            if (typeof classDef.monitorContent === 'function') {
+                try {
+                    const html = classDef.monitorContent(value);
+                    return html === null || typeof html === 'undefined' ? null : String(html);
+                } catch {
+                    return null;
+                }
+            } else if (typeof classDef.visualReport === 'function') {
+                try {
+                    const html = classDef.visualReport(value);
+                    return html === null || typeof html === 'undefined' ? null : String(html);
+                } catch {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Emit value for reporter to show in the blocks.
      * @param {Target} target The target that the block was run in.
      * @param {string} blockId ID for the block.
@@ -3679,9 +4000,18 @@ class Runtime extends EventEmitter {
      */
     visualReport (target, blockId, value, error = false, html) {
         if (target === this.getEditingTarget()) {
+            if (!html) {
+                html = this._getCustomTypeVisualReport(value);
+            }
+            let reportValue = value;
+            if (this._getCustomTypeClass(value) && typeof reportValue.valueOf === 'function') {
+                try {
+                    reportValue = reportValue.valueOf();
+                } catch (e) { /* empty */ }
+            }
             this.emit(Runtime.VISUAL_REPORT, {
                 id: blockId,
-                value: safeStringify(value),
+                value: safeStringify(reportValue),
                 error,
                 html: html ? safeStringify(html) : null
             });
@@ -3710,6 +4040,11 @@ class Runtime extends EventEmitter {
     requestUpdateMonitor (delta) {
         delta = MonitorRecord.externalDeltaToJS(delta);
         const id = delta.id;
+        if (typeof delta.value !== 'undefined' && delta.value !== null) {
+            // An empty string (not null) clears the content once the value is no longer a custom type.
+            const monitorContent = this._getCustomTypeMonitorContent(delta.value);
+            delta = Object.assign({}, delta, {monitorContent: monitorContent === null ? '' : monitorContent});
+        }
         if (this._monitorState.has(id)) {
             this._monitorState.set(id, delta);
             return true;
