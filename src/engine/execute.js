@@ -575,7 +575,7 @@ const execute = function (sequencer, thread) {
                 if (inputName === 'BROADCAST_INPUT') {
                     // Something is plugged into the broadcast input.
                     // Cast it to a string. We don't need an id here.
-                    argValues.BROADCAST_INPUT.id = null;
+                    argValues.BROADCAST_OPTION.id = null;
                     argValues.BROADCAST_OPTION.name = cast.toString(inputValue);
                 } else {
                     // nb: cast reported values into custom type arguments.
