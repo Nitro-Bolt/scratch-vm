@@ -389,7 +389,7 @@ class NitroBoltDebuggerBlocks {
         const vm = window.vm;
         let byteLength = 0;
         for (const target of this.runtime.targets) {
-            Object.values(target.variables).forEach(v => {
+            for (const v of Object.values(target.variables)) {
                 if (typeof v.value === 'string') {
                     // todo: should this account for non-ASCII characters?
                     byteLength += v.value.length;
@@ -397,7 +397,7 @@ class NitroBoltDebuggerBlocks {
                     // not very accurate, but good enough.
                     byteLength += JSON.stringify(v.value).length;
                 }
-            });
+            }
         }
         for (const asset of vm.assets) {
             byteLength += asset.data.byteLength || 0;
