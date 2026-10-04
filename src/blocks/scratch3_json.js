@@ -196,8 +196,9 @@ class Scratch3JSONBlocks {
     forEachValue (args, util) {
         const frames = util.thread.stackFrames;
         for (let i = frames.length - 1; i >= 0; i--) {
-            if (typeof frames[i].jsonForeachState !== 'undefined') {
-                return frames[i].jsonForeachState?.value ?? '';
+            const context = frames[i].executionContext;
+            if (context && typeof context.jsonForeachState !== 'undefined') {
+                return context.jsonForeachState?.value ?? '';
             }
         }
         return '';
@@ -206,8 +207,9 @@ class Scratch3JSONBlocks {
     forEachIndex (args, util) {
         const frames = util.thread.stackFrames;
         for (let i = frames.length - 1; i >= 0; i--) {
-            if (typeof frames[i].jsonForeachState !== 'undefined') {
-                return frames[i].jsonForeachState?.index ?? 0;
+            const context = frames[i].executionContext;
+            if (context && typeof context.jsonForeachState !== 'undefined') {
+                return context.jsonForeachState?.index ?? 0;
             }
         }
         return 0;

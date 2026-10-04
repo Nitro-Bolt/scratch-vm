@@ -248,8 +248,9 @@ class Scratch3ControlBlocks {
     forEachInRangeItem (args, util) {
         const frames = util.thread.stackFrames;
         for (let i = frames.length - 1; i >= 0; i--) {
-            if (typeof frames[i].forEachInRangeItem !== 'undefined') {
-                return frames[i].forEachInRangeItem ?? 0;
+            const context = frames[i].executionContext;
+            if (context && typeof context.forEachInRangeItem !== 'undefined') {
+                return context.forEachInRangeItem ?? 0;
             }
         }
         return 0;
