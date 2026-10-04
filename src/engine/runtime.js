@@ -3010,6 +3010,7 @@ class Runtime extends EventEmitter {
             const soundBank = target.sprite.soundBank;
             soundBank.audioEngine.audioContext.suspend();
         }
+        this.ioDevices.clock.pause();
         this.paused = true;
     }
 
@@ -3028,8 +3029,8 @@ class Runtime extends EventEmitter {
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
             }
-
         }
+        this.ioDevices.clock.resume();
         this.paused = false;
     }
 
