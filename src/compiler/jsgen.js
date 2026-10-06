@@ -1852,15 +1852,16 @@ class JSGenerator {
             result += `"${sanitize(inputName)}":${compiledInput},`;
         }
         for (const fieldName of Object.keys(node.fields)) {
-            let field = node.fields[fieldName];
+            const field = node.fields[fieldName];
             const caster = casters && casters[fieldName];
             if (caster) {
                 const casterRef = this.evaluateOnce(
                     `runtime._customArgumentCasters.get(${JSON.stringify(opcode)})[${JSON.stringify(fieldName)}]`
                 );
-                field = `${casterRef}(${JSON.stringify(field)})`;
+                result += `"${sanitize(fieldName)}":${casterRef}(${JSON.stringify(field)}),`;
+            } else {
+                result += `"${sanitize(fieldName)}":${JSON.stringify(field)},`;
             }
-            result += `"${sanitize(fieldName)}":${field},`;
         }
         const emptyNames = CustomTypes.getEmptyCasterNames(casters, name =>
             Object.prototype.hasOwnProperty.call(node.inputs, name) ||

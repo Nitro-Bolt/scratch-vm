@@ -18,7 +18,7 @@ const CUSTOM_TYPE_KEY = '_customType';
 const CUSTOM_TYPE_DATA_KEY = 'data';
 
 /**
- * Extension IDs are alphanumeric but additionally allow dashes and underscores.
+ * Custom type and block shape IDs are alphanumeric and may contain dashes and underscores.
  */
 const CUSTOM_TYPE_ID_PATTERN = /^[a-z0-9_-]+$/i;
 
@@ -32,7 +32,7 @@ const MAX_WALK_DEPTH = 64;
  * Check whether a string is a valid custom type ID.
  * Does not check whether the type is actually registered.
  * @param {*} typeId - the candidate type ID.
- * @returns {boolean} true if the ID follows the "extensionId:typeName" format.
+ * @returns {boolean} true if the ID contains only supported characters.
  */
 const isValidTypeId = typeId =>
     typeof typeId === 'string' && CUSTOM_TYPE_ID_PATTERN.test(typeId);

@@ -325,8 +325,8 @@ class Runtime extends EventEmitter {
         this._flowing = {};
 
         /**
-         * Registry of custom data types. Keys are type IDs in the
-         * "extensionId:typeName" format, values are the registered classes.
+         * Registry of custom data types. Keys are custom type IDs and values
+         * are the registered classes.
          * @type {Map.<string, Function>}
          */
         this.customTypes = new Map();
@@ -2555,9 +2555,9 @@ class Runtime extends EventEmitter {
     }
 
     /**
-     * Register a namespaced custom type class. Extensions should call this
+     * Register a custom type class. Extensions should call this
      * through Scratch.types.register before their getInfo() is read.
-     * @param {string} typeId - namespaced ID in the "extensionId:typeName" format.
+     * @param {string} typeId - alphanumeric ID which may contain dashes and underscores.
      * @param {Function} classDef - the custom type class. May define static cast,
      * static fromJSON, and instance toJSON/toString/valueOf members.
      */
@@ -2587,7 +2587,7 @@ class Runtime extends EventEmitter {
      * Remove a previously registered custom type. Blocks already placed in the
      * editor keep working via their cached casters, but new serialization will
      * fall back to plain data representations.
-     * @param {string} typeId - the namespaced ID of the type to remove.
+     * @param {string} typeId - the ID of the type to remove.
      */
     unregisterCustomType (typeId) {
         const classDef = this.customTypes.get(typeId);
@@ -2614,7 +2614,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Check whether a custom type is registered.
-     * @param {string} typeId - the namespaced ID of the type.
+     * @param {string} typeId - the ID of the type.
      * @returns {boolean} true if registered.
      */
     hasCustomType (typeId) {
@@ -2623,7 +2623,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Look up a registered custom type class.
-     * @param {string} typeId - the namespaced ID of the type.
+     * @param {string} typeId - the ID of the type.
      * @returns {?Function} the class definition, or null when not registered.
      */
     getCustomType (typeId) {
@@ -2631,7 +2631,7 @@ class Runtime extends EventEmitter {
     }
 
     /**
-     * Register a namespaced custom block shape.
+     * Register a custom block shape.
      * @param {string} name - ID for the custom block shape.
      * @param {Object} definition - the shape definition.
      */
@@ -2660,7 +2660,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Remove a previously registered custom block shape.
-     * @param {string} name - the namespaced ID of the shape to remove.
+     * @param {string} name - the ID of the shape to remove.
      */
     unregisterBlockShape (name) {
         if (this.blockShapes.delete(name)) {
@@ -2670,7 +2670,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Check whether a custom block shape is registered.
-     * @param {string} name - the namespaced ID of the shape.
+     * @param {string} name - the ID of the shape.
      * @returns {boolean} true if registered.
      */
     hasBlockShape (name) {
@@ -2679,7 +2679,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Look up a registered custom block shape definition.
-     * @param {string} name - the namespaced ID of the shape.
+     * @param {string} name - the ID of the shape.
      * @returns {?Object} the shape definition, or null when not registered.
      */
     getBlockShape (name) {
