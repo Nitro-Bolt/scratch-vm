@@ -1836,6 +1836,9 @@ class JSGenerator {
     generateCompatibilityLayerCall (node, setFlags, frameName = null) {
         const opcode = node.opcode;
         const casters = this.target.runtime._customArgumentCasters.get(opcode);
+        const runtimeCastersRef = casters ? this.evaluateOnce(
+            `runtime._customArgumentCasters.get(${JSON.stringify(opcode)})`
+        ) : null;
 
         let result = 'yield* executeInCompatibilityLayer({';
 
@@ -1845,9 +1848,9 @@ class JSGenerator {
             const caster = casters && casters[inputName];
             if (caster) {
                 const casterRef = this.evaluateOnce(
-                    `runtime._customArgumentCasters.get(${JSON.stringify(opcode)})[${JSON.stringify(inputName)}]`
+                    `${runtimeCastersRef} && ${runtimeCastersRef}[${JSON.stringify(inputName)}]`
                 );
-                compiledInput = `${casterRef}(${compiledInput})`;
+                compiledInput = `${casterRef} ? ${casterRef}(${compiledInput}) : ${compiledInput}`;
             }
             result += `"${sanitize(inputName)}":${compiledInput},`;
         }
@@ -1856,9 +1859,10 @@ class JSGenerator {
             const caster = casters && casters[fieldName];
             if (caster) {
                 const casterRef = this.evaluateOnce(
-                    `runtime._customArgumentCasters.get(${JSON.stringify(opcode)})[${JSON.stringify(fieldName)}]`
+                    `${runtimeCastersRef} && ${runtimeCastersRef}[${JSON.stringify(fieldName)}]`
                 );
-                result += `"${sanitize(fieldName)}":${casterRef}(${JSON.stringify(field)}),`;
+                result += `"${sanitize(fieldName)}":${casterRef} ? ` +
+                    `${casterRef}(${JSON.stringify(field)}) : ${JSON.stringify(field)},`;
             } else {
                 result += `"${sanitize(fieldName)}":${JSON.stringify(field)},`;
             }
@@ -1869,9 +1873,9 @@ class JSGenerator {
         );
         for (const name of emptyNames) {
             const casterRef = this.evaluateOnce(
-                `runtime._customArgumentCasters.get(${JSON.stringify(opcode)})[${JSON.stringify(name)}]`
+                `${runtimeCastersRef} && ${runtimeCastersRef}[${JSON.stringify(name)}]`
             );
-            result += `"${sanitize(name)}":${casterRef}(undefined),`;
+            result += `"${sanitize(name)}":${casterRef} ? ${casterRef}(undefined) : undefined,`;
         }
         const opcodeFunction = this.evaluateOnce(`runtime.getOpcodeFunction("${sanitize(opcode)}")`);
         result += `}, ${opcodeFunction}, ${this.isWarp}, ${setFlags}, "${sanitize(node.id)}", ${frameName})`;

@@ -595,7 +595,7 @@ class ExtensionManager {
         // nb: validate custom outputType metadata.
         if (typeof blockInfo.outputType !== 'undefined' && !CustomTypes.isValidTypeId(blockInfo.outputType)) {
             log.warn(
-                `Ignoring invalid outputType "${blockInfo.outputType}" on block ${blockInfo.opcode}: `
+                `Ignoring invalid outputType "${blockInfo.outputType}" on block ${blockInfo.opcode}`
             );
             delete blockInfo.outputType;
         }

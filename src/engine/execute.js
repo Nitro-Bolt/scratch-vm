@@ -355,6 +355,10 @@ class BlockCached {
             } else {
                 this._argValues[fieldName] = fields[fieldName].value;
             }
+            const caster = this._argCasters && this._argCasters[fieldName];
+            if (caster) {
+                this._argValues[fieldName] = caster(this._argValues[fieldName]);
+            }
         }
 
         // Remove custom_block. It is not part of block execution.
