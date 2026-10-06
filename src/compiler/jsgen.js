@@ -8,6 +8,7 @@ const jsexecute = require('./jsexecute');
 const environment = require('./environment');
 const {StackOpcode, InputOpcode, InputType} = require('./enums.js');
 const oldCompilerCompatibility = require('./old-compiler-compatibility.js');
+const CustomTypes = require('../extension-support/custom-types');
 
 // These imports are used by jsdoc comments but eslint doesn't know that
 /* eslint-disable no-unused-vars */
@@ -1834,17 +1835,47 @@ class JSGenerator {
      */
     generateCompatibilityLayerCall (node, setFlags, frameName = null) {
         const opcode = node.opcode;
+        const casters = this.target.runtime._customArgumentCasters.get(opcode);
+        const runtimeCastersRef = casters ? this.evaluateOnce(
+            `runtime._customArgumentCasters.get(${JSON.stringify(opcode)})`
+        ) : null;
 
         let result = 'yield* executeInCompatibilityLayer({';
 
         for (const inputName of Object.keys(node.inputs)) {
             const input = node.inputs[inputName];
-            const compiledInput = this.descendInput(input);
+            let compiledInput = this.descendInput(input);
+            const caster = casters && casters[inputName];
+            if (caster) {
+                const casterRef = this.evaluateOnce(
+                    `${runtimeCastersRef} && ${runtimeCastersRef}[${JSON.stringify(inputName)}]`
+                );
+                compiledInput = `${casterRef} ? ${casterRef}(${compiledInput}) : ${compiledInput}`;
+            }
             result += `"${sanitize(inputName)}":${compiledInput},`;
         }
         for (const fieldName of Object.keys(node.fields)) {
             const field = node.fields[fieldName];
-            result += `"${sanitize(fieldName)}":"${sanitize(field)}",`;
+            const caster = casters && casters[fieldName];
+            if (caster) {
+                const casterRef = this.evaluateOnce(
+                    `${runtimeCastersRef} && ${runtimeCastersRef}[${JSON.stringify(fieldName)}]`
+                );
+                result += `"${sanitize(fieldName)}":${casterRef} ? ` +
+                    `${casterRef}(${JSON.stringify(field)}) : ${JSON.stringify(field)},`;
+            } else {
+                result += `"${sanitize(fieldName)}":${JSON.stringify(field)},`;
+            }
+        }
+        const emptyNames = CustomTypes.getEmptyCasterNames(casters, name =>
+            Object.prototype.hasOwnProperty.call(node.inputs, name) ||
+            Object.prototype.hasOwnProperty.call(node.fields, name)
+        );
+        for (const name of emptyNames) {
+            const casterRef = this.evaluateOnce(
+                `${runtimeCastersRef} && ${runtimeCastersRef}[${JSON.stringify(name)}]`
+            );
+            result += `"${sanitize(name)}":${casterRef} ? ${casterRef}(undefined) : undefined,`;
         }
         const opcodeFunction = this.evaluateOnce(`runtime.getOpcodeFunction("${sanitize(opcode)}")`);
         result += `}, ${opcodeFunction}, ${this.isWarp}, ${setFlags}, "${sanitize(node.id)}", ${frameName})`;

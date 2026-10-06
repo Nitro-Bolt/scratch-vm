@@ -2,6 +2,7 @@ const BlockUtility = require('./block-utility');
 const BlocksExecuteCache = require('./blocks-execute-cache');
 const log = require('../util/log');
 const Thread = require('./thread');
+const CustomTypes = require('../extension-support/custom-types');
 const cast = require('../util/cast');
 const Timer = require('../util/timer');
 
@@ -295,6 +296,12 @@ class BlockCached {
         this._parentValues = null;
 
         /**
+         * Custom type argument casters belonging to the parent block.
+         * @type {?object}
+         */
+        this._parentCasters = null;
+
+        /**
          * A sequence of non-shadow operations that can must be performed. This
          * list recreates the order this block and its children are executed.
          * Since the order is always the same we can safely store that order
@@ -312,6 +319,12 @@ class BlockCached {
         this._isHat = runtime.getIsHat(opcode);
         this._blockFunction = runtime.getOpcodeFunction(opcode);
         this._definedBlockFunction = typeof this._blockFunction !== 'undefined';
+
+        /**
+         * Custom type argument cast functions for this.
+         * @type {?object}
+         */
+        this._argCasters = runtime._customArgumentCasters.get(opcode) || null;
 
         const flowing = runtime._flowing[opcode];
         this._isConditional = !!(flowing && flowing.conditional);
@@ -341,6 +354,10 @@ class BlockCached {
                 };
             } else {
                 this._argValues[fieldName] = fields[fieldName].value;
+            }
+            const caster = this._argCasters && this._argCasters[fieldName];
+            if (caster) {
+                this._argValues[fieldName] = caster(this._argValues[fieldName]);
             }
         }
 
@@ -390,12 +407,32 @@ class BlockCached {
                 this._ops.push(...inputCached._ops);
                 inputCached._parentKey = inputName;
                 inputCached._parentValues = this._argValues;
+                inputCached._parentCasters = this._argCasters;
 
                 // Shadow values are static and do not change, go ahead and
                 // store their value on args.
                 if (inputCached._isShadowBlock) {
-                    this._argValues[inputName] = inputCached._shadowValue;
+                    // nb: cast shadow values for custom type arguments.
+                    const caster = this._argCasters && this._argCasters[inputName];
+                    this._argValues[inputName] = caster ?
+                        caster(inputCached._shadowValue) :
+                        inputCached._shadowValue;
                 }
+            } else if (this._argCasters) {
+                const caster = this._argCasters[inputName];
+                if (caster) {
+                    this._argValues[inputName] = caster(void 0);
+                }
+            }
+        }
+
+        if (this._argCasters) {
+            const emptyNames = CustomTypes.getEmptyCasterNames(this._argCasters, name =>
+                Object.prototype.hasOwnProperty.call(this._inputs, name) ||
+                Object.prototype.hasOwnProperty.call(fields, name)
+            );
+            for (const name of emptyNames) {
+                this._argValues[name] = this._argCasters[name](void 0);
             }
         }
 
@@ -545,7 +582,9 @@ const execute = function (sequencer, thread) {
                     argValues.BROADCAST_OPTION.id = null;
                     argValues.BROADCAST_OPTION.name = cast.toString(inputValue);
                 } else {
-                    argValues[inputName] = inputValue;
+                    // nb: cast reported values into custom type arguments.
+                    const caster = opCached._parentCasters && opCached._parentCasters[inputName];
+                    argValues[inputName] = caster ? caster(inputValue) : inputValue;
                 }
             }
         }
@@ -579,7 +618,9 @@ const execute = function (sequencer, thread) {
                 argValues.BROADCAST_OPTION.id = null;
                 argValues.BROADCAST_OPTION.name = cast.toString(inputValue);
             } else {
-                argValues[inputName] = inputValue;
+                // nb: cast reported values into custom type arguments.
+                const caster = opCached._parentCasters && opCached._parentCasters[inputName];
+                argValues[inputName] = caster ? caster(inputValue) : inputValue;
             }
 
             i += 1;
@@ -662,7 +703,9 @@ const execute = function (sequencer, thread) {
                     parentValues.BROADCAST_OPTION.id = null;
                     parentValues.BROADCAST_OPTION.name = cast.toString(primitiveReportedValue);
                 } else {
-                    parentValues[inputName] = primitiveReportedValue;
+                    // nb: cast reported values into custom type arguments.
+                    const caster = opCached._parentCasters && opCached._parentCasters[inputName];
+                    parentValues[inputName] = caster ? caster(primitiveReportedValue) : primitiveReportedValue;
                 }
             }
         } else if (thread.status === Thread.STATUS_DONE) {
