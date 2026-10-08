@@ -2271,10 +2271,7 @@ class Runtime extends EventEmitter {
         while ((match = re.exec(text))) {
             const literal = text.slice(lastIndex, match.index);
             if (literal) {
-                elements.push({
-                    type: 'field_label',
-                    text: literal
-                });
+                elements.push(literal);
             }
 
             const argName = match[1];
@@ -2288,10 +2285,7 @@ class Runtime extends EventEmitter {
 
         const tail = text.slice(lastIndex);
         if (tail) {
-            elements.push({
-                type: 'field_label',
-                text: tail
-            });
+            elements.push(tail);
         }
 
         return elements;
