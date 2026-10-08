@@ -2,6 +2,7 @@
 
 const Cast = require('../util/cast');
 const StringUtil = require('../util/string-util');
+const ArgumentType = require('../extension-support/argument-type');
 const BlockType = require('../extension-support/block-type');
 const Variable = require('../engine/variable');
 const log = require('../util/log');
@@ -1105,12 +1106,12 @@ class ScriptTreeGenerator {
                     const inputCompiler = typeof compilerInterface === 'function' ?
                         compilerInterface : compilerInterface && compilerInterface.input;
                     if (typeof inputCompiler === 'function') {
-                        const inputs = Object.fromEntries(Object.keys(block.inputs)
+                        const inputs = Object.fromEntries(this.getExtensionInputNames(block)
                             .filter(name => !name.startsWith('SUBSTACK'))
                             .map(name =>
                                 [name, this.descendInputOfBlock(block, name)]
                             ));
-                        const substacks = Object.fromEntries(Object.keys(block.inputs)
+                        const substacks = Object.fromEntries(this.getExtensionInputNames(block)
                             .filter(name => name.startsWith('SUBSTACK'))
                             .map(name => {
                                 const branchNum = name === 'SUBSTACK' ? 1 : +name.substring('SUBSTACK'.length);
@@ -1752,12 +1753,12 @@ class ScriptTreeGenerator {
                             }
                         }
 
-                        const inputs = Object.fromEntries(Object.keys(block.inputs)
+                        const inputs = Object.fromEntries(this.getExtensionInputNames(block)
                             .filter(name => !name.startsWith('SUBSTACK'))
                             .map(input =>
                                 [input, this.descendInputOfBlock(block, input)]
                             ));
-                        const substacks = Object.fromEntries(Object.keys(block.inputs)
+                        const substacks = Object.fromEntries(this.getExtensionInputNames(block)
                             .filter(name => name.startsWith('SUBSTACK'))
                             .map(name => {
                                 const branchNum = name === 'SUBSTACK' ? 1 : +name.substring('SUBSTACK'.length);
@@ -2123,6 +2124,41 @@ class ScriptTreeGenerator {
     }
 
     /**
+     * Get extension input names that currently provide executable values.
+     * An array-capable extendable has a field and input with the same name.
+     * Its empty replacement input must not override the field, and its hidden
+     * generated inputs must not be compiled while an array is connected.
+     * @param {*} block The extension block.
+     * @returns {Array<string>} Input names to compile.
+     * @private
+     */
+    getExtensionInputNames (block) {
+        const names = Object.keys(block.inputs);
+        const blockInfo = this.getBlockInfo(block.opcode);
+        const argumentInfo = blockInfo && blockInfo.info.arguments;
+        const arrayInputs = names.filter(name => {
+            const argument = argumentInfo && argumentInfo[name];
+            return argument &&
+                argument.type === ArgumentType.EXTENDABLE &&
+                argument.acceptArray === true;
+        });
+        return names.filter(name => {
+            const input = block.inputs[name];
+            if (arrayInputs.indexOf(name) !== -1) {
+                return Boolean(input && input.block);
+            }
+            if (input && input.block) return true;
+            for (const arrayName of arrayInputs) {
+                const arrayInput = block.inputs[arrayName];
+                if (arrayInput && arrayInput.block && name.startsWith(`${arrayName}_`)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    /**
      * Descend into an input block that uses the compatibility layer.
      * @param {*} block The block to use the compatibility layer for.
      * @private
@@ -2133,7 +2169,7 @@ class ScriptTreeGenerator {
         const inputs = {};
         /** @type {Record<string, any>} */
         const fields = {};
-        for (const name of Object.keys(block.inputs)) {
+        for (const name of this.getExtensionInputNames(block)) {
             inputs[name] = this.descendInputOfBlock(block, name, true);
         }
         for (const name of Object.keys(block.fields)) {
@@ -2156,7 +2192,7 @@ class ScriptTreeGenerator {
     descendCompatLayerStack (block) {
         /** @type {Record<string, IntermediateInput>} */
         const inputs = {};
-        for (const name of Object.keys(block.inputs)) {
+        for (const name of this.getExtensionInputNames(block)) {
             if (!name.startsWith('SUBSTACK')) {
                 inputs[name] = this.descendInputOfBlock(block, name, true);
             }

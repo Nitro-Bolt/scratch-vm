@@ -261,6 +261,10 @@ class BlockUtility {
             const currentArg = path[pathIndex];
             const key = prefix ? `${prefix}_${currentArg}` : currentArg;
 
+            if (Array.isArray(args[key])) {
+                return args[key];
+            }
+
             if (pathIndex === path.length - 1) {
                 return args[key];
             }

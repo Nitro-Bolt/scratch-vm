@@ -2063,7 +2063,8 @@ class Runtime extends EventEmitter {
                     defaultInputs: argInfo.defaultInputs || 0,
                     minInputs: argInfo.minInputs || 0,
                     maxInputs: argInfo.maxInputs || Infinity,
-                    separator: argInfo.separator || ''
+                    separator: argInfo.separator || '',
+                    acceptArray: argInfo.acceptArray === true
                 };
             }
 

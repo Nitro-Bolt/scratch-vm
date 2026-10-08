@@ -308,7 +308,7 @@ class JSGenerator {
             const compileCall = node.func;
 
             const args = Object.fromEntries(
-                Object.entries({...node.inputs, ...node.fields})
+                Object.entries({...node.fields, ...node.inputs})
                     .map(([name, input]) => [name, this.descendInput(input)])
             );
             const util = this.makeCompilerUtil(node);
@@ -1039,7 +1039,7 @@ class JSGenerator {
             const compileCall = node.func;
 
             const args = Object.fromEntries(
-                Object.entries({...node.inputs, ...node.fields})
+                Object.entries({...node.fields, ...node.inputs})
                     .map(([name, input]) => [name, this.descendInput(input)])
             );
             const util = this.makeCompilerUtil(node);
@@ -1842,18 +1842,6 @@ class JSGenerator {
 
         let result = 'yield* executeInCompatibilityLayer({';
 
-        for (const inputName of Object.keys(node.inputs)) {
-            const input = node.inputs[inputName];
-            let compiledInput = this.descendInput(input);
-            const caster = casters && casters[inputName];
-            if (caster) {
-                const casterRef = this.evaluateOnce(
-                    `${runtimeCastersRef} && ${runtimeCastersRef}[${JSON.stringify(inputName)}]`
-                );
-                compiledInput = `${casterRef} ? ${casterRef}(${compiledInput}) : ${compiledInput}`;
-            }
-            result += `"${sanitize(inputName)}":${compiledInput},`;
-        }
         for (const fieldName of Object.keys(node.fields)) {
             const field = node.fields[fieldName];
             const caster = casters && casters[fieldName];
@@ -1866,6 +1854,18 @@ class JSGenerator {
             } else {
                 result += `"${sanitize(fieldName)}":${JSON.stringify(field)},`;
             }
+        }
+        for (const inputName of Object.keys(node.inputs)) {
+            const input = node.inputs[inputName];
+            let compiledInput = this.descendInput(input);
+            const caster = casters && casters[inputName];
+            if (caster) {
+                const casterRef = this.evaluateOnce(
+                    `${runtimeCastersRef} && ${runtimeCastersRef}[${JSON.stringify(inputName)}]`
+                );
+                compiledInput = `${casterRef} ? ${casterRef}(${compiledInput}) : ${compiledInput}`;
+            }
+            result += `"${sanitize(inputName)}":${compiledInput},`;
         }
         const emptyNames = CustomTypes.getEmptyCasterNames(casters, name =>
             Object.prototype.hasOwnProperty.call(node.inputs, name) ||
