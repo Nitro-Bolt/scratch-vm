@@ -2,6 +2,7 @@ const ArgumentType = require('../../extension-support/argument-type');
 const BlockType = require('../../extension-support/block-type');
 const Cast = require('../../util/cast');
 const MathUtil = require('../../util/math-util');
+const formatMessage = require('format-message');
 
 /* eslint-disable indent, max-len */
 
@@ -27,14 +28,21 @@ class NitroBoltCameraBlocks {
   getInfo () {
     return {
       id: 'camera',
-      name: 'Camera',
+      name: formatMessage({
+        id: 'nb.camera.name',
+        default: 'Camera',
+        description: 'Name of the NitroBolt camera extension'
+      }),
       menuIconURI: menuIconURI,
       color1: '#2a835f',
       blocks: [
         {
           opcode: 'createCamera',
           blockType: BlockType.COMMAND,
-          text: 'create camera named [CAMERA]',
+          text: formatMessage({
+            id: 'nb.camera.createCamera',
+            default: 'create camera named [CAMERA]'
+          }),
           arguments: {
             CAMERA: {
               type: ArgumentType.STRING,
@@ -45,7 +53,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'deleteCamera',
           blockType: BlockType.COMMAND,
-          text: 'delete camera named [CAMERA]',
+          text: formatMessage({
+            id: 'nb.camera.deleteCamera',
+            default: 'delete camera named [CAMERA]'
+          }),
           arguments: {
             CAMERA: {
               type: ArgumentType.STRING,
@@ -60,7 +71,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'bindCamera',
           blockType: BlockType.COMMAND,
-          text: 'bind [TARGETS] to [CAMERAS] camera',
+          text: formatMessage({
+            id: 'nb.camera.bindCamera',
+            default: 'bind [TARGETS] to [CAMERAS] camera'
+          }),
           arguments: {
             TARGETS: {
               type: ArgumentType.STRING,
@@ -76,7 +90,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'currentCamera',
           blockType: BlockType.REPORTER,
-          text: 'camera of [TARGETS]',
+          text: formatMessage({
+            id: 'nb.camera.currentCamera',
+            default: 'camera of [TARGETS]'
+          }),
           arguments: {
             TARGETS: {
               type: ArgumentType.STRING,
@@ -87,7 +104,28 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'allCameras',
           blockType: BlockType.ARRAY,
-          text: 'all cameras'
+          text: formatMessage({
+            id: 'nb.camera.allCameras',
+            default: 'all cameras'
+          })
+        },
+        {
+          opcode: 'mouseX',
+          blockType: BlockType.REPORTER,
+          text: formatMessage({
+            id: 'nb.camera.mouseX',
+            default: 'camera mouse x'
+          }),
+          switches: ['mouseY']
+        },
+        {
+          opcode: 'mouseY',
+          blockType: BlockType.REPORTER,
+          text: formatMessage({
+            id: 'nb.camera.mouseY',
+            default: 'camera mouse y'
+          }),
+          switches: ['mouseX']
         },
 
         '---',
@@ -95,7 +133,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'moveCamera',
           blockType: BlockType.COMMAND,
-          text: 'move [CAMERAS] camera to x: [X] y: [Y]',
+          text: formatMessage({
+            id: 'nb.camera.moveCamera',
+            default: 'move [CAMERAS] camera to x: [X] y: [Y]'
+          }),
           switches: ['changeCameraBy'],
           arguments: {
             CAMERAS: {
@@ -114,7 +155,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'moveCameraToTarget',
           blockType: BlockType.COMMAND,
-          text: 'move [CAMERAS] camera to [TARGETS]',
+          text: formatMessage({
+            id: 'nb.camera.moveCameraToTarget',
+            default: 'move [CAMERAS] camera to [TARGETS]'
+          }),
           arguments: {
             CAMERAS: {
               type: ArgumentType.STRING,
@@ -130,7 +174,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'changeCameraBy',
           blockType: BlockType.COMMAND,
-          text: 'change [CAMERAS] camera by x: [X] y: [Y]',
+          text: formatMessage({
+            id: 'nb.camera.changeCameraBy',
+            default: 'change [CAMERAS] camera by x: [X] y: [Y]'
+          }),
           switches: ['moveCamera'],
           arguments: {
             CAMERAS: {
@@ -152,7 +199,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'moveCameraSteps',
           blockType: BlockType.COMMAND,
-          text: 'move [CAMERAS] camera [STEPS] steps',
+          text: formatMessage({
+            id: 'nb.camera.moveCameraSteps',
+            default: 'move [CAMERAS] camera [STEPS] steps'
+          }),
           arguments: {
             CAMERAS: {
               type: ArgumentType.STRING,
@@ -168,8 +218,15 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'setCameraX',
           blockType: BlockType.COMMAND,
-          text: 'set [CAMERAS] camera x to [X]',
-          switches: ['changeCameraX'],
+          text: formatMessage({
+            id: 'nb.camera.setCameraX',
+            default: 'set [CAMERAS] camera x to [X]'
+          }),
+          switches: [
+            {opcode: 'changeCameraX', inputs: [['X', 'X']]},
+            {opcode: 'setCameraY', inputs: [['X', 'Y']]},
+            {opcode: 'changeCameraY', inputs: [['X', 'Y']]}
+          ],
           arguments: {
             CAMERAS: {
               type: ArgumentType.STRING,
@@ -184,8 +241,15 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'changeCameraX',
           blockType: BlockType.COMMAND,
-          text: 'change [CAMERAS] camera x by [X]',
-          switches: ['setCameraX'],
+          text: formatMessage({
+            id: 'nb.camera.changeCameraX',
+            default: 'change [CAMERAS] camera x by [X]'
+          }),
+          switches: [
+            {opcode: 'setCameraX', inputs: [['X', 'X']]},
+            {opcode: 'setCameraY', inputs: [['X', 'Y']]},
+            {opcode: 'changeCameraY', inputs: [['X', 'Y']]}
+          ],
           arguments: {
             CAMERAS: {
               type: ArgumentType.STRING,
@@ -201,8 +265,15 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'setCameraY',
           blockType: BlockType.COMMAND,
-          text: 'set [CAMERAS] camera y to [Y]',
-          switches: ['changeCameraY'],
+          text: formatMessage({
+            id: 'nb.camera.setCameraY',
+            default: 'set [CAMERAS] camera y to [Y]'
+          }),
+          switches: [
+            {opcode: 'setCameraX', inputs: [['Y', 'X']]},
+            {opcode: 'changeCameraX', inputs: [['Y', 'X']]},
+            {opcode: 'changeCameraY', inputs: [['Y', 'Y']]}
+          ],
           arguments: {
             CAMERAS: {
               type: ArgumentType.STRING,
@@ -217,8 +288,15 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'changeCameraY',
           blockType: BlockType.COMMAND,
-          text: 'change [CAMERAS] camera y by [Y]',
-          switches: ['setCameraY'],
+          text: formatMessage({
+            id: 'nb.camera.changeCameraY',
+            default: 'change [CAMERAS] camera y by [Y]'
+          }),
+          switches: [
+            {opcode: 'setCameraX', inputs: [['Y', 'X']]},
+            {opcode: 'changeCameraX', inputs: [['Y', 'X']]},
+            {opcode: 'setCameraY', inputs: [['Y', 'Y']]}
+          ],
           arguments: {
             CAMERAS: {
               type: ArgumentType.STRING,
@@ -234,7 +312,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'cameraXPosition',
           blockType: BlockType.REPORTER,
-          text: '[CAMERAS] camera x position',
+          text: formatMessage({
+            id: 'nb.camera.cameraXPosition',
+            default: '[CAMERAS] camera x position'
+          }),
           disableMonitor: true,
           switches: ['cameraYPosition', 'cameraDirection', 'cameraZoom'],
           arguments: {
@@ -248,7 +329,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'cameraYPosition',
           blockType: BlockType.REPORTER,
-          text: '[CAMERAS] camera y position',
+          text: formatMessage({
+            id: 'nb.camera.cameraYPosition',
+            default: '[CAMERAS] camera y position'
+          }),
           disableMonitor: true,
           switches: ['cameraXPosition', 'cameraDirection', 'cameraZoom'],
           arguments: {
@@ -265,7 +349,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'turnCameraRight',
           blockType: BlockType.COMMAND,
-          text: 'turn [CAMERAS] camera [ICON] [DEGREES] degrees',
+          text: formatMessage({
+            id: 'nb.camera.turnCameraRight',
+            default: 'turn [CAMERAS] camera [ICON] [DEGREES] degrees'
+          }),
           switches: ['turnCameraLeft'],
           arguments: {
             CAMERAS: {
@@ -286,7 +373,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'turnCameraLeft',
           blockType: BlockType.COMMAND,
-          text: 'turn [CAMERAS] camera [ICON] [DEGREES] degrees',
+          text: formatMessage({
+            id: 'nb.camera.turnCameraLeft',
+            default: 'turn [CAMERAS] camera [ICON] [DEGREES] degrees'
+          }),
           switches: ['turnCameraRight'],
           arguments: {
             CAMERAS: {
@@ -310,7 +400,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'setCameraDirection',
           blockType: BlockType.COMMAND,
-          text: 'set [CAMERAS] camera direction to [DIRECTION]',
+          text: formatMessage({
+            id: 'nb.camera.setCameraDirection',
+            default: 'set [CAMERAS] camera direction to [DIRECTION]'
+          }),
           arguments: {
             CAMERAS: {
               type: ArgumentType.STRING,
@@ -326,7 +419,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'pointCameraTowardsTarget',
           blockType: BlockType.COMMAND,
-          text: 'point [CAMERAS] camera towards [TARGETS]',
+          text: formatMessage({
+            id: 'nb.camera.pointCameraTowardsTarget',
+            default: 'point [CAMERAS] camera towards [TARGETS]'
+          }),
           arguments: {
             CAMERAS: {
               type: ArgumentType.STRING,
@@ -342,7 +438,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'cameraDirection',
           blockType: BlockType.REPORTER,
-          text: '[CAMERAS] camera direction',
+          text: formatMessage({
+            id: 'nb.camera.cameraDirection',
+            default: '[CAMERAS] camera direction'
+          }),
           disableMonitor: true,
           switches: ['cameraXPosition', 'cameraYPosition', 'cameraZoom'],
           arguments: {
@@ -359,7 +458,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'setCameraZoom',
           blockType: BlockType.COMMAND,
-          text: 'set [CAMERAS] camera zoom to [SIZE] %',
+          text: formatMessage({
+            id: 'nb.camera.setCameraZoom',
+            default: 'set [CAMERAS] camera zoom to [SIZE] %'
+          }),
           switches: ['changeCameraZoom'],
           arguments: {
             CAMERAS: {
@@ -376,7 +478,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'changeCameraZoom',
           blockType: BlockType.COMMAND,
-          text: 'change [CAMERAS] camera zoom by [SIZE]',
+          text: formatMessage({
+            id: 'nb.camera.changeCameraZoom',
+            default: 'change [CAMERAS] camera zoom by [SIZE]'
+          }),
           switches: ['setCameraZoom'],
           arguments: {
             CAMERAS: {
@@ -393,7 +498,10 @@ class NitroBoltCameraBlocks {
         {
           opcode: 'cameraZoom',
           blockType: BlockType.REPORTER,
-          text: '[CAMERAS] camera zoom',
+          text: formatMessage({
+            id: 'nb.camera.cameraZoom',
+            default: '[CAMERAS] camera zoom'
+          }),
           disableMonitor: true,
           switches: ['cameraXPosition', 'cameraYPosition', 'cameraDirection'],
           arguments: {
@@ -457,6 +565,14 @@ class NitroBoltCameraBlocks {
 
   allCameras () {
     return this.getCameras();
+  }
+
+  mouseX (args, util) {
+    return this._getCameraMousePosition(util)[0];
+  }
+
+  mouseY (args, util) {
+    return this._getCameraMousePosition(util)[1];
   }
 
   moveCamera (args) {
@@ -553,11 +669,17 @@ class NitroBoltCameraBlocks {
   getTargets () {
     const items = [
       {
-        text: 'myself',
+        text: formatMessage({
+          id: 'nb.camera.target.myself',
+          default: 'myself'
+        }),
         value: '_myself_'
       },
       {
-        text: 'Stage',
+        text: formatMessage({
+          id: 'nb.camera.target.stage',
+          default: 'Stage'
+        }),
         value: '_stage_'
       }
     ];
@@ -581,6 +703,15 @@ class NitroBoltCameraBlocks {
 
   _getCamera (value) {
     return this.runtime.renderer.getCamera(Cast.toString(value));
+  }
+
+  _getCameraMousePosition (util) {
+    const mouse = this.runtime.ioDevices.mouse;
+    return this.runtime.renderer.screenToCameraSpace(
+      mouse.getScratchX(),
+      mouse.getScratchY(),
+      util.target.cameraName
+    );
   }
 
   _update (value, properties) {

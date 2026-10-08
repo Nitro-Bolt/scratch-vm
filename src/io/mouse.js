@@ -138,30 +138,22 @@ class Mouse {
      * Get the X position of the mouse in scratch coordinates.
      * @return {number} Clamped and integer rounded X position of the mouse cursor.
      */
-    getScratchX (target) {
-        let x = this._scratchX;
-        if (target && this.runtime.renderer) {
-            x = this.runtime.renderer.screenToCameraSpace(x, this._scratchY, target.cameraName || 'default')[0];
-        }
+    getScratchX () {
         if (this.runtime.runtimeOptions.miscLimits) {
-            return Math.round(x);
+            return Math.round(this._scratchX);
         }
-        return roundToThreeDecimals(x);
+        return roundToThreeDecimals(this._scratchX);
     }
 
     /**
      * Get the Y position of the mouse in scratch coordinates.
      * @return {number} Clamped and integer rounded Y position of the mouse cursor.
      */
-    getScratchY (target) {
-        let y = this._scratchY;
-        if (target && this.runtime.renderer) {
-            y = this.runtime.renderer.screenToCameraSpace(this._scratchX, y, target.cameraName || 'default')[1];
-        }
+    getScratchY () {
         if (this.runtime.runtimeOptions.miscLimits) {
-            return Math.round(y);
+            return Math.round(this._scratchY);
         }
-        return roundToThreeDecimals(y);
+        return roundToThreeDecimals(this._scratchY);
     }
 
     /**
