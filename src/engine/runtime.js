@@ -3970,6 +3970,27 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Convert custom values to primitives before displaying them in reporters or monitors.
+     * @param {*} value Value to display.
+     * @returns {*} Display value.
+     * @private
+     */
+    _getCustomTypeDisplayValue (value) {
+        if (!this._getCustomTypeClass(value)) {
+            return value;
+        }
+        try {
+            const displayValue = value.valueOf();
+            if (displayValue !== null && typeof displayValue === 'object') {
+                return String(value);
+            }
+            return displayValue;
+        } catch (e) {
+            return '';
+        }
+    }
+
+    /**
      * Emit value for reporter to show in the blocks.
      * @param {Target} target The target that the block was run in.
      * @param {string} blockId ID for the block.
@@ -3982,17 +4003,7 @@ class Runtime extends EventEmitter {
             if (typeof html === 'undefined') {
                 html = this._getCustomTypeVisualReport(value);
             }
-            let reportValue = value;
-            if (this._getCustomTypeClass(value) && typeof reportValue.valueOf === 'function') {
-                try {
-                    reportValue = reportValue.valueOf();
-                    if (reportValue !== null && typeof reportValue === 'object') {
-                        reportValue = String(value);
-                    }
-                } catch (e) {
-                    reportValue = '';
-                }
-            }
+            const reportValue = this._getCustomTypeDisplayValue(value);
             this.emit(Runtime.VISUAL_REPORT, {
                 id: blockId,
                 value: safeStringify(reportValue),
@@ -4022,7 +4033,10 @@ class Runtime extends EventEmitter {
         delta = MonitorRecord.externalDeltaToJS(delta);
         if (Object.prototype.hasOwnProperty.call(delta, 'value')) {
             const monitorContent = this._getCustomTypeMonitorContent(delta.value);
-            return Object.assign({}, delta, {monitorContent: monitorContent === null ? '' : monitorContent});
+            return Object.assign({}, delta, {
+                value: this._getCustomTypeDisplayValue(delta.value),
+                monitorContent: monitorContent === null ? '' : monitorContent
+            });
         }
         return delta;
     }
