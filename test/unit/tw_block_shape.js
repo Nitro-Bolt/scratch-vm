@@ -25,6 +25,12 @@ test('blockShape', t => {
                 blockShape: Scratch.BlockShape.SQUARE,
                 opcode: 'square',
                 text: 'square'
+            },
+            {
+                blockType: Scratch.BlockType.REPORTER,
+                blockShape: Scratch.BlockShape.OBJECT,
+                opcode: 'object',
+                text: 'object'
             }
         ]
     });
@@ -34,5 +40,6 @@ test('blockShape', t => {
     t.equal(json[0].outputShape, 1);
     t.equal(json[1].outputShape, 2);
     t.equal(json[2].outputShape, 3);
+    t.equal(json[3].outputShape, 4);
     t.end();
 });

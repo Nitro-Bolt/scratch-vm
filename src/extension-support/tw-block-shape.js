@@ -17,9 +17,14 @@ const BlockShape = {
     ROUND: ScratchBlocksConstants.OUTPUT_SHAPE_ROUND,
 
     /**
-     * Output shape: squared (any/all values; strings).
+     * Output shape: squared (any/all values; strings; used for arrays on NitroBolt).
      */
-    SQUARE: ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE
+    SQUARE: ScratchBlocksConstants.OUTPUT_SHAPE_SQUARE,
+    
+    /**
+     * Output shape: object (objects).
+     */
+    OBJECT: ScratchBlocksConstants.OUTPUT_SHAPE_OBJECT
 };
 
 module.exports = BlockShape;
