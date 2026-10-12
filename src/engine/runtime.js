@@ -3986,7 +3986,12 @@ class Runtime extends EventEmitter {
             if (this._getCustomTypeClass(value) && typeof reportValue.valueOf === 'function') {
                 try {
                     reportValue = reportValue.valueOf();
-                } catch (e) { /* empty */ }
+                    if (reportValue !== null && typeof reportValue === 'object') {
+                        reportValue = String(value);
+                    }
+                } catch (e) {
+                    reportValue = '';
+                }
             }
             this.emit(Runtime.VISUAL_REPORT, {
                 id: blockId,
