@@ -1,9 +1,4 @@
-let _TextEncoder;
-if (typeof TextEncoder === 'undefined') {
-    _TextEncoder = require('text-encoding').TextEncoder;
-} else {
-    _TextEncoder = TextEncoder;
-}
+const _TextEncoder = TextEncoder;
 const EventEmitter = require('events');
 const JSZip = require('@turbowarp/jszip');
 
@@ -25,7 +20,6 @@ const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
 const {loadAsset} = require('./import/load-asset.js');
 const {serializeSounds, serializeCostumes, serializeSpriteAssets} = require('./serialization/serialize-assets');
-require('canvas-toBlob');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
 const Base64Util = require('./util/base64-util');
 const uid = require('./util/uid');

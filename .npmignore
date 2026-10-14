@@ -1,4 +1,5 @@
 # Development files
+/rspack.config.js
 .eslintrc.js
 /.editorconfig
 /.eslintignore

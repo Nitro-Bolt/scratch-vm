@@ -270,16 +270,17 @@ class ExtensionManager {
             return;
         }
 
-        /* eslint-disable max-len */
         let ExtensionWorker;
         if (sandboxMode === 'worker') {
-            ExtensionWorker = require('worker-loader?name=js/extension-worker/extension-worker.[hash].js!./extension-worker');
+            ExtensionWorker = require('./extension-worker-browser');
         } else if (sandboxMode === 'iframe') {
-            ExtensionWorker = (await import(/* webpackChunkName: "iframe-extension-worker" */ './tw-iframe-extension-worker')).default;
+            ExtensionWorker = (await import(
+                /* webpackChunkName: "iframe-extension-worker" */
+                './tw-iframe-extension-worker'
+            )).default;
         } else {
             throw new Error(`Invalid sandbox mode: ${sandboxMode}`);
         }
-        /* eslint-enable max-len */
 
         return new Promise((resolve, reject) => {
             this.pendingExtensions.push({extensionURL: rewritten, resolve, reject});

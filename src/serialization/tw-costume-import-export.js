@@ -7,15 +7,8 @@
 // open projects not made with TurboWarp and we want costumes exported from there to
 // have their center saved even if they haven't been edited.
 
-let _TextEncoder;
-let _TextDecoder;
-if (typeof TextEncoder === 'undefined') {
-    _TextEncoder = require('text-encoding').TextEncoder;
-    _TextDecoder = require('text-encoding').TextDecoder;
-} else {
-    _TextEncoder = TextEncoder;
-    _TextDecoder = TextDecoder;
-}
+const _TextEncoder = TextEncoder;
+const _TextDecoder = TextDecoder;
 
 // Using literal HTML comments tokens will cause this script to be very hard to inline in
 // a <script> element, so we'll instead do this terrible hack which the minifier probably

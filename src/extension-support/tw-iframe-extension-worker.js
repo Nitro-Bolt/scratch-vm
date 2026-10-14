@@ -1,5 +1,5 @@
 const uid = require('../util/uid');
-const frameSource = require('./tw-load-script-as-plain-text!./tw-iframe-extension-worker-entry');
+const frameSource = require('./tw-iframe-extension-worker-entry?bundle-source');
 
 const none = "'none'";
 const featurePolicy = {

@@ -1,5 +1,6 @@
 coverage/*
 dist/*
+/rspack.config.js
 node_modules/*
 playground/*
 benchmark/*

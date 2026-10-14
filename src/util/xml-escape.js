@@ -11,13 +11,14 @@ const log = require('./log');
  */
 const xmlEscape = function (unsafe) {
     if (typeof unsafe !== 'string') {
-        if (typeof unsafe === 'object') {
-            // This happens when we have hacked blocks from 2.0
-            // See #1030
-            unsafe = Cast.toString(unsafe);
-        } else {
-            log.error('Unexpected input recieved in replaceUnsafeChars');
+        if (Array.isArray(unsafe)) {
+            // This happens with hacked blocks from 2.0. See #1030.
+            unsafe = String(unsafe);
+        } else if (unsafe !== null && typeof unsafe === 'object') {
+            log.error('Unexpected object input in xmlEscape');
             return unsafe;
+        } else {
+            unsafe = Cast.toString(unsafe);
         }
     }
     return unsafe.replace(/[<>&'"]/g, c => {
