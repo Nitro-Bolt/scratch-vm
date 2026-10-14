@@ -26,15 +26,6 @@ importers:
       arraybuffer-loader:
         specifier: ^1.0.6
         version: 1.0.8
-      atob:
-        specifier: 2.1.2
-        version: 2.1.2
-      btoa:
-        specifier: 1.2.1
-        version: 1.2.1
-      canvas-toBlob:
-        specifier: 1.0.0
-        version: 1.0.0
       decode-html:
         specifier: 2.0.0
         version: 2.0.0
@@ -56,9 +47,6 @@ importers:
       scratch-translate-extension-languages:
         specifier: ^1.0.7
         version: 1.0.7
-      text-encoding:
-        specifier: 0.7.0
-        version: 0.7.0
       uuid:
         specifier: 8.3.2
         version: 8.3.2
@@ -150,9 +138,6 @@ importers:
       tiny-worker:
         specifier: 2.3.0
         version: 2.3.0
-      uglifyjs-webpack-plugin:
-        specifier: 1.2.7
-        version: 1.2.7(webpack@4.47.0)
       webpack:
         specifier: 4.47.0
         version: 4.47.0(webpack-cli@3.1.0)
@@ -1345,11 +1330,6 @@ packages:
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
 
-  btoa@1.2.1:
-    resolution: {integrity: sha512-SB4/MIGlsiVkMcHmT+pSmIPoNDoHg+7cMzmt3Uxt628MTz2487DKSqK/fuhFBrkuqrYv5UCEnACpF4dTFNKc/g==}
-    engines: {node: '>= 0.4.0'}
-    hasBin: true
-
   buffer-alloc-unsafe@1.1.0:
     resolution: {integrity: sha512-TEM2iMIEQdJ2yjPJoSIsldnleVaAk1oW3DBVUykyOLsEsFmEc9kn+SFFPz+gl54KQNxlDnAwCXosOS9Okx2xAg==}
 
@@ -1441,9 +1421,6 @@ packages:
 
   caniuse-lite@1.0.30001572:
     resolution: {integrity: sha512-1Pbh5FLmn5y4+QhNyJE9j3/7dK44dGB83/ZMjv/qJk86TvDbjk0LosiZo0i0WB0Vx607qMX9jYrn1VLHCkN4rw==}
-
-  canvas-toBlob@1.0.0:
-    resolution: {integrity: sha512-oU5bawygt/Nef9F+C49eTFmzXzz6yKdGqn6J1wn/LZQF5ulnnZVm0KIZzik85I6tjCbZFH6aa47j4bU2tkHxRw==}
 
   caseless@0.12.0:
     resolution: {integrity: sha512-4tYFyifaFfGacoiObjJegolkwSU4xQNGbVgUiNYVUxbQ2x2lUsFvY4hVgVzGiIe6WLOPqycWXA40l+PWsxthUw==}
@@ -1565,9 +1542,6 @@ packages:
 
   commander@2.11.0:
     resolution: {integrity: sha512-b0553uYA5YAEGgyYIGYROzKQ7X5RAqedkfjiZxwi0kL1g3bOaBNNZfYkzt/CL0umgD5wc9Jec2FbB98CjkMRvQ==}
-
-  commander@2.13.0:
-    resolution: {integrity: sha512-MVuS359B+YzaWqjCL/c+22gfryv+mCBPHAv3zyVI2GN8EY6IRP8VwtasXn8jyyhvvq84R4ImN1OKRtcbIasjYA==}
 
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
@@ -4950,18 +4924,6 @@ packages:
   uc.micro@1.0.6:
     resolution: {integrity: sha512-8Y75pvTYkLJW2hWQHXxoqRgV7qb9B+9vFEtidML+7koHUFapnVJAZ6cKs+Qjz5Aw3aZWHMC6u0wJE3At+nSGwA==}
 
-  uglify-es@3.3.9:
-    resolution: {integrity: sha512-r+MU0rfv4L/0eeW3xZrd16t4NZfK8Ld4SWVglYBb7ez5uXFWHuVRs6xCTrf1yirs9a4j4Y27nn7SRfO6v67XsQ==}
-    engines: {node: '>=0.8.0'}
-    deprecated: support for ECMAScript is superseded by `uglify-js` as of v3.13.0
-    hasBin: true
-
-  uglifyjs-webpack-plugin@1.2.7:
-    resolution: {integrity: sha512-1VicfKhCYHLS8m1DCApqBhoulnASsEoJ/BvpUpP4zoNAPpKzdH+ghk0olGJMmwX2/jprK2j3hAHdUbczBSy2FA==}
-    engines: {node: '>= 4.8 < 5.0.0 || >= 5.10'}
-    peerDependencies:
-      webpack: ^2.0.0 || ^3.0.0 || ^4.0.0
-
   unbox-primitive@1.0.2:
     resolution: {integrity: sha512-61pPlCD9h51VoreyJ0BReideM3MDKMKnh6+V9L08331ipq6Q8OFXZYiqP6n/tbHx4s5I9uRhcye6BrbkizkBDw==}
 
@@ -6766,8 +6728,6 @@ snapshots:
       node-releases: 2.0.14
       update-browserslist-db: 1.0.13(browserslist@4.22.2)
 
-  btoa@1.2.1: {}
-
   buffer-alloc-unsafe@1.1.0: {}
 
   buffer-alloc@1.2.0:
@@ -6896,8 +6856,6 @@ snapshots:
   camelcase@5.3.1: {}
 
   caniuse-lite@1.0.30001572: {}
-
-  canvas-toBlob@1.0.0: {}
 
   caseless@0.12.0: {}
 
@@ -7046,8 +7004,6 @@ snapshots:
   commander@2.1.0: {}
 
   commander@2.11.0: {}
-
-  commander@2.13.0: {}
 
   commander@2.20.3: {}
 
@@ -11107,23 +11063,6 @@ snapshots:
   typedarray@0.0.6: {}
 
   uc.micro@1.0.6: {}
-
-  uglify-es@3.3.9:
-    dependencies:
-      commander: 2.13.0
-      source-map: 0.6.1
-
-  uglifyjs-webpack-plugin@1.2.7(webpack@4.47.0):
-    dependencies:
-      cacache: 10.0.4
-      find-cache-dir: 1.0.0
-      schema-utils: 0.4.7
-      serialize-javascript: 1.9.1
-      source-map: 0.6.1
-      uglify-es: 3.3.9
-      webpack: 4.47.0(webpack-cli@3.1.0)
-      webpack-sources: 1.4.3
-      worker-farm: 1.7.0
 
   unbox-primitive@1.0.2:
     dependencies:

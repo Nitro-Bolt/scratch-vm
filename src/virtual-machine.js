@@ -1,9 +1,3 @@
-let _TextEncoder;
-if (typeof TextEncoder === 'undefined') {
-    _TextEncoder = require('text-encoding').TextEncoder;
-} else {
-    _TextEncoder = TextEncoder;
-}
 const EventEmitter = require('events');
 const JSZip = require('@turbowarp/jszip');
 
@@ -25,7 +19,6 @@ const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
 const {loadAsset} = require('./import/load-asset.js');
 const {serializeSounds, serializeCostumes, serializeSpriteAssets} = require('./serialization/serialize-assets');
-require('canvas-toBlob');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
 const Base64Util = require('./util/base64-util');
 const uid = require('./util/uid');
@@ -631,7 +624,7 @@ class VirtualMachine extends EventEmitter {
         const projectJson = this.toJSON();
 
         const files = {
-            'project.json': new _TextEncoder().encode(projectJson)
+            'project.json': new TextEncoder().encode(projectJson)
         };
         for (const fileDesc of this.serializeAssets()) {
             files[fileDesc.fileName] = fileDesc.fileContent;
@@ -1792,7 +1785,7 @@ class VirtualMachine extends EventEmitter {
         costume.asset = storage.createAsset(
             storage.AssetType.ImageVector,
             costume.dataFormat,
-            (new _TextEncoder()).encode(svg),
+            (new TextEncoder()).encode(svg),
             null,
             true // generate md5
         );
