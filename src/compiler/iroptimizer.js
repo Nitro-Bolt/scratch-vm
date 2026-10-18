@@ -113,6 +113,9 @@ class TypeState {
      * @returns {boolean}
      */
     setVariableType (variable, type) {
+        if (variable.valueType && variable.valueType !== 'Any') {
+            type = InputType.ANY;
+        }
         if (this.variables[variable.id] === type) return false;
         this.variables[variable.id] = type;
         return true;

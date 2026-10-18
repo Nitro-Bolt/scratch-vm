@@ -588,7 +588,7 @@ class Blocks {
             // on all the sprites.
             if (e.isLocal && editingTarget && !editingTarget.isStage && !e.isCloud) {
                 if (!editingTarget.lookupVariableById(e.varId)) {
-                    editingTarget.createVariable(e.varId, e.varName, e.varType);
+                    editingTarget.createVariable(e.varId, e.varName, e.varType, false, e.valueType);
                     this.emitProjectChanged();
                 }
             } else {
@@ -603,7 +603,7 @@ class Blocks {
                         return;
                     }
                 }
-                stage.createVariable(e.varId, e.varName, e.varType, e.isCloud);
+                stage.createVariable(e.varId, e.varName, e.varType, e.isCloud, e.valueType);
                 this.emitProjectChanged();
             }
             break;
