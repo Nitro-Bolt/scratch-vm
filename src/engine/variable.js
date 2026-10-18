@@ -65,6 +65,8 @@ class Variable {
      */
     castValue (value, runtime) {
         switch (this.valueType) {
+        case 'Boolean':
+            return Cast.toBoolean(value);
         case 'Object':
             return Cast.toObject(value);
         case 'Array':
