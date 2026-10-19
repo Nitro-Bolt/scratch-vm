@@ -545,7 +545,8 @@ class Blocks {
 
             // Drag blocks onto another sprite
             if (e.isOutside) {
-                const newBlocks = adapter(e);
+                const newBlocks = e.xmls ? e.xmls.reduce((all, xml) =>
+                    all.concat(adapter({xml})), []) : adapter(e);
                 this.runtime.emitBlockEndDrag(newBlocks, e.blockId);
             }
             break;
