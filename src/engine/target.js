@@ -655,16 +655,21 @@ class Target extends EventEmitter {
         // and use the existing variable, otherwise create a new one.
         const existingLocalVar = sprite.lookupVariableByNameAndType(varName, varType);
         let newVarId;
-        if (existingLocalVar) {
+        let newVarName;
+        if (existingLocalVar && existingLocalVar.valueType === variable.valueType) {
             newVarId = existingLocalVar.id;
         } else {
-            const newVar = Variable.create(null, varName, varType, false, variable.valueType, this.runtime);
+            newVarName = existingLocalVar ? StringUtil.unusedName(
+                varName,
+                sprite.getAllVariableNamesInScopeByType(varType)
+            ) : varName;
+            const newVar = Variable.create(null, newVarName, varType, false, variable.valueType, this.runtime);
             newVarId = newVar.id;
             sprite.variables[newVarId] = newVar;
         }
 
         // Merge with the local variable on the new sprite.
-        this.mergeVariables(varId, newVarId, varRefs);
+        this.mergeVariables(varId, newVarId, varRefs, newVarName);
     }
 
     /**
