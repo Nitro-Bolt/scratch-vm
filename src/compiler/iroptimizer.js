@@ -108,14 +108,34 @@ class TypeState {
     }
 
     /**
+     * Get the compiler type guaranteed by a variable's declared value type.
+     * Custom types remain opaque to the compiler.
+     * @param {*} variable A variable codegen object.
+     * @returns {?InputType} The declared compiler type, or null when it is not known.
+     */
+    getDeclaredVariableType (variable) {
+        if (!variable.valueType || variable.valueType === 'Any') {
+            return null;
+        }
+        switch (variable.valueType) {
+        case 'Boolean':
+            return InputType.BOOLEAN;
+        case 'Object':
+            return InputType.OBJECT;
+        case 'Array':
+            return InputType.ARRAY;
+        default:
+            return InputType.ANY;
+        }
+    }
+
+    /**
      * @param {*} variable A variable codegen object.
      * @param {InputType} type The type to set this variable to
      * @returns {boolean}
      */
     setVariableType (variable, type) {
-        if (variable.valueType && variable.valueType !== 'Any') {
-            type = InputType.ANY;
-        }
+        type = this.getDeclaredVariableType(variable) ?? type;
         if (this.variables[variable.id] === type) return false;
         this.variables[variable.id] = type;
         return true;
@@ -127,7 +147,7 @@ class TypeState {
      * @returns {InputType}
      */
     getVariableType (variable) {
-        return this.variables[variable.id] ?? InputType.ANY;
+        return this.getDeclaredVariableType(variable) ?? this.variables[variable.id] ?? InputType.ANY;
     }
 }
 
