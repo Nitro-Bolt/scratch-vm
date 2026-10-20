@@ -299,10 +299,12 @@ class Target extends EventEmitter {
      * @param {string} type Type of variable, '', 'broadcast_msg', or 'list'
      * @param {boolean} isCloud Whether the variable to create has the isCloud flag set.
      * Additional checks are made that the variable can be created as a cloud variable.
+     * @param {string} valueType The declared scalar value type. Defaults to Any.
      */
-    createVariable (id, name, type, isCloud) {
+    createVariable (id, name, type, isCloud, valueType) {
         if (!Object.prototype.hasOwnProperty.call(this.variables, id)) {
-            const newVariable = Variable.create(id, name, type, false);
+            const newVariable = Variable.create(id, name, type, isCloud, valueType, this.runtime);
+            newVariable.isCloud = false;
             if (isCloud && this.isStage && this.runtime.canAddCloudVariable()) {
                 newVariable.isCloud = true;
                 this.runtime.addCloudVariable();
@@ -472,7 +474,8 @@ class Target extends EventEmitter {
                 optKeepOriginalId ? id : null, // conditionally keep original id or generate a new one
                 originalVariable.name,
                 originalVariable.type,
-                originalVariable.isCloud
+                originalVariable.isCloud,
+                this.runtime
             );
             if (newVariable.type === Variable.LIST_TYPE) {
                 newVariable.value = originalVariable.value.slice(0);
@@ -625,7 +628,7 @@ class Target extends EventEmitter {
             const varType = variable.type;
 
             const newStageName = `Stage: ${varName}`;
-            stageVar = this.runtime.createNewGlobalVariable(newStageName, varIdForStage, varType);
+            stageVar = this.runtime.createNewGlobalVariable(newStageName, varIdForStage, varType, variable.valueType);
         }
         // Update all variable references to use the new name and ID
         this.mergeVariables(varId, stageVar.id, varRefs, stageVar.name);
@@ -652,16 +655,21 @@ class Target extends EventEmitter {
         // and use the existing variable, otherwise create a new one.
         const existingLocalVar = sprite.lookupVariableByNameAndType(varName, varType);
         let newVarId;
-        if (existingLocalVar) {
+        let newVarName;
+        if (existingLocalVar && existingLocalVar.valueType === variable.valueType) {
             newVarId = existingLocalVar.id;
         } else {
-            const newVar = Variable.create(null, varName, varType);
+            newVarName = existingLocalVar ? StringUtil.unusedName(
+                varName,
+                sprite.getAllVariableNamesInScopeByType(varType)
+            ) : varName;
+            const newVar = Variable.create(null, newVarName, varType, false, variable.valueType, this.runtime);
             newVarId = newVar.id;
             sprite.variables[newVarId] = newVar;
         }
 
         // Merge with the local variable on the new sprite.
-        this.mergeVariables(varId, newVarId, varRefs);
+        this.mergeVariables(varId, newVarId, varRefs, newVarName);
     }
 
     /**

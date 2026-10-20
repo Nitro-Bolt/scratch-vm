@@ -65,7 +65,7 @@ class Scratch3DataBlocks {
         variable.value = args.VALUE;
 
         if (variable.isCloud) {
-            util.ioQuery('cloud', 'requestUpdateVariable', [variable.name, args.VALUE]);
+            util.ioQuery('cloud', 'requestUpdateVariable', [variable.name, variable.value]);
         }
     }
 
@@ -78,7 +78,7 @@ class Scratch3DataBlocks {
         variable.value = newValue;
 
         if (variable.isCloud) {
-            util.ioQuery('cloud', 'requestUpdateVariable', [variable.name, newValue]);
+            util.ioQuery('cloud', 'requestUpdateVariable', [variable.name, variable.value]);
         }
     }
 

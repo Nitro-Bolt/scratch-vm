@@ -45,6 +45,7 @@ const TABLE_TYPE = 'table';
  * @property {string | null} id
  * @property {string} name
  * @property {boolean} isCloud
+ * @property {string} valueType
  */
 
 /**
@@ -2046,7 +2047,8 @@ class ScriptTreeGenerator {
                 scope: 'target',
                 id: currVar.id,
                 name: currVar.name,
-                isCloud: currVar.isCloud
+                isCloud: currVar.isCloud,
+                valueType: currVar.valueType
             };
         }
 
@@ -2058,7 +2060,8 @@ class ScriptTreeGenerator {
                     scope: 'stage',
                     id: currVar.id,
                     name: currVar.name,
-                    isCloud: currVar.isCloud
+                    isCloud: currVar.isCloud,
+                    valueType: currVar.valueType
                 };
             }
         }
@@ -2072,7 +2075,8 @@ class ScriptTreeGenerator {
                         scope: 'target',
                         id: currVar.id,
                         name: currVar.name,
-                        isCloud: currVar.isCloud
+                        isCloud: currVar.isCloud,
+                        valueType: currVar.valueType
                     };
                 }
             }
@@ -2088,7 +2092,8 @@ class ScriptTreeGenerator {
                             scope: 'stage',
                             id: currVar.id,
                             name: currVar.name,
-                            isCloud: currVar.isCloud
+                            isCloud: currVar.isCloud,
+                            valueType: currVar.valueType
                         };
                     }
                 }

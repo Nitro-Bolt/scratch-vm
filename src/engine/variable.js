@@ -5,6 +5,8 @@
 
 const uid = require('../util/uid');
 const xmlEscape = require('../util/xml-escape');
+const Cast = require('../util/cast');
+const CustomTypes = require('../extension-support/custom-types');
 
 class Variable {
     /**
@@ -13,14 +15,20 @@ class Variable {
      * @param {string} name Name of the variable.
      * @param {string} type Type of the variable, one of '', 'list', or 'table'
      * @param {boolean} isCloud Whether the variable is stored in the cloud.
+     * @param {string} valueType The declared scalar value type. Defaults to Any.
+     * @param {?Runtime} runtime Runtime.
      * @constructor
      */
-    constructor (id, name, type, isCloud) {
+    constructor (id, name, type, isCloud, valueType, runtime) {
         /** @type {string} */
         this.id = id || uid();
         this.name = name;
         this.type = type;
         this.isCloud = isCloud;
+        this.valueType = 'Any';
+        if (type === Variable.SCALAR_TYPE && !isCloud && CustomTypes.isValidTypeId(valueType)) {
+            this.valueType = valueType;
+        }
         switch (this.type) {
         case Variable.SCALAR_TYPE:
             this.value = 0;
@@ -37,6 +45,40 @@ class Variable {
         default:
             throw new Error(`Invalid variable type: ${this.type}`);
         }
+        if (this.valueType !== 'Any') {
+            Object.defineProperty(this, 'value', {
+                enumerable: true,
+                get: () => this._value,
+                set: value => {
+                    this._value = this.castValue(value, runtime);
+                }
+            });
+            this.value = '';
+        }
+    }
+
+    /**
+     * Cast a typed variable using the same conversions as block inputs.
+     * @param {*} value The assigned value.
+     * @param {?Runtime} runtime Runtime.
+     * @returns {*} The converted value.
+     */
+    castValue (value, runtime) {
+        switch (this.valueType) {
+        case 'Boolean':
+            return Cast.toBoolean(value);
+        case 'Object':
+            return Cast.toObject(value);
+        case 'Array':
+            return Cast.toArray(value);
+        default: {
+            const classDef = runtime && runtime.getCustomType(this.valueType);
+            if (classDef) {
+                return CustomTypes.makeCastFunction(classDef)(value);
+            }
+            return value;
+        }
+        }
     }
 
     /**
@@ -45,9 +87,11 @@ class Variable {
      * @param {string} name Name of the variable.
      * @param {string} type Type of the variable, one of '' or 'list'
      * @param {boolean} isCloud Whether the variable is stored in the cloud.
+     * @param {string} valueType The declared scalar value type. Defaults to Any.
+     * @param {?Runtime} runtime Runtime.
      * @returns {Variable} The new variable.
      */
-    static create (id, name, type, isCloud) {
+    static create (id, name, type, isCloud, valueType, runtime) {
         // This looks silly, but all the JavaScript engines handle this by making a new hidden class for this variable.
         // That means that the browser engine can specialize compiled JS to take advantage of "this variable is always
         // a small integer" instead of having to use the much slower generic paths that one shared hidden class forces.
@@ -61,7 +105,7 @@ class Variable {
         }
 
         const SpecializedVariable = class extends Variable {};
-        return new SpecializedVariable(id, name, type, isCloud);
+        return new SpecializedVariable(id, name, type, isCloud, valueType, runtime);
     }
 
     /**
@@ -71,19 +115,20 @@ class Variable {
      * @param {string} name Name of the variable.
      * @param {string} type Type of the variable, one of '' or 'list'
      * @param {boolean} isCloud Whether the variable is stored in the cloud.
+     * @param {?Runtime} runtime Runtime.
      * @returns {Variable} The new variable.
      */
-    static createSibling (original, id, name, type, isCloud) {
+    static createSibling (original, id, name, type, isCloud, runtime) {
         // Use the same hidden class. We reuse compiled JS across clones, so swapping out to a new hidden class would
         // force that code to take slower routes instead of the specialization we want.
         const SpecializedVariable = original.constructor;
-        return new SpecializedVariable(id, name, type, isCloud);
+        return new SpecializedVariable(id, name, type, isCloud, original.valueType, runtime);
     }
 
     toXML (isLocal) {
         isLocal = (isLocal === true);
         return `<variable type="${this.type}" id="${this.id}" islocal="${isLocal
-        }" iscloud="${this.isCloud}">${xmlEscape(this.name)}</variable>`;
+        }" iscloud="${this.isCloud}" valuetype="${xmlEscape(this.valueType)}">${xmlEscape(this.name)}</variable>`;
     }
 
     /**

@@ -2575,6 +2575,9 @@ class Runtime extends EventEmitter {
         this.customTypes.set(typeId, classDef);
         this._customTypeIds.set(classDef, typeId);
         CustomTypes.revivePendingValues(this, typeId, classDef);
+        if (this.getEditingTarget() && this.getTargetForStage()) {
+            this.emit(Runtime.BLOCKS_NEED_UPDATE);
+        }
     }
 
     /**
@@ -2603,6 +2606,9 @@ class Runtime extends EventEmitter {
             if (used) {
                 this._customArgumentCasters.delete(opcode);
             }
+        }
+        if (this.getEditingTarget() && this.getTargetForStage()) {
+            this.emit(Runtime.BLOCKS_NEED_UPDATE);
         }
     }
 
@@ -4325,13 +4331,14 @@ class Runtime extends EventEmitter {
      * @param {string} optVarId An optional ID to use for the variable. A new one will be generated
      * if a falsey value for this parameter is provided.
      * @param {string} optVarType The type of the variable to create. Defaults to Variable.SCALAR_TYPE.
+     * @param {string} optValueType The declared scalar value type. Defaults to Any.
      * @return {Variable} The new variable that was created.
      */
-    createNewGlobalVariable (variableName, optVarId, optVarType) {
+    createNewGlobalVariable (variableName, optVarId, optVarType, optValueType) {
         const varType = (typeof optVarType === 'string') ? optVarType : Variable.SCALAR_TYPE;
         const allVariableNames = this.getAllVarNamesOfType(varType);
         const newName = StringUtil.unusedName(variableName, allVariableNames);
-        const variable = Variable.create(optVarId || uid(), newName, varType);
+        const variable = Variable.create(optVarId || uid(), newName, varType, false, optValueType, this);
         const stage = this.getTargetForStage();
         stage.variables[variable.id] = variable;
         return variable;
