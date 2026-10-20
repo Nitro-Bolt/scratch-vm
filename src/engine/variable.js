@@ -17,15 +17,17 @@ class Variable {
      * @param {boolean} isCloud Whether the variable is stored in the cloud.
      * @param {string} valueType The declared scalar value type. Defaults to Any.
      * @param {?Runtime} runtime Runtime.
+     * @param {?string} colour Custom block and monitor colour, or null to use the default.
      * @constructor
      */
-    constructor (id, name, type, isCloud, valueType, runtime) {
+    constructor (id, name, type, isCloud, valueType, runtime, colour) {
         /** @type {string} */
         this.id = id || uid();
         this.name = name;
         this.type = type;
         this.isCloud = isCloud;
         this.valueType = 'Any';
+        this.colour = typeof colour === 'string' ? colour : null;
         if (type === Variable.SCALAR_TYPE && !isCloud && CustomTypes.isValidTypeId(valueType)) {
             this.valueType = valueType;
         }
@@ -89,9 +91,10 @@ class Variable {
      * @param {boolean} isCloud Whether the variable is stored in the cloud.
      * @param {string} valueType The declared scalar value type. Defaults to Any.
      * @param {?Runtime} runtime Runtime.
+     * @param {?string} colour Custom block and monitor colour, or null to use the default.
      * @returns {Variable} The new variable.
      */
-    static create (id, name, type, isCloud, valueType, runtime) {
+    static create (id, name, type, isCloud, valueType, runtime, colour) {
         // This looks silly, but all the JavaScript engines handle this by making a new hidden class for this variable.
         // That means that the browser engine can specialize compiled JS to take advantage of "this variable is always
         // a small integer" instead of having to use the much slower generic paths that one shared hidden class forces.
@@ -105,7 +108,7 @@ class Variable {
         }
 
         const SpecializedVariable = class extends Variable {};
-        return new SpecializedVariable(id, name, type, isCloud, valueType, runtime);
+        return new SpecializedVariable(id, name, type, isCloud, valueType, runtime, colour);
     }
 
     /**
@@ -122,13 +125,15 @@ class Variable {
         // Use the same hidden class. We reuse compiled JS across clones, so swapping out to a new hidden class would
         // force that code to take slower routes instead of the specialization we want.
         const SpecializedVariable = original.constructor;
-        return new SpecializedVariable(id, name, type, isCloud, original.valueType, runtime);
+        return new SpecializedVariable(id, name, type, isCloud, original.valueType, runtime, original.colour);
     }
 
     toXML (isLocal) {
         isLocal = (isLocal === true);
         return `<variable type="${this.type}" id="${this.id}" islocal="${isLocal
-        }" iscloud="${this.isCloud}" valuetype="${xmlEscape(this.valueType)}">${xmlEscape(this.name)}</variable>`;
+        }" iscloud="${this.isCloud}" valuetype="${xmlEscape(this.valueType)}" colour="${
+            xmlEscape(this.colour || '')}">${
+            xmlEscape(this.name)}</variable>`;
     }
 
     /**

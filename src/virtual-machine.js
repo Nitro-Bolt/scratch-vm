@@ -2063,7 +2063,7 @@ class VirtualMachine extends EventEmitter {
     variableListener (e) {
         // Filter events by type, since blocks only needs to listen to these
         // var events.
-        if (['var_create', 'var_rename', 'var_delete'].indexOf(e.type) !== -1) {
+        if (['var_create', 'var_rename', 'var_update', 'var_delete'].indexOf(e.type) !== -1) {
             this.runtime.getTargetForStage().blocks.blocklyListen(e);
         }
     }

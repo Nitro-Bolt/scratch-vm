@@ -4332,13 +4332,14 @@ class Runtime extends EventEmitter {
      * if a falsey value for this parameter is provided.
      * @param {string} optVarType The type of the variable to create. Defaults to Variable.SCALAR_TYPE.
      * @param {string} optValueType The declared scalar value type. Defaults to Any.
+     * @param {?string} optColour Custom block and monitor colour, or null to use the default.
      * @return {Variable} The new variable that was created.
      */
-    createNewGlobalVariable (variableName, optVarId, optVarType, optValueType) {
+    createNewGlobalVariable (variableName, optVarId, optVarType, optValueType, optColour) {
         const varType = (typeof optVarType === 'string') ? optVarType : Variable.SCALAR_TYPE;
         const allVariableNames = this.getAllVarNamesOfType(varType);
         const newName = StringUtil.unusedName(variableName, allVariableNames);
-        const variable = Variable.create(optVarId || uid(), newName, varType, false, optValueType, this);
+        const variable = Variable.create(optVarId || uid(), newName, varType, false, optValueType, this, optColour);
         const stage = this.getTargetForStage();
         stage.variables[variable.id] = variable;
         return variable;

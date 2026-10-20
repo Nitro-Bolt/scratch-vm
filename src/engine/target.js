@@ -300,10 +300,11 @@ class Target extends EventEmitter {
      * @param {boolean} isCloud Whether the variable to create has the isCloud flag set.
      * Additional checks are made that the variable can be created as a cloud variable.
      * @param {string} valueType The declared scalar value type. Defaults to Any.
+     * @param {?string} colour Custom block and monitor colour, or null to use the default.
      */
-    createVariable (id, name, type, isCloud, valueType) {
+    createVariable (id, name, type, isCloud, valueType, colour) {
         if (!Object.prototype.hasOwnProperty.call(this.variables, id)) {
-            const newVariable = Variable.create(id, name, type, isCloud, valueType, this.runtime);
+            const newVariable = Variable.create(id, name, type, isCloud, valueType, this.runtime, colour);
             newVariable.isCloud = false;
             if (isCloud && this.isStage && this.runtime.canAddCloudVariable()) {
                 newVariable.isCloud = true;
@@ -363,6 +364,9 @@ class Target extends EventEmitter {
             if (variable.id === id) {
                 const oldName = variable.name;
                 variable.name = newName;
+                if (variable.type === Variable.BROADCAST_MESSAGE_TYPE) {
+                    variable.value = newName;
+                }
 
                 if (this.runtime) {
                     if (variable.isCloud && this.isStage) {
@@ -628,7 +632,13 @@ class Target extends EventEmitter {
             const varType = variable.type;
 
             const newStageName = `Stage: ${varName}`;
-            stageVar = this.runtime.createNewGlobalVariable(newStageName, varIdForStage, varType, variable.valueType);
+            stageVar = this.runtime.createNewGlobalVariable(
+                newStageName,
+                varIdForStage,
+                varType,
+                variable.valueType,
+                variable.colour
+            );
         }
         // Update all variable references to use the new name and ID
         this.mergeVariables(varId, stageVar.id, varRefs, stageVar.name);
@@ -663,7 +673,15 @@ class Target extends EventEmitter {
                 varName,
                 sprite.getAllVariableNamesInScopeByType(varType)
             ) : varName;
-            const newVar = Variable.create(null, newVarName, varType, false, variable.valueType, this.runtime);
+            const newVar = Variable.create(
+                null,
+                newVarName,
+                varType,
+                false,
+                variable.valueType,
+                this.runtime,
+                variable.colour
+            );
             newVarId = newVar.id;
             sprite.variables[newVarId] = newVar;
         }

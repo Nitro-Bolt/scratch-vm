@@ -589,7 +589,7 @@ class Blocks {
             // on all the sprites.
             if (e.isLocal && editingTarget && !editingTarget.isStage && !e.isCloud) {
                 if (!editingTarget.lookupVariableById(e.varId)) {
-                    editingTarget.createVariable(e.varId, e.varName, e.varType, false, e.valueType);
+                    editingTarget.createVariable(e.varId, e.varName, e.varType, false, e.valueType, e.colour);
                     this.emitProjectChanged();
                 }
             } else {
@@ -604,7 +604,7 @@ class Blocks {
                         return;
                     }
                 }
-                stage.createVariable(e.varId, e.varName, e.varType, e.isCloud, e.valueType);
+                stage.createVariable(e.varId, e.varName, e.varType, e.isCloud, e.valueType, e.colour);
                 this.emitProjectChanged();
             }
             break;
@@ -627,6 +627,49 @@ class Blocks {
             }
             this.emitProjectChanged();
             break;
+        case 'var_update': {
+            this.resetCache();
+            const sourceTarget = editingTarget &&
+                Object.prototype.hasOwnProperty.call(editingTarget.variables, e.varId) ? editingTarget : stage;
+            const variable = sourceTarget && sourceTarget.variables[e.varId];
+            if (!variable) return;
+
+            const destinationTarget = e.newIsLocal && editingTarget && !editingTarget.isStage ? editingTarget : stage;
+            const wasCloud = variable.isCloud;
+            if (sourceTarget !== destinationTarget) {
+                delete sourceTarget.variables[e.varId];
+                destinationTarget.variables[e.varId] = variable;
+            }
+
+            if (wasCloud && !e.newIsCloud) {
+                this.runtime.ioDevices.cloud.requestDeleteVariable(variable.name);
+                this.runtime.removeCloudVariable();
+            }
+            variable.isCloud = false;
+            if (e.newIsCloud && destinationTarget.isStage &&
+                (wasCloud || this.runtime.canAddCloudVariable())) {
+                variable.isCloud = true;
+                if (!wasCloud) {
+                    this.runtime.addCloudVariable();
+                    this.runtime.ioDevices.cloud.requestCreateVariable(variable);
+                }
+            }
+            variable.valueType = variable.isCloud ? 'Any' : e.newValueType;
+            variable.colour = e.newColour || null;
+
+            const monitorBlock = this.runtime.monitorBlocks.getBlock(e.varId);
+            if (monitorBlock) {
+                monitorBlock.targetId = destinationTarget.isStage ? null : destinationTarget.id;
+                this.runtime.requestUpdateMonitor({
+                    id: e.varId,
+                    targetId: monitorBlock.targetId,
+                    spriteName: monitorBlock.targetId ? destinationTarget.getName() : null,
+                    params: this.runtime.monitorBlocks._getBlockParams(monitorBlock)
+                });
+            }
+            this.emitProjectChanged();
+            break;
+        }
         case 'var_delete': {
             this.resetCache(); // tw: more aggressive cache resetting
             const target = (editingTarget && Object.prototype.hasOwnProperty.call(editingTarget.variables, e.varId)) ?

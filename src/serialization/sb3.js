@@ -567,6 +567,10 @@ const serializeVariables = function (variables, runtime) {
             }
             obj.variables[varId].push(v.valueType);
         }
+        if (v.colour) {
+            while (obj.variables[varId].length < 4) obj.variables[varId].push(null);
+            obj.variables[varId].push(v.colour);
+        }
     }
     return obj;
 };
@@ -1501,13 +1505,15 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
             const isCloud = (variable.length >= 3) && variable[2] === true &&
                 object.isStage && runtime.canAddCloudVariable();
             const valueType = variable[3] || 'Any';
+            const colour = variable[4] || null;
             const newVariable = Variable.create(
                 varId, // var id is the index of the variable desc array in the variables obj
                 variable[0], // name of the variable
                 Variable.SCALAR_TYPE, // type of the variable
                 isCloud,
                 valueType,
-                runtime
+                runtime,
+                colour
             );
             if (isCloud) runtime.addCloudVariable();
             // nb: revive custom type instances saved by extensions.
