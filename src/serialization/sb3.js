@@ -675,16 +675,7 @@ const makeFolderNamesUnique = folders => {
     return folders;
 };
 
-const normalizeProjectFolders = (runtime, targets) => {
-    const targetsBySerializedId = new Map();
-    for (const target of targets) {
-        if (typeof target._serializedTargetId === 'string' &&
-            !targetsBySerializedId.has(target._serializedTargetId)) {
-            targetsBySerializedId.set(target._serializedTargetId, target);
-        }
-        delete target._serializedTargetId;
-    }
-
+const normalizeProjectFolders = (runtime, targets, targetsBySerializedId) => {
     const seenFolderIds = new Set();
     let folders = runtime.projectFolders.filter(folder => {
         if (!folder.id.trim() || seenFolderIds.has(folder.id) || !folder.name.trim()) return false;
@@ -1478,7 +1469,6 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     const {assetPromises} = assets;
     // Create the first clone, and load its run-state from JSON.
     const target = sprite.createClone(object.isStage ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER);
-    if (typeof object.id === 'string') target._serializedTargetId = object.id;
     if (typeof object.folderId === 'string') target.folderId = object.folderId;
     // Load target properties from JSON.
     if (Object.prototype.hasOwnProperty.call(object, 'tempo')) {
@@ -1538,7 +1528,7 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     if (Object.prototype.hasOwnProperty.call(object, 'tables')) {
         for (const tableId in object.tables) {
             const table = object.tables[tableId];
-            const newTable = new Variable(
+            const newTable = Variable.create(
                 tableId,
                 table[0],
                 Variable.TABLE_TYPE,
@@ -1960,6 +1950,7 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
     const monitorObjects = json.monitors || [];
 
     let layerOrder;
+    const targetsBySerializedId = new Map();
 
     return fontPromise.then(() => targetObjects.map(target => parseScratchAssets(target, runtime, zip)))
         // Force this promise to wait for the next loop in the js tick. Let
@@ -1969,6 +1960,12 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
             .map((target, index) =>
                 parseScratchObject(target, runtime, extensions, zip, assets[index]))))
         .then(targets => {
+            for (let i = 0; i < targets.length; i++) {
+                const serializedId = targetObjects[i].id;
+                if (typeof serializedId === 'string' && !targetsBySerializedId.has(serializedId)) {
+                    targetsBySerializedId.set(serializedId, targets[i]);
+                }
+            }
             // Re-sort targets back into original sprite-pane ordering.
             const reordered = targets
                 .map((target, index) => ({
@@ -1982,7 +1979,7 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
         })
         .then(targets => replaceUnsafeCharsInVariableIds(targets))
         .then(targets => {
-            if (!isSingleSprite) normalizeProjectFolders(runtime, targets);
+            if (!isSingleSprite) normalizeProjectFolders(runtime, targets, targetsBySerializedId);
             monitorObjects.map(monitorDesc => deserializeMonitor(monitorDesc, runtime, targets, extensions));
             if (Object.prototype.hasOwnProperty.call(json, 'extensionStorage')) {
                 runtime.extensionStorage = json.extensionStorage;

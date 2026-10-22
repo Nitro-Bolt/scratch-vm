@@ -1334,6 +1334,7 @@ class JSGenerator {
         }
         case StackOpcode.LIST_DELETE_ALL:
             this.source += `${this.referenceVariable(node.list)}.value = [];\n`;
+            this.source += `${this.referenceVariable(node.list)}._monitorUpToDate = false;\n`;
             break;
         case StackOpcode.LIST_HIDE:
             this.source += `runtime.monitorBlocks.changeBlock({ id: "${sanitize(node.list.id)}", element: "checkbox", value: false }, runtime);\n`;

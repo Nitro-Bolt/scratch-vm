@@ -155,6 +155,7 @@ class Scratch3DataBlocks {
             return;
         } else if (index === Cast.LIST_ALL) {
             list.value = [];
+            list._monitorUpToDate = false;
             return;
         }
         list.value.splice(index - 1, 1);
@@ -165,6 +166,7 @@ class Scratch3DataBlocks {
         const list = util.target.lookupOrCreateList(
             args.LIST.id, args.LIST.name);
         list.value = [];
+        list._monitorUpToDate = false;
         return;
     }
 
@@ -322,12 +324,13 @@ class Scratch3DataBlocks {
         const table = util.target.lookupOrCreateTable(
             args.TABLE.id, args.TABLE.name);
         let index;
+        let dimensionCount;
         if (args.DIMENSION === 'column') {
-            const columnCount = Cast.getTableColumnCount(table.value);
-            index = Cast.toListIndex(args.INDEX, columnCount + 1, false);
+            dimensionCount = Cast.getTableColumnCount(table.value);
+            index = Cast.toListIndex(args.INDEX, dimensionCount + 1, false);
         } else {
-            const rowCount = Cast.getTableRowCount(table.value);
-            index = Cast.toListIndex(args.INDEX, rowCount + 1, false);
+            dimensionCount = Cast.getTableRowCount(table.value);
+            index = Cast.toListIndex(args.INDEX, dimensionCount + 1, false);
         }
         if (index === Cast.LIST_INVALID) {
             return;
@@ -338,14 +341,26 @@ class Scratch3DataBlocks {
             } else {
                 for (let i = 0; i < table.value.length; i++) {
                     if (Array.isArray(table.value[i])) {
-                        table.value[i].splice(index - 1, 0, '');
+                        if (index === 1) {
+                            table.value[i].unshift('');
+                        } else if (index === dimensionCount + 1) {
+                            table.value[i].push('');
+                        } else {
+                            table.value[i].splice(index - 1, 0, '');
+                        }
                     }
                 }
             }
         } else if (args.DIMENSION === 'row') {
             const columnCount = Cast.getTableColumnCount(table.value);
             const newRow = Array(columnCount || 1).fill('');
-            table.value.splice(index - 1, 0, newRow);
+            if (index === 1) {
+                table.value.unshift(newRow);
+            } else if (index === dimensionCount + 1) {
+                table.value.push(newRow);
+            } else {
+                table.value.splice(index - 1, 0, newRow);
+            }
         }
         table._monitorUpToDate = false;
     }
@@ -393,14 +408,26 @@ class Scratch3DataBlocks {
         if (args.DIMENSION === 'column') {
             for (let i = 0; i < table.value.length; i++) {
                 if (Array.isArray(table.value[i])) {
-                    table.value[i].splice(index - 1, 1);
+                    if (index === 1) {
+                        table.value[i].shift();
+                    } else if (index === table.value[i].length) {
+                        table.value[i].pop();
+                    } else {
+                        table.value[i].splice(index - 1, 1);
+                    }
                 }
             }
             if (Cast.getTableColumnCount(table.value) === 0) {
                 table.value = [];
             }
         } else if (args.DIMENSION === 'row') {
-            table.value.splice(index - 1, 1);
+            if (index === 1) {
+                table.value.shift();
+            } else if (index === table.value.length) {
+                table.value.pop();
+            } else {
+                table.value.splice(index - 1, 1);
+            }
         }
         table._monitorUpToDate = false;
     }
@@ -421,7 +448,8 @@ class Scratch3DataBlocks {
             return '';
         }
         if (table.value[rowIndex - 1] && Array.isArray(table.value[rowIndex - 1])) {
-            return table.value[rowIndex - 1][columnIndex - 1] || '';
+            const value = table.value[rowIndex - 1][columnIndex - 1];
+            return typeof value === 'undefined' || value === null ? '' : value;
         }
         return '';
     }
@@ -437,7 +465,8 @@ class Scratch3DataBlocks {
             const column = [];
             for (let i = 0; i < table.value.length; i++) {
                 if (Array.isArray(table.value[i])) {
-                    column.push(table.value[i][columnIndex - 1] || '');
+                    const value = table.value[i][columnIndex - 1];
+                    column.push(typeof value === 'undefined' || value === null ? '' : value);
                 }
             }
             return column;

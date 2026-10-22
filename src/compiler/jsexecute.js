@@ -353,19 +353,6 @@ runtimeFunctions.retire = `const retire = () => {
 }`;
 
 /**
- * Converts NaN to zero. Used to match Scratch's string-to-number.
- * Unlike (x || 0), -0 stays as -0 and is not converted to 0.
- * This function needs to be written such that it's very easy for browsers to inline it.
- *
- * Avoid using Number.isNaN because Chrome 154 fails to inline it.
- * https://github.com/TurboWarp/scratch-vm/issues/366
- *
- * @param {number} value A number. Might be NaN.
- * @returns {number} A number. Never NaN.
- */
-runtimeFunctions.toNotNaN = `const toNotNaN = value => value !== value ? 0 : value`;
-
-/**
  * Scratch cast to string.
  * Similar to Cast.toString()
  * @param {*} value The value to cast
@@ -718,6 +705,7 @@ runtimeFunctions.listInsert = `const listInsert = (list, idx, value) => {
 runtimeFunctions.listDelete = `const listDelete = (list, idx) => {
     if (idx === 'all') {
         list.value = [];
+        list._monitorUpToDate = false;
         return;
     }
     const index = listIndex(idx, list.value.length);
@@ -779,7 +767,7 @@ runtimeFunctions.listContents = `const listContents = list => {
  * @param {*} column The column index (1-based).
  * @returns {*} The cell value, or empty string if invalid.
  */
-runtimeFunctions.tableGetCell = `const tableGetCell = (table, row, column) => {
+runtimeFunctions.tableGetCell = `const tableGetCellSlow = (table, row, column) => {
     const rowCount = table.length;
     const rowIndex = listIndex(row, rowCount);
     if (rowIndex === -1) return '';
@@ -787,7 +775,17 @@ runtimeFunctions.tableGetCell = `const tableGetCell = (table, row, column) => {
     if (!Array.isArray(rowData)) return '';
     const columnIndex = listIndex(column, rowData.length);
     if (columnIndex === -1) return '';
-    return rowData[columnIndex] || '';
+    const value = rowData[columnIndex];
+    return value === undefined || value === null ? '' : value;
+};
+const tableGetCell = (table, row, column) => {
+    if (typeof row === 'number' && row >= 1 && typeof column === 'number' && column >= 1) {
+        const rowData = table[(row | 0) - 1];
+        if (!Array.isArray(rowData)) return '';
+        const value = rowData[(column | 0) - 1];
+        return value === undefined || value === null ? '' : value;
+    }
+    return tableGetCellSlow(table, row, column);
 }`;
 
 /**
@@ -805,7 +803,8 @@ runtimeFunctions.tableGetDimension = `const tableGetDimension = (table, dimensio
         const column = [];
         for (let i = 0; i < table.length; i++) {
             if (Array.isArray(table[i])) {
-                column.push(table[i][columnIndex] || '');
+                const value = table[i][columnIndex];
+                column.push(value === undefined || value === null ? '' : value);
             }
         }
         return column;
@@ -897,7 +896,7 @@ runtimeFunctions.tableAsArray = `const tableAsArray = (table) => {
  * @param {*} column The column index (1-based).
  * @param {*} value The value to set.
  */
-runtimeFunctions.tableSetCell = `const tableSetCell = (table, row, column, value) => {
+runtimeFunctions.tableSetCell = `const tableSetCellSlow = (table, row, column, value) => {
     const rowIndex = listIndex(row, table.value.length);
     if (rowIndex === -1) return;
     const rowData = table.value[rowIndex];
@@ -906,6 +905,18 @@ runtimeFunctions.tableSetCell = `const tableSetCell = (table, row, column, value
     if (columnIndex === -1) return;
     table.value[rowIndex][columnIndex] = value;
     table._monitorUpToDate = false;
+};
+const tableSetCell = (table, row, column, value) => {
+    if (typeof row === 'number' && row >= 1 && row <= table.value.length &&
+        typeof column === 'number' && column >= 1) {
+        const rowData = table.value[(row | 0) - 1];
+        if (Array.isArray(rowData) && column <= rowData.length) {
+            rowData[(column | 0) - 1] = value;
+            table._monitorUpToDate = false;
+        }
+        return;
+    }
+    tableSetCellSlow(table, row, column, value);
 }`;
 
 /**
@@ -968,7 +979,13 @@ runtimeFunctions.tableInsertRow = `const tableInsertRow = (table, index) => {
         ? table.value[0].length
         : 1;
     const newRow = Array(columnCount).fill('');
-    table.value.splice(rowIndex, 0, newRow);
+    if (rowIndex === 0) {
+        table.value.unshift(newRow);
+    } else if (rowIndex === rowCount) {
+        table.value.push(newRow);
+    } else {
+        table.value.splice(rowIndex, 0, newRow);
+    }
     table._monitorUpToDate = false;
 }`;
 
@@ -988,7 +1005,13 @@ runtimeFunctions.tableInsertColumn = `const tableInsertColumn = (table, index) =
     } else {
         for (let i = 0; i < table.value.length; i++) {
             if (Array.isArray(table.value[i])) {
-                table.value[i].splice(columnIndex, 0, '');
+                if (columnIndex === 0) {
+                    table.value[i].unshift('');
+                } else if (columnIndex === columnCount) {
+                    table.value[i].push('');
+                } else {
+                    table.value[i].splice(columnIndex, 0, '');
+                }
             }
         }
     }
@@ -1003,7 +1026,13 @@ runtimeFunctions.tableInsertColumn = `const tableInsertColumn = (table, index) =
 runtimeFunctions.tableDeleteRow = `const tableDeleteRow = (table, index) => {
     const rowIndex = listIndex(index, table.value.length);
     if (rowIndex === -1) return;
-    table.value.splice(rowIndex, 1);
+    if (rowIndex === 0) {
+        table.value.shift();
+    } else if (rowIndex === table.value.length - 1) {
+        table.value.pop();
+    } else {
+        table.value.splice(rowIndex, 1);
+    }
     table._monitorUpToDate = false;
 }`;
 
@@ -1020,7 +1049,13 @@ runtimeFunctions.tableDeleteColumn = `const tableDeleteColumn = (table, index) =
     if (columnIndex === -1) return;
     for (let i = 0; i < table.value.length; i++) {
         if (Array.isArray(table.value[i])) {
-            table.value[i].splice(columnIndex, 1);
+            if (columnIndex === 0) {
+                table.value[i].shift();
+            } else if (columnIndex === table.value[i].length - 1) {
+                table.value[i].pop();
+            } else {
+                table.value[i].splice(columnIndex, 1);
+            }
         }
     }
     if (table.value.length > 0 && Array.isArray(table.value[0]) && table.value[0].length === 0) {

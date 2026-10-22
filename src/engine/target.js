@@ -286,7 +286,7 @@ class Target extends EventEmitter {
         if (table) return table;
 
         // No variable with this name exists - create it locally.
-        const newTable = new Variable(id, name, Variable.TABLE_TYPE, false);
+        const newTable = Variable.create(id, name, Variable.TABLE_TYPE, false);
         this.variables[id] = newTable;
         return newTable;
     }
@@ -484,7 +484,7 @@ class Target extends EventEmitter {
             if (newVariable.type === Variable.LIST_TYPE) {
                 newVariable.value = originalVariable.value.slice(0);
             } else if (newVariable.type === Variable.TABLE_TYPE) {
-                newVariable.value = originalVariable.value.slice(0);
+                newVariable.value = originalVariable.value.map(row => (Array.isArray(row) ? row.slice() : row));
             } else {
                 newVariable.value = originalVariable.value;
             }
