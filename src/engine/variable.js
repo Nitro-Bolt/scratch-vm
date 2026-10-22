@@ -37,9 +37,11 @@ class Variable {
             break;
         case Variable.LIST_TYPE:
             this.value = [];
+            this._monitorUpToDate = false;
             break;
         case Variable.TABLE_TYPE:
             this.value = [];
+            this._monitorUpToDate = false;
             break;
         case Variable.BROADCAST_MESSAGE_TYPE:
             this.value = this.name;
@@ -105,6 +107,12 @@ class Variable {
             // Reusing one is the same speed but avoids wasting some memory on those extra classes.
             // eslint-disable-next-line no-use-before-define
             return new ListSpecializedVariable(id, name, type, isCloud);
+        }
+        if (type === Variable.TABLE_TYPE) {
+            // Tables, like lists, contain arrays and do not benefit from a class specialized per variable.
+            // Reusing one class also keeps compiled table access paths stable across variables.
+            // eslint-disable-next-line no-use-before-define
+            return new TableSpecializedVariable(id, name, type, isCloud);
         }
 
         const SpecializedVariable = class extends Variable {};
@@ -175,5 +183,10 @@ class Variable {
  * See Variable.create()
  */
 class ListSpecializedVariable extends Variable {}
+
+/**
+ * See Variable.create()
+ */
+class TableSpecializedVariable extends Variable {}
 
 module.exports = Variable;

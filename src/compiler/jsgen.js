@@ -9,6 +9,7 @@ const environment = require('./environment');
 const {StackOpcode, InputOpcode, InputType} = require('./enums.js');
 const oldCompilerCompatibility = require('./old-compiler-compatibility.js');
 const CustomTypes = require('../extension-support/custom-types');
+const Sampler = require('../engine/tw-sampler.js');
 
 // These imports are used by jsdoc comments but eslint doesn't know that
 /* eslint-disable no-unused-vars */
@@ -131,11 +132,23 @@ class JSGenerator {
         this._setupVariablesPool = new VariablePool('b');
         /** @type {Record<string, string>} */
         this._setupVariables = {};
+        this.usesTemporaryLocal = false;
 
         this.descendedIntoModulo = false;
         this.isInHat = false;
 
         this.debug = this.target.runtime.debug;
+
+        const sampler = this.target.runtime.sampler;
+        /**
+         * The current sampler, iff sampling is enabled.
+         * @type {import('../engine/tw-sampler.js')|null}
+         */
+        this.sampler = sampler.enableCommands ? sampler : null;
+        /**
+         * ID of the current command block being sampled.
+         */
+        this.currentSamplerLocation = -1;
 
         this.oldCompilerStub = new oldCompilerCompatibility.JSGeneratorStub(this);
 
@@ -284,10 +297,11 @@ class JSGenerator {
             if (node.target.isAlwaysType(InputType.BOOLEAN)) {
                 return `(+${this.descendInput(node.target)})`;
             }
+            this.usesTemporaryLocal = true;
             if (node.target.isAlwaysType(InputType.NUMBER_OR_NAN)) {
-                return `toNotNaN(${this.descendInput(node.target)})`;
+                return `((t = ${this.descendInput(node.target)}) === t ? t : 0)`;
             }
-            return `toNotNaN(+${this.descendInput(node.target)})`;
+            return `((t = +${this.descendInput(node.target)}) === t ? t : 0)`;
         case InputOpcode.CAST_NUMBER_OR_NAN:
             return `(+${this.descendInput(node.target)})`;
         case InputOpcode.CAST_NUMBER_INDEX:
@@ -373,7 +387,7 @@ class JSGenerator {
             return `listGet(${this.referenceVariable(node.list)}.value, ${this.descendInput(node.index)})`;
         }
         case InputOpcode.LIST_INDEX_OF:
-            return `listIndexOf(${this.referenceVariable(node.list)}, ${this.descendInput(node.item)})`;
+            return `(listFind(${this.referenceVariable(node.list)}.value, ${this.descendInput(node.item)}) + 1)`;
         case InputOpcode.LIST_LENGTH:
             return `${this.referenceVariable(node.list)}.value.length`;
         case InputOpcode.LIST_ASARRAY:
@@ -1702,13 +1716,28 @@ class JSGenerator {
         // Entering a stack -- all bets are off.
         // TODO: allow if/else to inherit values
         this.pushFrame(frame);
+        const parentSamplerLocation = this.currentSamplerLocation;
 
         try {
             for (let i = 0; i < stack.blocks.length; i++) {
                 frame.isLastBlock = i === stack.blocks.length - 1;
-                this.descendStackedBlock(stack.blocks[i]);
+                const block = stack.blocks[i];
+
+                if (this.sampler && block.blockId) {
+                    const originalTargetId = this.target.sprite.clones[0].id;
+                    this.currentSamplerLocation = this.sampler.blockToLocation(originalTargetId, block.blockId);
+                    this.source += `pc[0] = ${this.currentSamplerLocation};\n`;
+                }
+
+                this.descendStackedBlock(block);
+            }
+
+            // Attribute the loop condition and yield back to the loop block itself.
+            if (this.sampler && frame.isLoop) {
+                this.source += `pc[0] = ${parentSamplerLocation};\n`;
             }
         } finally {
+            this.currentSamplerLocation = parentSamplerLocation;
             // Leaving a stack -- any assumptions made in the current stack do not apply outside of it
             // TODO: in if/else this might create an extra unused object
             this.popFrame();
@@ -1773,10 +1802,10 @@ class JSGenerator {
 
     retire () {
         // After running retire() (sets thread status and cleans up some unused data), we need to return to the event loop.
-        // When in a procedure, return will only send us back to the previous procedure, so instead we yield back to the sequencer.
-        // Outside of a procedure, return will correctly bring us back to the sequencer.
+        // In procedures return just goes back 1 layer of the stack, so instead we throw a magic value that the runtime will
+        // know to ignore.
         if (this.isProcedure) {
-            this.source += 'retire(); yield;\n';
+            this.source += `retire(); throw ${jsexecute.RETIRE_MAGIC};\n`;
         } else {
             this.source += 'retire(); return;\n';
         }
@@ -1797,6 +1826,9 @@ class JSGenerator {
         if (!this.isWarp) {
             this.source += 'yield;\n';
             this.yielded();
+            if (this.sampler) {
+                this.source += `pc[0] = ${this.currentSamplerLocation};\n`;
+            }
         }
     }
 
@@ -1805,11 +1837,17 @@ class JSGenerator {
      */
     yieldStuckOrNotWarp () {
         if (this.isWarp) {
+            if (this.sampler) {
+                this.source += `pc[0] = ${Sampler.WARP_TIMER};\n`;
+            }
             this.source += 'if (isStuck()) yield;\n';
         } else {
             this.source += 'yield;\n';
         }
         this.yielded();
+        if (this.sampler) {
+            this.source += `pc[0] = ${this.currentSamplerLocation};\n`;
+        }
     }
 
     yielded () {
@@ -1933,6 +1971,9 @@ class JSGenerator {
         script += 'const target = thread.target; ';
         script += 'const runtime = target.runtime; ';
         script += 'const stage = runtime.getTargetForStage();\n';
+        if (this.sampler) {
+            script += 'const pc = runtime.sampler.pc;\n';
+        }
         for (const varValue of Object.keys(this._setupVariables)) {
             const varName = this._setupVariables[varValue];
             script += `const ${varName} = ${varValue};\n`;
@@ -1956,6 +1997,10 @@ class JSGenerator {
         }
         script += ') {\n';
         script += 'try {\n';
+
+        if (this.usesTemporaryLocal) {
+            script += 'let t;\n';
+        }
 
         script += this.source;
 

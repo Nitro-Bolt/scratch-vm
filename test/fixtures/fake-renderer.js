@@ -27,6 +27,19 @@ FakeRenderer.prototype.createDrawable = function () {
     return true;
 };
 
+FakeRenderer.prototype.bindDrawableToCamera = function (drawableId, cameraName) { // eslint-disable-line no-unused-vars
+};
+
+FakeRenderer.prototype.getCamera = function (cameraName) { // eslint-disable-line no-unused-vars
+    return {
+        name: cameraName || 'default',
+        x: 0,
+        y: 0,
+        direction: 90,
+        zoom: 100
+    };
+};
+
 FakeRenderer.prototype.getFencedPositionOfDrawable = function (d, p) { // eslint-disable-line no-unused-vars
     return [p[0], p[1]];
 };
@@ -94,5 +107,9 @@ FakeRenderer.prototype.isTouchingColor = function (a, b) { // eslint-disable-lin
 };
 
 FakeRenderer.prototype.setLayerGroupOrdering = function (a) {}; // eslint-disable-line no-unused-vars
+
+FakeRenderer.prototype.destroySkin = function (skinId) {}; // eslint-disable-line no-unused-vars
+
+FakeRenderer.prototype.destroyDrawable = function (d, layerGroup) {}; // eslint-disable-line no-unused-vars
 
 module.exports = FakeRenderer;
