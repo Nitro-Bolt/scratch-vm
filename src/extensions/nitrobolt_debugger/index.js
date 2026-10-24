@@ -26,15 +26,25 @@ class NitroBoltDebuggerBlocks {
 
         /**
          * Map of timer name to timer state.
-         * @type {Object.<string, {start: ?number, durations: Array.<number>}>}
+         * @type {Object.<string, {start: ?number, count: number, min: ?number, max: ?number,
+         * total: number, targetId: ?string, blockId: ?string}>}
          */
-        this.timers = {};
+        this.timers = Object.create(null);
+        this.lastTimerName = null;
+        this.autoStopTimers = Boolean(runtime.debuggerAutoStopTimers);
 
         /**
          * Used to mark a thread as resuming (compiler)
          * @type {Symbol}
          */
         this.breakpointResuming = Symbol('breakpointResuming');
+
+        this._clearAllTimers = this._clearAllTimers.bind(this);
+        runtime.on('DEBUGGER_TIMER_CLEAR_REQUEST', this._clearAllTimers);
+        runtime.on('DEBUGGER_TIMER_AUTO_STOP_CHANGED', enabled => {
+            this.autoStopTimers = Boolean(enabled);
+            runtime.debuggerAutoStopTimers = this.autoStopTimers;
+        });
     }
 
     /**
@@ -269,7 +279,7 @@ class NitroBoltDebuggerBlocks {
     }
 
     log (args, util) {
-        const message = Cast.toString(args.MESSAGE);
+        const message = Object.is(args.MESSAGE, -0) ? '-0' : Cast.toString(args.MESSAGE);
         const color = Cast.toNumber(args.COLOR) === 1 ? Cast.toRgbColorObject(args.COLOR_0_VALUE) : null;
 
         this.runtime.emitDebuggerLog(args.TYPE, message, util.target, color, util.thread.topBlock);
@@ -293,33 +303,27 @@ class NitroBoltDebuggerBlocks {
             }
             this.timers[name] = {
                 start: null,
-                durations: []
+                count: 0,
+                min: null,
+                max: null,
+                total: 0,
+                targetId: null,
+                blockId: null
             };
         }
         return this.timers[name];
     }
 
     _getTimerStats (timer) {
-        const stats = {
-            count: timer.durations.length,
-            min: null,
-            max: null,
-            average: null
+        return {
+            count: timer.count,
+            min: timer.min,
+            max: timer.max,
+            average: timer.count ? timer.total / timer.count : null,
+            total: timer.total,
+            targetId: timer.targetId,
+            blockId: timer.blockId
         };
-        if (timer.durations.length > 0) {
-            let min = Infinity;
-            let max = -Infinity;
-            let sum = 0;
-            for (const duration of timer.durations) {
-                if (duration < min) min = duration;
-                if (duration > max) max = duration;
-                sum += duration;
-            }
-            stats.min = min;
-            stats.max = max;
-            stats.average = sum / timer.durations.length;
-        }
-        return stats;
     }
 
     _emitTimerUpdate () {
@@ -330,13 +334,25 @@ class NitroBoltDebuggerBlocks {
         this.runtime.emit('DEBUGGER_TIMER_UPDATE', data);
     }
 
-    timerCommand (args) {
+    _endTimer (timer, now) {
+        if (timer.start === null) return false;
+        const duration = now - timer.start;
+        timer.start = null;
+        timer.count++;
+        timer.total += duration;
+        timer.min = timer.min === null ? duration : Math.min(timer.min, duration);
+        timer.max = timer.max === null ? duration : Math.max(timer.max, duration);
+        return true;
+    }
+
+    timerCommand (args, util) {
         const operation = Cast.toString(args.OPERATION);
         const name = Cast.toString(args.TIMER_NAME);
         if (!name) return;
         if (operation === 'delete') {
             if (Object.prototype.hasOwnProperty.call(this.timers, name)) {
                 delete this.timers[name];
+                if (this.lastTimerName === name) this.lastTimerName = null;
                 this._emitTimerUpdate();
             }
             return;
@@ -345,24 +361,42 @@ class NitroBoltDebuggerBlocks {
         if (!timer) return;
         switch (operation) {
         case 'start':
-            if (timer.start === null) {
-                timer.start = performance.now();
+            if (timer.start === null || this.autoStopTimers) {
+                const now = performance.now();
+                if (this.autoStopTimers && this.lastTimerName !== null) {
+                    const previousTimer = this.timers[this.lastTimerName];
+                    if (previousTimer) this._endTimer(previousTimer, now);
+                }
+                timer.start = now;
+                const original = util.target.sprite && util.target.sprite.clones[0];
+                timer.targetId = original ? original.id : util.target.id;
+                timer.blockId = util.thread.peekStack();
+                this.lastTimerName = name;
                 this._emitTimerUpdate();
             }
             break;
         case 'end':
-            if (timer.start !== null) {
-                timer.durations.push(performance.now() - timer.start);
-                timer.start = null;
+            if (this._endTimer(timer, performance.now())) {
+                if (this.lastTimerName === name) this.lastTimerName = null;
                 this._emitTimerUpdate();
             }
             break;
         case 'clear':
             timer.start = null;
-            timer.durations = [];
+            timer.count = 0;
+            timer.min = null;
+            timer.max = null;
+            timer.total = 0;
+            if (this.lastTimerName === name) this.lastTimerName = null;
             this._emitTimerUpdate();
             break;
         }
+    }
+
+    _clearAllTimers () {
+        this.timers = Object.create(null);
+        this.lastTimerName = null;
+        this._emitTimerUpdate();
     }
 
     getTimerValue (args) {
