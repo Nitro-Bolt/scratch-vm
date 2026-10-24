@@ -2,7 +2,7 @@ const RenderedTarget = require('./rendered-target');
 const Blocks = require('../engine/blocks');
 const {loadSoundFromAsset} = require('../import/load-sound');
 const {loadCostumeFromAsset} = require('../import/load-costume');
-const {loadAsset} = require('../import/load-asset');
+const cloneAsset = require('../util/clone-asset');
 const newBlockIds = require('../util/new-block-ids');
 const StringUtil = require('../util/string-util');
 const StageLayering = require('../engine/stage-layering');
@@ -250,11 +250,7 @@ class Sprite {
             return newSound;
         });
 
-        newSprite.assets = this.assets.map(asset => {
-            const newAsset = Object.assign({}, asset);
-            assetPromises.push(loadAsset(newAsset, this.runtime));
-            return newAsset;
-        });
+        newSprite.assets = this.assets.map(asset => cloneAsset(asset, this.runtime.storage));
 
         return Promise.all(assetPromises).then(() => newSprite);
     }

@@ -195,7 +195,7 @@ const deserializeAsset = function (asset, runtime, zip, assetFileName) {
 
     // Override the contentType to match the contentType of the file provided
     const AssetType = structuredClone(storage.AssetType.Asset);
-    AssetType.contentType = asset.contentType;
+    if (asset.contentType) AssetType.contentType = asset.contentType;
 
     if (!zip) { // Zip will not be provided if loading project json from server
         return storage.load(AssetType, asset.assetId, asset.dataFormat)

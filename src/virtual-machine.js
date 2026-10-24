@@ -21,6 +21,7 @@ const {loadAsset} = require('./import/load-asset.js');
 const {serializeSounds, serializeCostumes, serializeSpriteAssets} = require('./serialization/serialize-assets');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
 const Base64Util = require('./util/base64-util');
+const cloneAsset = require('./util/clone-asset');
 const uid = require('./util/uid');
 const Sampler = require('./engine/tw-sampler.js');
 
@@ -1196,7 +1197,7 @@ class VirtualMachine extends EventEmitter {
 
     /**
      * Add an asset to the current editing target.
-     * @param {!object} soundObject Object representing the asset.
+     * @param {!object} assetObject Object representing the asset.
      * @param {string} optTargetId - the id of the target to add to, if not the editing target.
      * @returns {?Promise} - a promise that resolves when the asset has been added
      */
@@ -1204,8 +1205,11 @@ class VirtualMachine extends EventEmitter {
         const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
             this.editingTarget;
         if (target) {
-            return loadAsset(assetObject, this.runtime).then(() => {
-                target.addAsset(assetObject);
+            return loadAsset(assetObject, this.runtime).then(loadedAsset => {
+                if (!loadedAsset || !loadedAsset.asset) {
+                    throw new Error(`Could not load asset: ${assetObject.md5}`);
+                }
+                target.addAsset(loadedAsset);
                 this.emitTargetsUpdate();
             });
         }
@@ -1225,10 +1229,11 @@ class VirtualMachine extends EventEmitter {
         if (deletedAsset) {
             const folderSnapshot = this._removeFolderIfEmpty(deletedAsset.folderId);
             this.runtime.emitProjectChanged();
-            const restoreFun = () => loadAsset(deletedAsset, this.runtime).then(() => {
+            const restoreFun = () => loadAsset(deletedAsset, this.runtime).then(loadedAsset => {
+                if (!loadedAsset || !loadedAsset.asset) return;
                 if (target.sprite.clones.length === 0) return;
                 this._restoreFolder(folderSnapshot);
-                target.addAsset(deletedAsset);
+                target.addAsset(loadedAsset);
                 this.emitTargetsUpdate();
             });
             return restoreFun;
@@ -1262,12 +1267,10 @@ class VirtualMachine extends EventEmitter {
      */
     duplicateAsset (assetIndex) {
         const originalAsset = this.editingTarget.getAssets()[assetIndex];
-        const clone = Object.assign({}, originalAsset);
-        return new Promise(resolve => {
-            this.editingTarget.addAsset(clone, assetIndex + 1);
-            this.emitTargetsUpdate();
-            resolve();
-        });
+        const clone = cloneAsset(originalAsset, this.runtime.storage);
+        this.editingTarget.addAsset(clone, assetIndex + 1);
+        this.emitTargetsUpdate();
+        return Promise.resolve();
     }
 
     /**
@@ -2236,15 +2239,14 @@ class VirtualMachine extends EventEmitter {
      */
     shareAssetToTarget (assetIndex, targetId) {
         const originalAsset = this.editingTarget.getAssets()[assetIndex];
-        const clone = Object.assign({}, originalAsset);
+        const clone = cloneAsset(originalAsset, this.runtime.storage);
         clone.folderId = null;
         const target = this.runtime.getTargetById(targetId);
-        return new Promise(resolve => {
-            if (target) {
-                target.addAsset(clone);
-            }
-            resolve();
-        });
+        if (target) {
+            target.addAsset(clone);
+            this.emitTargetsUpdate();
+        }
+        return Promise.resolve();
     }
 
     /**

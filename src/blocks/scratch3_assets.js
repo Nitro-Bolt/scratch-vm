@@ -68,8 +68,8 @@ class Scratch3AssetBlocks {
         switch (args.TYPE) {
         case 'name': return asset.name;
         case 'extension': return asset.dataFormat;
-        case 'content type': return asset.contentType;
-        case 'last modified': return new Date(asset.lastModified).toLocaleDateString();
+        case 'content type': return asset.contentType || asset.asset.assetType.contentType;
+        case 'last modified': return asset.lastModified ? new Date(asset.lastModified).toLocaleDateString() : '';
         case 'md5': return asset.assetId;
         default: return '';
         }
@@ -85,8 +85,16 @@ class Scratch3AssetBlocks {
         switch (args.TYPE) {
         case 'name': util.target.renameAsset(index, value, asset.dataFormat); break;
         case 'extension': util.target.renameAsset(index, asset.name, value || 'file'); break;
-        case 'content type': asset.contentType = value; break;
+        case 'content type':
+            asset.contentType = value;
+            if (asset.asset && asset.asset.assetType) {
+                asset.asset.assetType.contentType = value;
+            }
+            asset.lastModified = Date.now();
+            break;
+        default: return;
         }
+        this.runtime.requestTargetsUpdate(util.target);
     }
 
     write (args, util) {
@@ -102,12 +110,18 @@ class Scratch3AssetBlocks {
             try {
                 const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
                 asset.setData(arr, assetObject.dataFormat, true);
-            } catch { /* empty */ }
-        } else {
+            } catch {
+                return;
+            }
+        } else if (args.TYPE === 'text') {
             asset.encodeTextData(value, assetObject.dataFormat, true);
+        } else {
+            return;
         }
         assetObject.md5 = `${asset.assetId}.${assetObject.dataFormat}`;
         assetObject.assetId = asset.assetId;
+        assetObject.lastModified = Date.now();
+        this.runtime.requestTargetsUpdate(util.target);
     }
 
     _getAssetIndex (assetName, util) {

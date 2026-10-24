@@ -517,7 +517,7 @@ const serializeAsset = function (asset) {
     obj.dataFormat = asset.dataFormat.toLowerCase();
     obj.assetId = asset.assetId;
     obj.md5ext = asset.md5;
-    obj.contentType = asset.asset.assetType.contentType;
+    obj.contentType = asset.contentType || asset.asset.assetType.contentType;
     return obj;
 };
 
@@ -1619,7 +1619,7 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
         sprite.soundBank = soundBank || null;
     });
     Promise.all(assetPromises).then(_assets => {
-        sprite.assets = _assets;
+        sprite.assets = _assets.filter(asset => asset);
     });
     return Promise.all(costumePromises.concat(soundPromises).concat(assetPromises)).then(() => target);
 };

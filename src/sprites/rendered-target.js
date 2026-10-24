@@ -586,14 +586,22 @@ class RenderedTarget extends Target {
      * @param {string} extension - the desired extension of the asset
      */
     renameAsset (assetIndex, newName, extension) {
+        extension = extension.toLowerCase();
         const usedNames = this.sprite.assets
             .filter((asset, index) => assetIndex !== index)
             .map(asset => asset.name);
         const oldName = this.sprite.assets[assetIndex].name;
         const newUnusedName = StringUtil.unusedName(newName, usedNames);
         const asset = this.sprite.assets[assetIndex];
+        const oldDataFormat = asset.dataFormat;
         asset.name = newUnusedName;
         asset.dataFormat = extension;
+        asset.md5 = `${asset.assetId}.${extension}`;
+        asset.lastModified = Date.now();
+        if (asset.asset) {
+            asset.asset.dataFormat = extension;
+            if (oldDataFormat !== extension) asset.asset.clean = false;
+        }
         this.blocks.updateAssetName(oldName, newUnusedName, 'asset');
     }
 
