@@ -1236,6 +1236,28 @@ const deserializeFields = function (fields) {
 };
 
 /**
+ * Remove structured procedure dropdown values before project data reaches Scratch Blocks.
+ * @param {object} block Deserialized block.
+ */
+const sanitizeProcedureDropdowns = block => {
+    if (block.opcode !== 'procedures_prototype' && block.opcode !== 'procedures_call') return;
+    const mutation = block.mutation;
+    if (!mutation || typeof mutation.argumentdropdowns !== 'string') return;
+    try {
+        const parsedDropdowns = JSON.parse(mutation.argumentdropdowns);
+        const dropdowns = Array.isArray(parsedDropdowns) ? parsedDropdowns : [];
+        mutation.argumentdropdowns = JSON.stringify(dropdowns.map(options => {
+            if (!Array.isArray(options)) return [];
+            return options
+                .filter(option => ['string', 'number', 'boolean'].includes(typeof option))
+                .map(String);
+        }));
+    } catch (error) {
+        mutation.argumentdropdowns = '[]';
+    }
+};
+
+/**
  * Covnert serialized INPUT and FIELD primitives back to hydrated block templates.
  * Should be able to deserialize a format that has already been deserialized.  The only
  * "east" path to adding new targets/code requires going through deserialize, so it should
@@ -1259,6 +1281,7 @@ const deserializeBlocks = function (blocks) {
             continue;
         }
         block.id = blockId; // add id back to block since it wasn't serialized
+        sanitizeProcedureDropdowns(block);
         block.inputs = deserializeInputs(block.inputs, blockId, blocks);
         block.fields = deserializeFields(block.fields);
     }
