@@ -18,6 +18,7 @@ const newBlockIds = require('./util/new-block-ids');
 const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
 const {loadAsset} = require('./import/load-asset.js');
+const BlockSerialization = require('./serialization/blocks-to-xml');
 const {serializeSounds, serializeCostumes, serializeSpriteAssets} = require('./serialization/serialize-assets');
 const {exportCostume} = require('./serialization/tw-costume-import-export');
 const Base64Util = require('./util/base64-util');
@@ -623,8 +624,8 @@ class VirtualMachine extends EventEmitter {
      * manipulating them (except project.json, which is created by this function).
      * @returns {Record<string, Uint8Array>} Map of file name to the raw data for that file.
      */
-    saveProjectSb3DontZip () {
-        const projectJson = this.toJSON();
+    saveProjectSb3DontZip (serializationOptions) {
+        const projectJson = this.toJSON(null, serializationOptions);
 
         const files = {
             'project.json': new TextEncoder().encode(projectJson)
@@ -634,6 +635,14 @@ class VirtualMachine extends EventEmitter {
         }
 
         return files;
+    }
+
+    serializedBlockToXML (blocks, comments, rootId) {
+        return BlockSerialization.blockToXML(blocks, comments, rootId);
+    }
+
+    serializedCommentToXML (id, comment) {
+        return BlockSerialization.commentToXML(id, comment);
     }
 
     /**

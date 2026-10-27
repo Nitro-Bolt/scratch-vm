@@ -873,7 +873,7 @@ const serializeMonitors = function (monitors, runtime, extensions) {
  * @param {string=} targetId Optional target id if serializing only a single target
  * @return {object} Serialized runtime instance.
  */
-const serialize = function (runtime, targetId, {allowOptimization = true} = {}) {
+const serialize = function (runtime, targetId, {allowOptimization = true, preserveTargetIds = false} = {}) {
     // Fetch targets
     const obj = Object.create(null);
     // Create extension set to hold extension ids found while serializing targets
@@ -940,7 +940,7 @@ const serialize = function (runtime, targetId, {allowOptimization = true} = {}) 
     const hasFolders = Array.isArray(runtime.projectFolders) && runtime.projectFolders.length > 0;
     if (hasFolders) {
         obj.folders = runtime.projectFolders.map(serializeFolder);
-    } else {
+    } else if (!preserveTargetIds) {
         // Target IDs are only needed to reconnect target-scoped folders while
         // loading. Keep ordinary SB3 output unchanged when folders are unused.
         serializedTargets.forEach(target => delete target.id);
@@ -1491,7 +1491,10 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     // Assets from JSON that are not a sound or a costume
     const {assetPromises} = assets;
     // Create the first clone, and load its run-state from JSON.
-    const target = sprite.createClone(object.isStage ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER);
+    const target = sprite.createClone(
+        object.isStage ? StageLayering.BACKGROUND_LAYER : StageLayering.SPRITE_LAYER,
+        object.id
+    );
     if (typeof object.folderId === 'string') target.folderId = object.folderId;
     // Load target properties from JSON.
     if (Object.prototype.hasOwnProperty.call(object, 'tempo')) {
@@ -1969,6 +1972,15 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
     const targetObjects = ((isSingleSprite ? [json] : json.targets) || [])
         .map((t, i) => Object.assign(t, {targetPaneOrder: i}))
         .sort((a, b) => a.layerOrder - b.layerOrder);
+
+    const serializedTargetIds = [];
+    for (const target of targetObjects) {
+        if (typeof target.id !== 'string' || !target.id.trim() || serializedTargetIds.includes(target.id)) {
+            delete target.id;
+        } else {
+            serializedTargetIds.push(target.id);
+        }
+    }
 
     const monitorObjects = json.monitors || [];
 
