@@ -41,8 +41,7 @@ test('xmlEscape should handle non strings', () => {
     const arrayWithNumbers = [1, 2, 3];
     assert.strictEqual(xml(arrayWithNumbers), '1,2,3');
 
-    // Objects shouldn't get provided to replaceUnsafeChars, but in the event
-    // they do, it should just return the object (and log an error)
+    // Objects are stringified before their contents are escaped.
     const object = {hello: 'world'};
-    assert.strictEqual(xml(object), object);
+    assert.strictEqual(xml(object), '{&quot;hello&quot;:&quot;world&quot;}');
 });
