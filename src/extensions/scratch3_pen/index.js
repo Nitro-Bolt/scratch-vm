@@ -85,22 +85,26 @@ class Scratch3PenBlocks {
         /**
          * Named, independently visible pen canvases. The legacy fields above
          * always point at the current paper for compiler compatibility.
-         * @type {Object.<string, {skinId: int, drawableId: int, visible: boolean}>}
+         * @type {Object.<string, {skinId: int, drawableId: int, visible: boolean, tiles: object}>}
          * @private
          */
         this._papers = Object.create(null);
         this._papers.default = {
             skinId: -1,
             drawableId: -1,
-            visible: true
+            visible: true,
+            tiles: Object.create(null)
         };
         this._paperOrder = ['default'];
         this._currentPaper = 'default';
+        this._paperDrawOrderDirty = false;
 
         this._onTargetCreated = this._onTargetCreated.bind(this);
         this._onTargetMoved = this._onTargetMoved.bind(this);
+        this._onStageSizeChanged = this._onStageSizeChanged.bind(this);
 
         runtime.on('targetWasCreated', this._onTargetCreated);
+        runtime.on('STAGE_SIZE_CHANGED', this._onStageSizeChanged);
         runtime.on('RUNTIME_DISPOSED', this._dispose.bind(this));
     }
 
@@ -186,26 +190,256 @@ class Scratch3PenBlocks {
     }
 
     _getPaperLayerID (name) {
-        const renderer = this.runtime.renderer;
         const paper = this._papers[name];
         if (!paper) return -1;
-        if (paper.skinId < 0 && renderer) {
-            const skinId = renderer.createPenSkin();
-            const drawableId = renderer.createDrawable(StageLayering.PEN_LAYER);
-            if (renderer.markDrawableAsNoninteractive) {
-                renderer.markDrawableAsNoninteractive(drawableId);
-            }
-            renderer.updateDrawableSkinId(drawableId, skinId);
-            renderer.updateDrawableVisible(drawableId, paper.visible);
-            paper.skinId = skinId;
-            paper.drawableId = drawableId;
-            this._syncPaperDrawOrder();
-        }
+        const tile = this._getPaperTile(name, 0, 0);
+        this._syncPaperDrawOrder();
         if (name === this._currentPaper) {
             this._penSkinId = paper.skinId;
             this._penDrawableId = paper.drawableId;
         }
-        return paper.skinId;
+        return tile ? tile.skinId : -1;
+    }
+
+    _getPaperTile (name, tileX, tileY) {
+        const renderer = this.runtime.renderer;
+        const paper = this._papers[name];
+        if (!paper || !renderer) return null;
+        if (!paper.tiles) paper.tiles = Object.create(null);
+        const key = `${tileX},${tileY}`;
+        let tile = paper.tiles[key];
+        if (tile) return tile;
+
+        const skinId = renderer.createPenSkin();
+        const drawableId = renderer.createDrawable(StageLayering.PEN_LAYER);
+        if (renderer.markDrawableAsNoninteractive) {
+            renderer.markDrawableAsNoninteractive(drawableId);
+        }
+        if (renderer.markDrawableForViewportCulling) {
+            renderer.markDrawableForViewportCulling(drawableId);
+        }
+        const size = renderer.getNativeSize();
+        const worldX = tileX * size[0];
+        const worldY = tileY * size[1];
+        renderer.updateDrawableSkinId(drawableId, skinId);
+        renderer.updateDrawablePosition(drawableId, [worldX, worldY]);
+        if (renderer.updatePenSkinWorldPosition) {
+            renderer.updatePenSkinWorldPosition(skinId, worldX, worldY);
+        }
+        renderer.updateDrawableVisible(drawableId, paper.visible);
+        tile = {skinId, drawableId, tileX, tileY};
+        paper.tiles[key] = tile;
+        if (tileX === 0 && tileY === 0) {
+            paper.skinId = skinId;
+            paper.drawableId = drawableId;
+        }
+        this._paperDrawOrderDirty = true;
+        return tile;
+    }
+
+    _isTilingEnabled () {
+        return Boolean(
+            this.runtime.renderer &&
+            !this.runtime.runtimeOptions.fencing &&
+            this.runtime.runtimeOptions.penTiling
+        );
+    }
+
+    _tileIndex (coordinate, size) {
+        return Math.floor((coordinate + (size / 2)) / size);
+    }
+
+    _tilesForBounds (name, bounds) {
+        if (
+            !Number.isFinite(bounds.left) ||
+            !Number.isFinite(bounds.right) ||
+            !Number.isFinite(bounds.bottom) ||
+            !Number.isFinite(bounds.top)
+        ) return [];
+        const size = this.runtime.renderer.getNativeSize();
+        const left = this._tileIndex(bounds.left, size[0]);
+        const right = this._tileIndex(bounds.right, size[0]);
+        const bottom = this._tileIndex(bounds.bottom, size[1]);
+        const top = this._tileIndex(bounds.top, size[1]);
+        const tiles = [];
+        for (let tileY = bottom; tileY <= top; tileY++) {
+            for (let tileX = left; tileX <= right; tileX++) {
+                const tile = this._getPaperTile(name, tileX, tileY);
+                if (tile) tiles.push(tile);
+            }
+        }
+        this._syncPaperDrawOrder();
+        return tiles;
+    }
+
+    _segmentIntersectsTile (x0, y0, x1, y1, radius, tileX, tileY, width, height) {
+        const centerX = tileX * width;
+        const centerY = tileY * height;
+        const left = centerX - (width / 2) - radius;
+        const right = centerX + (width / 2) + radius;
+        const bottom = centerY - (height / 2) - radius;
+        const top = centerY + (height / 2) + radius;
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        let start = 0;
+        let end = 1;
+        const clip = (p, q) => {
+            if (p === 0) return q >= 0;
+            const ratio = q / p;
+            if (p < 0) {
+                if (ratio > end) return false;
+                if (ratio > start) start = ratio;
+            } else {
+                if (ratio < start) return false;
+                if (ratio < end) end = ratio;
+            }
+            return true;
+        };
+        return clip(-dx, x0 - left) && clip(dx, right - x0) &&
+            clip(-dy, y0 - bottom) && clip(dy, top - y0);
+    }
+
+    _tilesForLine (name, x0, y0, x1, y1, diameter) {
+        if (
+            !Number.isFinite(x0) ||
+            !Number.isFinite(y0) ||
+            !Number.isFinite(x1) ||
+            !Number.isFinite(y1) ||
+            !Number.isFinite(diameter)
+        ) return [];
+        const size = this.runtime.renderer.getNativeSize();
+        const width = size[0];
+        const height = size[1];
+        const radius = diameter / 2;
+        const endTileX = this._tileIndex(x1, width);
+        const endTileY = this._tileIndex(y1, height);
+        let tileX = this._tileIndex(x0, width);
+        let tileY = this._tileIndex(y0, height);
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const stepX = Math.sign(dx);
+        const stepY = Math.sign(dy);
+        const nextBoundaryX = stepX > 0 ? (tileX + 0.5) * width : (tileX - 0.5) * width;
+        const nextBoundaryY = stepY > 0 ? (tileY + 0.5) * height : (tileY - 0.5) * height;
+        let distanceX = stepX === 0 ? Infinity : (nextBoundaryX - x0) / dx;
+        let distanceY = stepY === 0 ? Infinity : (nextBoundaryY - y0) / dy;
+        const distanceStepX = stepX === 0 ? Infinity : width / Math.abs(dx);
+        const distanceStepY = stepY === 0 ? Infinity : height / Math.abs(dy);
+        const paddingX = Math.ceil(radius / width);
+        const paddingY = Math.ceil(radius / height);
+        const visited = Object.create(null);
+        const tiles = [];
+        let complete = false;
+
+        while (!complete) {
+            for (let candidateY = tileY - paddingY; candidateY <= tileY + paddingY; candidateY++) {
+                for (let candidateX = tileX - paddingX; candidateX <= tileX + paddingX; candidateX++) {
+                    const key = `${candidateX},${candidateY}`;
+                    if (visited[key]) continue;
+                    visited[key] = true;
+                    if (this._segmentIntersectsTile(
+                        x0, y0, x1, y1, radius, candidateX, candidateY, width, height
+                    )) {
+                        const tile = this._getPaperTile(name, candidateX, candidateY);
+                        if (tile) tiles.push(tile);
+                    }
+                }
+            }
+            complete = tileX === endTileX && tileY === endTileY;
+            if (complete) {
+                continue;
+            } else if (distanceX < distanceY) {
+                tileX += stepX;
+                distanceX += distanceStepX;
+            } else if (distanceY < distanceX) {
+                tileY += stepY;
+                distanceY += distanceStepY;
+            } else {
+                tileX += stepX;
+                tileY += stepY;
+                distanceX += distanceStepX;
+                distanceY += distanceStepY;
+            }
+        }
+        this._syncPaperDrawOrder();
+        return tiles;
+    }
+
+    _penTargetsForBounds (name, bounds) {
+        const size = this.runtime.renderer.getNativeSize();
+        return this._tilesForBounds(name, bounds).map(tile => ({
+            skinId: tile.skinId,
+            x: tile.tileX * size[0],
+            y: tile.tileY * size[1]
+        }));
+    }
+
+    _drawLine (name, penAttributes, x0, y0, x1, y1) {
+        const renderer = this.runtime.renderer;
+        if (!this._isTilingEnabled()) {
+            renderer.penLine(this._getPaperLayerID(name), penAttributes, x0, y0, x1, y1);
+            return;
+        }
+        const size = renderer.getNativeSize();
+        for (const tile of this._tilesForLine(name, x0, y0, x1, y1, penAttributes.diameter)) {
+            const centerX = tile.tileX * size[0];
+            const centerY = tile.tileY * size[1];
+            renderer.penLine(
+                tile.skinId,
+                penAttributes,
+                x0 - centerX,
+                y0 - centerY,
+                x1 - centerX,
+                y1 - centerY
+            );
+        }
+    }
+
+    _drawPoint (name, penAttributes, x, y) {
+        const renderer = this.runtime.renderer;
+        if (!this._isTilingEnabled()) {
+            renderer.penPoint(this._getPaperLayerID(name), penAttributes, x, y);
+            return;
+        }
+        const size = renderer.getNativeSize();
+        for (const tile of this._tilesForLine(name, x, y, x, y, penAttributes.diameter)) {
+            renderer.penPoint(
+                tile.skinId,
+                penAttributes,
+                x - (tile.tileX * size[0]),
+                y - (tile.tileY * size[1])
+            );
+        }
+    }
+
+    _clearPaperTiles (paper) {
+        const renderer = this.runtime.renderer;
+        for (const [key, tile] of Object.entries(paper.tiles || {})) {
+            if (tile.tileX === 0 && tile.tileY === 0) {
+                renderer.penClear(tile.skinId);
+            } else {
+                renderer.destroyDrawable(tile.drawableId, StageLayering.PEN_LAYER);
+                renderer.destroySkin(tile.skinId);
+                delete paper.tiles[key];
+            }
+        }
+    }
+
+    _onStageSizeChanged (width, height) {
+        const renderer = this.runtime.renderer;
+        if (!renderer) return;
+        for (const paper of Object.values(this._papers)) {
+            for (const tile of Object.values(paper.tiles || {})) {
+                renderer.updateDrawablePosition(tile.drawableId, [tile.tileX * width, tile.tileY * height]);
+                if (renderer.updatePenSkinWorldPosition) {
+                    renderer.updatePenSkinWorldPosition(
+                        tile.skinId,
+                        tile.tileX * width,
+                        tile.tileY * height
+                    );
+                }
+            }
+        }
     }
 
     _paperName (value) {
@@ -217,13 +451,17 @@ class Scratch3PenBlocks {
     }
 
     _syncPaperDrawOrder () {
+        if (!this._paperDrawOrderDirty) return;
         const renderer = this.runtime.renderer;
         for (let i = this._paperOrder.length - 1; i >= 0; i--) {
             const paper = this._papers[this._paperOrder[i]];
-            if (paper.drawableId >= 0) {
-                renderer.setDrawableOrder(paper.drawableId, -Infinity, StageLayering.PEN_LAYER);
+            if (paper.tiles) {
+                for (const tile of Object.values(paper.tiles)) {
+                    renderer.setDrawableOrder(tile.drawableId, -Infinity, StageLayering.PEN_LAYER);
+                }
             }
         }
+        this._paperDrawOrderDirty = false;
     }
 
     _dispose () {
@@ -231,15 +469,18 @@ class Scratch3PenBlocks {
         if (renderer) {
             for (const name of Object.keys(this._papers)) {
                 const paper = this._papers[name];
-                if (paper.drawableId >= 0) renderer.destroyDrawable(paper.drawableId, StageLayering.PEN_LAYER);
-                if (paper.skinId >= 0) renderer.destroySkin(paper.skinId);
+                for (const tile of Object.values(paper.tiles || {})) {
+                    renderer.destroyDrawable(tile.drawableId, StageLayering.PEN_LAYER);
+                    renderer.destroySkin(tile.skinId);
+                }
             }
         }
         this._papers = Object.create(null);
         this._papers.default = {
             skinId: -1,
             drawableId: -1,
-            visible: true
+            visible: true,
+            tiles: Object.create(null)
         };
         this._paperOrder = ['default'];
         this._currentPaper = 'default';
@@ -294,7 +535,14 @@ class Scratch3PenBlocks {
             const penSkinId = this._getPenLayerID();
             if (penSkinId >= 0) {
                 const penState = this._getPenState(target);
-                this.runtime.renderer.penLine(penSkinId, penState.penAttributes, oldX, oldY, target.x, target.y);
+                this._drawLine(
+                    this._currentPaper,
+                    penState.penAttributes,
+                    oldX,
+                    oldY,
+                    target.x,
+                    target.y
+                );
                 this.runtime.requestRedraw();
             }
         }
@@ -1044,9 +1292,7 @@ class Scratch3PenBlocks {
      */
     clear () { // used by compiler
         for (const name of Object.keys(this._papers)) {
-            if (this._papers[name].skinId >= 0) {
-                this.runtime.renderer.penClear(this._papers[name].skinId);
-            }
+            this._clearPaperTiles(this._papers[name]);
         }
         this.runtime.requestRedraw();
     }
@@ -1057,8 +1303,8 @@ class Scratch3PenBlocks {
 
     _clearPaper (name) {
         const paper = this._papers[name];
-        if (!paper || paper.skinId < 0) return;
-        this.runtime.renderer.penClear(paper.skinId);
+        if (!paper) return;
+        this._clearPaperTiles(paper);
         this.runtime.requestRedraw();
     }
 
@@ -1073,7 +1319,13 @@ class Scratch3PenBlocks {
     _stamp (target) { // used by compiler
         const penSkinId = this._getPenLayerID();
         if (penSkinId >= 0) {
-            if (this.runtime.extensionManager.isExtensionLoaded('camera')) {
+            if (this._isTilingEnabled()) {
+                this.runtime.renderer.penStampInWorldSpace(
+                    penSkinId,
+                    target.drawableID,
+                    bounds => this._penTargetsForBounds(this._currentPaper, bounds)
+                );
+            } else if (this.runtime.extensionManager.isExtensionLoaded('camera')) {
                 this.runtime.renderer.penStampInWorldSpace(penSkinId, target.drawableID);
             } else {
                 this.runtime.renderer.penStamp(penSkinId, target.drawableID);
@@ -1100,7 +1352,12 @@ class Scratch3PenBlocks {
 
         const penSkinId = this._getPenLayerID();
         if (penSkinId >= 0) {
-            this.runtime.renderer.penPoint(penSkinId, penState.penAttributes, target.x, target.y);
+            this._drawPoint(
+                this._currentPaper,
+                penState.penAttributes,
+                target.x,
+                target.y
+            );
             this.runtime.requestRedraw();
         }
     }
@@ -1325,7 +1582,8 @@ class Scratch3PenBlocks {
     _printText (text, x, y, target) {
         if (!text) return;
         const attributes = this._getPrintAttributes(target);
-        const penSkinId = this._getPenLayerID();
+        const paperName = this._currentPaper;
+        const penSkinId = this._getPaperLayerID(paperName);
         if (penSkinId < 0) return;
         const result = this.runtime.renderer.penText(penSkinId, text, {
             family: this._resolvePrintFont(attributes.font),
@@ -1337,7 +1595,7 @@ class Scratch3PenBlocks {
             italic: attributes.italic,
             wordWrap: attributes.wordWrap,
             alignment: attributes.alignment
-        }, x, y);
+        }, x, y, this._isTilingEnabled() ? bounds => this._penTargetsForBounds(paperName, bounds) : null);
         if (result && typeof result.then === 'function') {
             return result.then(() => this.runtime.requestRedraw());
         }
@@ -1433,7 +1691,8 @@ class Scratch3PenBlocks {
         this._papers[name] = {
             skinId: -1,
             drawableId: -1,
-            visible: true
+            visible: true,
+            tiles: Object.create(null)
         };
         this._paperOrder.push(name);
         this.runtime.requestRedraw();
@@ -1447,8 +1706,10 @@ class Scratch3PenBlocks {
         const paper = this._papers[name];
         if (!paper) return;
         const renderer = this.runtime.renderer;
-        if (paper.drawableId >= 0) renderer.destroyDrawable(paper.drawableId, StageLayering.PEN_LAYER);
-        if (paper.skinId >= 0) renderer.destroySkin(paper.skinId);
+        for (const tile of Object.values(paper.tiles || {})) {
+            renderer.destroyDrawable(tile.drawableId, StageLayering.PEN_LAYER);
+            renderer.destroySkin(tile.skinId);
+        }
         delete this._papers[name];
         this._paperOrder.splice(this._paperOrder.indexOf(name), 1);
         if (this._currentPaper === name) {
@@ -1458,7 +1719,8 @@ class Scratch3PenBlocks {
             this._papers.default = {
                 skinId: -1,
                 drawableId: -1,
-                visible: true
+                visible: true,
+                tiles: Object.create(null)
             };
             this._paperOrder.push('default');
         }
@@ -1483,8 +1745,25 @@ class Scratch3PenBlocks {
         if (!source || !destination) return;
 
         if (source.skinId >= 0) {
-            const destinationSkinId = this._getPaperLayerID(destinationName);
-            this.runtime.renderer.penStamp(destinationSkinId, source.drawableId);
+            const renderer = this.runtime.renderer;
+            const size = renderer.getNativeSize();
+            for (const sourceTile of Object.values(source.tiles || {})) {
+                const destinationTile = this._getPaperTile(
+                    destinationName,
+                    sourceTile.tileX,
+                    sourceTile.tileY
+                );
+                renderer.penStampInWorldSpace(
+                    destinationTile.skinId,
+                    sourceTile.drawableId,
+                    () => [{
+                        skinId: destinationTile.skinId,
+                        x: sourceTile.tileX * size[0],
+                        y: sourceTile.tileY * size[1]
+                    }]
+                );
+            }
+            this._syncPaperDrawOrder();
             this.runtime.requestRedraw();
         }
 
@@ -1517,6 +1796,7 @@ class Scratch3PenBlocks {
         const newIndex = MathUtil.clamp(Math.round(index), 0, this._paperOrder.length - 1);
         this._paperOrder.splice(oldIndex, 1);
         this._paperOrder.splice(newIndex, 0, name);
+        this._paperDrawOrderDirty = true;
         this._syncPaperDrawOrder();
         this.runtime.requestRedraw();
     }
@@ -1554,8 +1834,8 @@ class Scratch3PenBlocks {
         const paper = this._papers[name];
         if (!paper) return;
         paper.visible = visibility === 'show';
-        if (paper.drawableId >= 0) {
-            this.runtime.renderer.updateDrawableVisible(paper.drawableId, paper.visible);
+        for (const tile of Object.values(paper.tiles || {})) {
+            this.runtime.renderer.updateDrawableVisible(tile.drawableId, paper.visible);
         }
         this.runtime.requestRedraw();
     }
