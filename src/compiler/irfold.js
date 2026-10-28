@@ -1,6 +1,7 @@
 // @ts-check
 
 const Cast = require('../util/cast');
+const jsonEquals = require('../util/json-value');
 const {StackOpcode, InputOpcode, InputType} = require('./enums');
 const {IntermediateInput, IntermediateStack} = require('./intermediate');
 
@@ -350,7 +351,7 @@ class IRFolder {
             break;
         case InputOpcode.JSON_INDEX_OF_VALUE:
             if (has('array', 'value')) {
-                const index = valueOf(node.array).indexOf(valueOf(node.value));
+                const index = valueOf(node.array).findIndex(item => jsonEquals(item, valueOf(node.value)));
                 return constant(index === -1 ? '' : index);
             }
             break;
@@ -382,7 +383,7 @@ class IRFolder {
         case InputOpcode.JSON_DELETE_ALL_OCCURRENCES:
             if (has('array', 'item')) {
                 const array = /** @type {*[]} */ (valueOf(node.array));
-                return finish(array.filter(item => item !== valueOf(node.item)));
+                return finish(array.filter(item => !jsonEquals(item, valueOf(node.item))));
             }
             break;
         case InputOpcode.JSON_MERGE_ARRAY:
@@ -393,7 +394,9 @@ class IRFolder {
             }
             break;
         case InputOpcode.JSON_HAS_ITEM:
-            if (has('array', 'item')) return constant(valueOf(node.array).includes(valueOf(node.item)));
+            if (has('array', 'item')) {
+                return constant(valueOf(node.array).some(item => jsonEquals(item, valueOf(node.item))));
+            }
             break;
         case InputOpcode.JSON_ARRAY_LENGTH:
             if (has('array')) return constant(valueOf(node.array).length);

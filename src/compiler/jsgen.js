@@ -435,11 +435,11 @@ class JSGenerator {
             return `(${this.descendInput(node.object)}[${this.descendInput(node.key)}] ?? "")`;
         case InputOpcode.JSON_SET_KEY: {
             const i_ = this.localVariables.next();
-            return `((${i_} = Object.assign({}, ${this.descendInput(node.object)})), ${i_}[${this.descendInput(node.key)}] = ${this.descendInput(node.value)}, ${i_})`;
+            return `((${i_} = cloneObject(${this.descendInput(node.object)})), Object.defineProperty(${i_}, ${this.descendInput(node.key)}, {value: ${this.descendInput(node.value)}, configurable: true, enumerable: true, writable: true}), ${i_})`;
         }
         case InputOpcode.JSON_DELETE_KEY: {
             const i_ = this.localVariables.next();
-            return `((${i_} = Object.assign({}, ${this.descendInput(node.object)})), delete ${i_}[${this.descendInput(node.key)}], ${i_})`;
+            return `((${i_} = cloneObject(${this.descendInput(node.object)})), delete ${i_}[${this.descendInput(node.key)}], ${i_})`;
         }
         case InputOpcode.JSON_MERGE_OBJECT: {
             /** @type {IntermediateInput[]} */
@@ -447,7 +447,7 @@ class JSGenerator {
             return `mergeObjects(${items.map(i => this.descendInput(i)).join(', ')})`;
         }
         case InputOpcode.JSON_HAS_KEY:
-            return `${this.descendInput(node.object)}.hasOwnProperty(${this.descendInput(node.key)})`;
+            return `Object.prototype.hasOwnProperty.call(${this.descendInput(node.object)}, ${this.descendInput(node.key)})`;
         case InputOpcode.JSON_NEW_ARRAY:
             return '[]';
         case InputOpcode.JSON_ARRAY: {
@@ -470,16 +470,16 @@ class JSGenerator {
         case InputOpcode.JSON_DELETE_INDEX:
             return `arrayDeleteAtIndex(${this.descendInput(node.array)}, ${this.descendInput(node.index)})`;
         case InputOpcode.JSON_DELETE_ALL_OCCURRENCES: {
-            const i_ = this.localVariables.next();
-            return `${this.descendInput(node.array)}.filter(${i_} => ${i_} !== ${this.descendInput(node.item)})`;
+            return `jsonArrayDeleteAll(${this.descendInput(node.array)}, ${this.descendInput(node.item)})`;
         }
         case InputOpcode.JSON_MERGE_ARRAY: {
             /** @type {IntermediateInput[]} */
             const items = node.items;
             return `mergeArrays(${items.map(i => this.descendInput(i)).join(', ')})`;
         }
-        case InputOpcode.JSON_HAS_ITEM:
-            return `${this.descendInput(node.array)}.includes(${this.descendInput(node.item)})`;
+        case InputOpcode.JSON_HAS_ITEM: {
+            return `jsonArrayIncludes(${this.descendInput(node.array)}, ${this.descendInput(node.item)})`;
+        }
         case InputOpcode.JSON_ARRAY_LENGTH:
             return `${this.descendInput(node.array)}.length`;
         case InputOpcode.JSON_SLICE_ARRAY:

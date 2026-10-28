@@ -43,8 +43,14 @@ baseRuntime += `const nullCoalsh = (n, v) => ((n === null || n === (void 0)) ? v
  * @returns {object}
  */
 runtimeFunctions.mergeObjects = `const mergeObjects = (...objs) => {
-  return Object.assign({}, ...objs.map(o => toObject(o)));
+  const entries = [];
+  for (const object of objs) entries.push(...Object.entries(toObject(object)));
+  return Object.fromEntries(entries);
 };`;
+
+runtimeFunctions.cloneObject = `const cloneObject = object => {
+  return Object.fromEntries(Object.entries(object));
+}`;
 
 /**
  * Merges arrays. (use this to get around spread overflow)
@@ -54,6 +60,39 @@ runtimeFunctions.mergeObjects = `const mergeObjects = (...objs) => {
 runtimeFunctions.mergeArrays = `const mergeArrays = (...arrs) => {
   return [].concat(...arrs.map(a => toArray(a)));
 };`;
+
+/**
+ * Compare two JSON-compatible values by value instead of object identity.
+ * @param {*} left first value
+ * @param {*} right second value
+ * @returns {boolean} whether the values are equal
+ */
+runtimeFunctions.jsonEquals = `const jsonEquals = (left, right) => {
+    if (left === right) return true;
+    if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
+    const leftIsArray = Array.isArray(left);
+    if (leftIsArray !== Array.isArray(right)) return false;
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length) return false;
+    if (!leftIsArray) {
+        for (const key of leftKeys) {
+            if (!Object.prototype.hasOwnProperty.call(right, key)) return false;
+        }
+    }
+    for (const key of leftKeys) {
+        if (!jsonEquals(left[key], right[key])) return false;
+    }
+    return true;
+}`;
+
+runtimeFunctions.jsonArrayIncludes = `const jsonArrayIncludes = (array, item) => {
+    return array.some(value => jsonEquals(value, item));
+}`;
+
+runtimeFunctions.jsonArrayDeleteAll = `const jsonArrayDeleteAll = (array, item) => {
+    return array.filter(value => !jsonEquals(value, item));
+}`;
 
 baseRuntime += `const arrayIndexSlow = (index, length) => {
     if (index === 'last') {
@@ -97,7 +136,7 @@ runtimeFunctions.arrayValueOfIndex = `const arrayValueOfIndex = (array, index) =
  * @returns {number | string} The 0-indexed index of the item in the list, otherwise empty string
  */
 runtimeFunctions.arrayIndexOf = `const arrayIndexOf = (array, item) => {
-    const index = array.indexOf(item);
+    const index = array.findIndex(value => jsonEquals(value, item));
     if (index === -1) return "";
     return index;
 }`;

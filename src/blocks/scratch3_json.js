@@ -1,5 +1,6 @@
 const Cast = require('../util/cast');
 const execute = require('../engine/execute');
+const jsonEquals = require('../util/json-value');
 
 class Scratch3JSONBlocks {
     constructor (runtime) {
@@ -88,7 +89,12 @@ class Scratch3JSONBlocks {
     setKey (args) {
         const obj = {...Cast.toObject(args.OBJ)};
         const key = Cast.toString(args.KEY);
-        obj[key] = args.VALUE;
+        Object.defineProperty(obj, key, {
+            value: args.VALUE,
+            configurable: true,
+            enumerable: true,
+            writable: true
+        });
         return obj;
     }
 
@@ -127,7 +133,8 @@ class Scratch3JSONBlocks {
 
     indexOfValue (args) {
         const arr = Cast.toArray(args.ARR);
-        return arr.indexOf(args.VALUE) === -1 ? '' : arr.indexOf(args.VALUE);
+        const index = arr.findIndex(item => jsonEquals(item, args.VALUE));
+        return index === -1 ? '' : index;
     }
 
     addItem (args, util) {
@@ -154,8 +161,7 @@ class Scratch3JSONBlocks {
 
     deleteAllOccurrences (args) {
         const arr = Cast.toArray(args.ARR);
-        const item = Cast.toString(args.ITEM);
-        return arr.filter(e => e !== item);
+        return arr.filter(item => !jsonEquals(item, args.ITEM));
     }
 
     mergeArray (args, util) {
@@ -165,7 +171,7 @@ class Scratch3JSONBlocks {
 
     hasItem (args) {
         const arr = Cast.toArray(args.ARR);
-        return arr.includes(args.ITEM);
+        return arr.some(item => jsonEquals(item, args.ITEM));
     }
 
     arrayLength (args) {
