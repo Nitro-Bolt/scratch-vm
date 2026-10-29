@@ -805,6 +805,10 @@ class Blocks {
         if (Object.prototype.hasOwnProperty.call(this._blocks, block.id)) {
             return;
         }
+        // No prototype pollution.
+        if (block.id === '__proto__') {
+            return;
+        }
         // Older serialized blocks and direct VM consumers may not provide this metadata.
         if (typeof block.monitorMode !== 'string') {
             block.monitorMode = 'default';
