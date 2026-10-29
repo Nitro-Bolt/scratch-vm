@@ -556,7 +556,89 @@ class Runtime extends EventEmitter {
             warpTimer: false
         };
 
-        this.packagerOptions = {};
+        this.packagerOptions = {
+            resizeMode: 'preserve-ratio',
+            autoplay: false,
+            username: "player####",
+            closeWhenStopped: false,
+            custom: {
+                css: '',
+                js: ''
+            },
+            appearance: {
+                background: '#000000',
+                foreground: '#ffffff',
+                accent: '#ff5726'
+            },
+            loadingScreen: {
+                progressBar: true,
+                text: '',
+                imageMode: 'normal',
+                image: null
+            },
+            controls: {
+                greenFlag: {
+                    enabled: false
+                },
+                pause: {
+                    enabled: false
+                },
+                stopAll: {
+                    enabled: false
+                },
+                fullscreen: {
+                    enabled: false
+                },
+            },
+            monitors: {
+                editableLists: false,
+                variableColor: '#ff8c1a',
+                listColor: '#fc662c'
+            },
+            compiler: {
+                enabled: true,
+                warpTimer: false
+            },
+            packagedRuntime: true,
+            target: 'html',
+            app: {
+                icon: null,
+                windowMode: 'window',
+                version: '1.0.0',
+                escapeBehavior: 'unfullscreen-only',
+                windowControls: 'default',
+                backgroundThrottling: false
+            },
+            chunks: {
+                gamepad: false,
+                pointerlock: false,
+            },
+            cloudVariables: {
+                mode: 'ws',
+                cloudHost: 'wss://clouddata.turbowarp.org',
+                custom: {},
+                specialCloudBehaviors: false,
+                unsafeCloudBehaviors: false,
+            },
+            cursor: {
+                type: 'auto',
+                custom: null,
+                center: {
+                x: 0,
+                y: 0
+                }
+            },
+            steamworks: {
+                appId: '480',
+                onError: 'warning'
+            },
+            richPresence: {
+                onError: 'warning'
+            },
+            extensionPermissions: 'all',
+            bakeExtensions: true,
+            maxTextureDimension: 2048
+        };
 
         this.debug = false;
 
@@ -3788,6 +3870,7 @@ class Runtime extends EventEmitter {
         return {
             framerate: this.frameLoop.framerate,
             runtimeOptions: this.runtimeOptions,
+            packagerOptions: this.packagerOptions,
             interpolation: this.interpolationEnabled,
             turbo: this.turboMode,
             hq: this.renderer ? this.renderer.useHighQualityRender : false,
