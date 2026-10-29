@@ -556,6 +556,8 @@ class Runtime extends EventEmitter {
             warpTimer: false
         };
 
+        this.packagerOptions = {};
+
         this.debug = false;
 
         this._lastStepTime = Date.now();
@@ -727,6 +729,14 @@ class Runtime extends EventEmitter {
      */
     static get COMPILER_OPTIONS_CHANGED () {
         return 'COMPILER_OPTIONS_CHANGED';
+    }
+
+    /**
+     * Event name for project options changing.
+     * @const {string}
+     */
+    static get PACKAGER_OPTIONS_CHANGED () {
+        return 'PROJECT_OPTIONS_CHANGED';
     }
 
     /**
@@ -3551,6 +3561,15 @@ class Runtime extends EventEmitter {
         this.compilerOptions = Object.assign({}, this.compilerOptions, compilerOptions);
         this.resetAllCaches();
         this.emit(Runtime.COMPILER_OPTIONS_CHANGED, this.compilerOptions);
+    }
+
+    /**
+     * nb: Update packager options
+     * @param {*} packagerOptions New options
+     */
+    setPackagerOptions (packagerOptions) {
+        this.packagerOptions = Object.assign({}, this.packagerOptions, packagerOptions);
+        this.emit(Runtime.PACKAGER_OPTIONS_CHANGED, this.packagerOptions);
     }
 
     /**
