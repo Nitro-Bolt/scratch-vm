@@ -1997,7 +1997,10 @@ class JSGenerator {
             script += args.join(',');
         }
         script += ') {\n';
-        script += 'try {\n';
+        const catchErrors = this.target.runtime.compilerOptions.catchErrors;
+        if (catchErrors) {
+            script += 'try {\n';
+        }
 
         if (this.usesTemporaryLocal) {
             script += 'let t;\n';
@@ -2005,11 +2008,13 @@ class JSGenerator {
 
         script += this.source;
 
-        script += '} catch (error) {\n';
-        script += 'console.warn(this.toString(), error);\n';
-        script += `runtime.visualReport(target, "${sanitize(this.script.bottomBlockId)}", String(error), true);\n`;
-        script += 'retire();\n';
-        script += '};\n';
+        if (catchErrors) {
+            script += '} catch (error) {\n';
+            script += 'console.warn(this.toString(), error);\n';
+            script += `runtime.visualReport(target, "${sanitize(this.script.bottomBlockId)}", String(error), true);\n`;
+            script += 'retire();\n';
+            script += '};\n';
+        }
         script += '}; })';
 
         return script;

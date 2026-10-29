@@ -553,6 +553,7 @@ class Runtime extends EventEmitter {
 
         this.compilerOptions = {
             enabled: true,
+            catchErrors: true,
             warpTimer: false
         };
 
@@ -3755,6 +3756,11 @@ class Runtime extends EventEmitter {
         if (parsed.runtimeOptions) {
             this.setRuntimeOptions(parsed.runtimeOptions);
         }
+        if (parsed.compilerOptions && typeof parsed.compilerOptions.catchErrors === 'boolean') {
+            this.setCompilerOptions({
+                catchErrors: parsed.compilerOptions.catchErrors
+            });
+        }
         if (parsed.hq && this.renderer) {
             this.renderer.setUseHighQualityRender(true);
         }
@@ -3769,6 +3775,9 @@ class Runtime extends EventEmitter {
         return {
             framerate: this.frameLoop.framerate,
             runtimeOptions: this.runtimeOptions,
+            compilerOptions: {
+                catchErrors: this.compilerOptions.catchErrors
+            },
             interpolation: this.interpolationEnabled,
             turbo: this.turboMode,
             hq: this.renderer ? this.renderer.useHighQualityRender : false,

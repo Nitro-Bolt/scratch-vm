@@ -209,8 +209,8 @@ class Sequencer {
                 thread.warpTimer = new Timer();
                 thread.warpTimer.start();
             }
-            // Execute the current block with error catching.
-            try {
+            // Execute the current block without intercepting errors when requested.
+            if (this.runtime.compilerOptions.catchErrors === false) {
                 if (this.runtime.profiler !== null) {
                     if (executeProfilerId === -1) {
                         executeProfilerId = this.runtime.profiler.idByName(executeProfilerFrame);
@@ -224,12 +224,28 @@ class Sequencer {
                 } else {
                     execute(this, thread);
                 }
-            } catch (error) {
-                thread.status = Thread.STATUS_DONE;
-                console.warn(this.toString(), error);
-                const bottomBlockId = thread.getBottomBlockId();
-                this.runtime.visualReport(thread.target, bottomBlockId, String(error), true);
-                return;
+            } else {
+                try {
+                    if (this.runtime.profiler !== null) {
+                        if (executeProfilerId === -1) {
+                            executeProfilerId = this.runtime.profiler.idByName(executeProfilerFrame);
+                        }
+
+                        // Increment the number of times execute is called.
+                        this.runtime.profiler.increment(executeProfilerId);
+                    }
+                    if (thread.target === null) {
+                        this.retireThread(thread);
+                    } else {
+                        execute(this, thread);
+                    }
+                } catch (error) {
+                    thread.status = Thread.STATUS_DONE;
+                    console.warn(this.toString(), error);
+                    const bottomBlockId = thread.getBottomBlockId();
+                    this.runtime.visualReport(thread.target, bottomBlockId, String(error), true);
+                    return;
+                }
             }
             thread.blockGlowInFrame = currentBlockId;
             // If the thread has yielded or is waiting, yield to other threads.

@@ -489,16 +489,24 @@ class Scratch3LooksBlocks {
     }
 
     switchBackdropAndWait (args, util) {
+        // Starting backdrop hats executes their first blocks synchronously. Interpreter
+        // execution reuses a shared BlockUtility, so preserve this block's context while
+        // those nested blocks temporarily replace it.
+        const originalThread = util.thread;
+        const stackFrame = util.stackFrame;
+
         // Have we run before, starting threads?
-        if (!util.stackFrame.startedThreads) {
+        if (!stackFrame.startedThreads) {
             // No - switch the backdrop.
-            util.stackFrame.startedThreads = (
-                this._setBackdrop(
+            try {
+                stackFrame.startedThreads = this._setBackdrop(
                     this.runtime.getTargetForStage(),
                     args.BACKDROP
-                )
-            );
-            if (util.stackFrame.startedThreads.length === 0) {
+                );
+            } finally {
+                util.thread = originalThread;
+            }
+            if (stackFrame.startedThreads.length === 0) {
                 // Nothing was started.
                 return;
             }
@@ -509,14 +517,14 @@ class Scratch3LooksBlocks {
         // runtime.threads. Threads that have run all their blocks, or are
         // marked done but still in runtime.threads are still considered to
         // be waiting.
-        const waiting = util.stackFrame.startedThreads
+        const waiting = stackFrame.startedThreads
             .some(thread => instance.runtime.threads.indexOf(thread) !== -1);
         if (waiting) {
             // If all threads are waiting for the next tick or later yield
             // for a tick as well. Otherwise yield until the next loop of
             // the threads.
             if (
-                util.stackFrame.startedThreads
+                stackFrame.startedThreads
                     .every(thread => instance.runtime.isWaitingThread(thread))
             ) {
                 util.yieldTick();
