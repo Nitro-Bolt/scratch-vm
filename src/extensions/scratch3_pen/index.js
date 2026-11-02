@@ -636,6 +636,56 @@ class Scratch3PenBlocks {
                     filter: [TargetType.SPRITE]
                 },
                 {
+                    opcode: 'changePrintColorParamBy',
+                    blockType: BlockType.COMMAND,
+                    text: formatMessage({
+                        id: 'pen.changePrintColorParam',
+                        default: 'change print [TARGET] [COLOR_PARAM] by [VALUE]',
+                        description: 'change a fill or outline color parameter used by the pen print block'
+                    }),
+                    arguments: {
+                        TARGET: {
+                            type: ArgumentType.STRING,
+                            menu: 'printColorTarget'
+                        },
+                        COLOR_PARAM: {
+                            type: ArgumentType.STRING,
+                            menu: 'colorParam',
+                            defaultValue: ColorParam.COLOR
+                        },
+                        VALUE: {
+                            type: ArgumentType.NUMBER,
+                            defaultValue: 10
+                        }
+                    },
+                    filter: [TargetType.SPRITE]
+                },
+                {
+                    opcode: 'setPrintColorParamTo',
+                    blockType: BlockType.COMMAND,
+                    text: formatMessage({
+                        id: 'pen.setPrintColorParam',
+                        default: 'set print [TARGET] [COLOR_PARAM] to [VALUE]',
+                        description: 'set a fill or outline color parameter used by the pen print block'
+                    }),
+                    arguments: {
+                        TARGET: {
+                            type: ArgumentType.STRING,
+                            menu: 'printColorTarget'
+                        },
+                        COLOR_PARAM: {
+                            type: ArgumentType.STRING,
+                            menu: 'colorParam',
+                            defaultValue: ColorParam.COLOR
+                        },
+                        VALUE: {
+                            type: ArgumentType.NUMBER,
+                            defaultValue: 50
+                        }
+                    },
+                    filter: [TargetType.SPRITE]
+                },
+                {
                     opcode: 'setPrintStrokeWidth',
                     blockType: BlockType.COMMAND,
                     text: formatMessage({
@@ -1366,12 +1416,68 @@ class Scratch3PenBlocks {
 
     _setPrintColor (targetName, colorValue, target) {
         const printAttributes = this._getPrintAttributes(target);
-        const color = Color.rgbToHex(Cast.toRgbColorObject(colorValue));
-        if (targetName.toLowerCase() === 'stroke') {
-            printAttributes.strokeColor = color;
-        } else {
-            printAttributes.color = color;
+        const isStroke = targetName.toLowerCase() === 'stroke';
+        const rgb = Cast.toRgbColorObject(colorValue);
+        const hsv = Color.rgbToHsv(rgb);
+        printAttributes[isStroke ? 'strokeColorState' : 'fillColorState'] = {
+            color: hsv.h / 3.6,
+            saturation: hsv.s * 100,
+            brightness: hsv.v * 100,
+            transparency: 0
+        };
+        printAttributes[isStroke ? 'strokeColor' : 'color'] = Color.rgbToHex(rgb);
+    }
+
+    _getPrintColorState (printAttributes, isStroke) {
+        const stateName = isStroke ? 'strokeColorState' : 'fillColorState';
+        if (!printAttributes[stateName]) {
+            const color = Color.hexToRgb(printAttributes[isStroke ? 'strokeColor' : 'color']);
+            const hsv = Color.rgbToHsv(color || Color.RGB_BLACK);
+            printAttributes[stateName] = {
+                color: hsv.h / 3.6,
+                saturation: hsv.s * 100,
+                brightness: hsv.v * 100,
+                transparency: 0
+            };
         }
+        return printAttributes[stateName];
+    }
+
+    _setOrChangePrintColorParam (targetName, param, value, target, change) {
+        const printAttributes = this._getPrintAttributes(target);
+        const isStroke = Cast.toString(targetName).toLowerCase() === 'stroke';
+        const colorState = this._getPrintColorState(printAttributes, isStroke);
+        switch (param) {
+        case ColorParam.COLOR:
+            colorState.color = this._wrapColor(value + (change ? colorState.color : 0));
+            break;
+        case ColorParam.SATURATION:
+        case ColorParam.BRIGHTNESS:
+        case ColorParam.TRANSPARENCY:
+            colorState[param] = this._clampColorParam(value + (change ? colorState[param] : 0));
+            break;
+        default:
+            log.warn(`Tried to set or change unknown print color parameter: ${param}`);
+        }
+        const rgb = Color.hsvToRgb({
+            h: colorState.color * 3.6,
+            s: colorState.saturation / 100,
+            v: colorState.brightness / 100
+        });
+        const alpha = this._transparencyToAlpha(colorState.transparency);
+        printAttributes[isStroke ? 'strokeColor' : 'color'] = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+    }
+
+    changePrintColorParamBy (args, util) {
+        this._setOrChangePrintColorParam(
+            args.TARGET, args.COLOR_PARAM, Cast.toNumber(args.VALUE), util.target, true
+        );
+    }
+
+    setPrintColorParamTo (args, util) {
+        this._setOrChangePrintColorParam(
+            args.TARGET, args.COLOR_PARAM, Cast.toNumber(args.VALUE), util.target, false
+        );
     }
 
     setPrintStrokeWidth (args, util) {

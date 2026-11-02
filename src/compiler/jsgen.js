@@ -1535,6 +1535,14 @@ class JSGenerator {
             this.source += `${PEN_EXT}._setPrintColor(${this.descendInput(node.target)}, ` +
                 `${this.descendInput(node.color)}, target);\n`;
             break;
+        case StackOpcode.PEN_PRINT_COLOR_PARAM_CHANGE:
+            this.source += `${PEN_EXT}._setOrChangePrintColorParam(${this.descendInput(node.target)}, ` +
+                `${this.descendInput(node.param)}, ${this.descendInput(node.value)}, target, true);\n`;
+            break;
+        case StackOpcode.PEN_PRINT_COLOR_PARAM_SET:
+            this.source += `${PEN_EXT}._setOrChangePrintColorParam(${this.descendInput(node.target)}, ` +
+                `${this.descendInput(node.param)}, ${this.descendInput(node.value)}, target, false);\n`;
+            break;
         case StackOpcode.PEN_PRINT_STROKE_WIDTH_SET:
             this.source += `${PEN_EXT}._setPrintStrokeWidth(${this.descendInput(node.width)}, target);\n`;
             break;

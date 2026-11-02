@@ -209,6 +209,8 @@ const StackOpcode = {
     PEN_PRINT_FONT_SET: 'pen.printSetFont',
     PEN_PRINT_FONT_SIZE_SET: 'pen.printSetFontSize',
     PEN_PRINT_COLOR_SET: 'pen.printSetColor',
+    PEN_PRINT_COLOR_PARAM_CHANGE: 'pen.printChangeColorParam',
+    PEN_PRINT_COLOR_PARAM_SET: 'pen.printSetColorParam',
     PEN_PRINT_STROKE_WIDTH_SET: 'pen.printSetStrokeWidth',
     PEN_PRINT_FONT_WEIGHT_SET: 'pen.printSetFontWeight',
     PEN_PRINT_ITALIC_SET: 'pen.printSetItalic',

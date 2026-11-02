@@ -1626,6 +1626,18 @@ class ScriptTreeGenerator {
                 target: this.descendInputOfBlock(block, 'TARGET').toType(InputType.STRING),
                 color: this.descendInputOfBlock(block, 'COLOR')
             });
+        case 'pen_changePrintColorParamBy':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_COLOR_PARAM_CHANGE, {
+                target: this.descendInputOfBlock(block, 'TARGET').toType(InputType.STRING),
+                param: this.descendInputOfBlock(block, 'COLOR_PARAM').toType(InputType.STRING),
+                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.NUMBER)
+            });
+        case 'pen_setPrintColorParamTo':
+            return new IntermediateStackBlock(StackOpcode.PEN_PRINT_COLOR_PARAM_SET, {
+                target: this.descendInputOfBlock(block, 'TARGET').toType(InputType.STRING),
+                param: this.descendInputOfBlock(block, 'COLOR_PARAM').toType(InputType.STRING),
+                value: this.descendInputOfBlock(block, 'VALUE').toType(InputType.NUMBER)
+            });
         case 'pen_setPrintStrokeWidth':
             return new IntermediateStackBlock(StackOpcode.PEN_PRINT_STROKE_WIDTH_SET, {
                 width: this.descendInputOfBlock(block, 'WIDTH').toType(InputType.NUMBER)
