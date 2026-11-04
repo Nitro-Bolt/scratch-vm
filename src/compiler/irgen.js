@@ -13,7 +13,8 @@ const {
     IntermediateInput,
     IntermediateStack,
     IntermediateScript,
-    IntermediateRepresentation
+    IntermediateRepresentation,
+    Effect
 } = require('./intermediate');
 const oldCompilerCompatiblity = require('./old-compiler-compatibility.js');
 
@@ -185,9 +186,9 @@ class ScriptTreeGenerator {
         if (constant === null) throw new Error('IR: Constant cannot have a null value.');
         if (typeof constant === 'object') {
             if (Array.isArray(constant)) {
-                return new IntermediateInput(InputOpcode.CONSTANT, InputType.ARRAY, {value: constant});
+                return new IntermediateInput(InputOpcode.CONSTANT, InputType.ARRAY, {value: constant}, false, {effects: Effect.NONE});
             }
-            return new IntermediateInput(InputOpcode.CONSTANT, InputType.OBJECT, {value: constant});
+            return new IntermediateInput(InputOpcode.CONSTANT, InputType.OBJECT, {value: constant}, false, {effects: Effect.NONE});
         }
 
         constant += '';
@@ -196,20 +197,20 @@ class ScriptTreeGenerator {
 
         if (!Number.isNaN(numConstant) && (constant.trim() !== '' || constant.includes('\t'))) {
             if (!preserve && numConstant.toString() === constant) {
-                return new IntermediateInput(InputOpcode.CONSTANT, IntermediateInput.getNumberInputType(numConstant), {value: numConstant});
+                return new IntermediateInput(InputOpcode.CONSTANT, IntermediateInput.getNumberInputType(numConstant), {value: numConstant}, false, {effects: Effect.NONE});
             }
-            return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING_NUM, {value: constant});
+            return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING_NUM, {value: constant}, false, {effects: Effect.NONE});
         }
 
         if (!preserve) {
             if (constant === 'true') {
-                return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING_BOOLEAN, {value: constant});
+                return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING_BOOLEAN, {value: constant}, false, {effects: Effect.NONE});
             } else if (constant === 'false') {
-                return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING_BOOLEAN, {value: constant});
+                return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING_BOOLEAN, {value: constant}, false, {effects: Effect.NONE});
             }
         }
 
-        return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING_NAN, {value: constant});
+        return new IntermediateInput(InputOpcode.CONSTANT, InputType.STRING_NAN, {value: constant}, false, {effects: Effect.NONE});
     }
 
     /**
@@ -296,13 +297,13 @@ class ScriptTreeGenerator {
             if (index === -1) {
                 // Legacy support
                 if (name.toLowerCase() === 'last key pressed') {
-                    return new IntermediateInput(InputOpcode.TW_KEY_LAST_PRESSED, InputType.STRING);
+                    return new IntermediateInput(InputOpcode.TW_KEY_LAST_PRESSED, InputType.STRING, {}, false, {effects: Effect.NONE});
                 }
             }
             if (index === -1) {
                 return this.createConstantInput(0);
             }
-            return new IntermediateInput(InputOpcode.PROCEDURE_ARGUMENT, InputType.ANY, {index});
+            return new IntermediateInput(InputOpcode.PROCEDURE_ARGUMENT, InputType.ANY, {index}, false, {effects: Effect.NONE});
         }
         case 'argument_reporter_boolean': {
             // see argument_reporter_string_number above
@@ -314,7 +315,7 @@ class ScriptTreeGenerator {
                 }
                 return this.createConstantInput(0);
             }
-            return new IntermediateInput(InputOpcode.PROCEDURE_ARGUMENT, InputType.ANY, {index});
+            return new IntermediateInput(InputOpcode.PROCEDURE_ARGUMENT, InputType.ANY, {index}, false, {effects: Effect.NONE});
         }
         case 'argument_reporter_object':
         case 'argument_reporter_array':
@@ -325,54 +326,54 @@ class ScriptTreeGenerator {
             if (index === -1) {
                 return this.createConstantInput(0);
             }
-            return new IntermediateInput(InputOpcode.PROCEDURE_ARGUMENT, InputType.ANY, {index});
+            return new IntermediateInput(InputOpcode.PROCEDURE_ARGUMENT, InputType.ANY, {index}, false, {effects: Effect.NONE});
         }
 
         case 'data_variable':
             return new IntermediateInput(InputOpcode.VAR_GET, InputType.ANY, {
                 variable: this.descendVariable(block, 'VARIABLE', SCALAR_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_itemoflist':
             return new IntermediateInput(InputOpcode.LIST_GET, InputType.ANY, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
                 index: this.descendInputOfBlock(block, 'INDEX')
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_lengthoflist':
             return new IntermediateInput(InputOpcode.LIST_LENGTH, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_listcontainsitem':
             return new IntermediateInput(InputOpcode.LIST_CONTAINS, InputType.BOOLEAN, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
                 item: this.descendInputOfBlock(block, 'ITEM')
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_itemnumoflist':
             return new IntermediateInput(InputOpcode.LIST_INDEX_OF, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
                 item: this.descendInputOfBlock(block, 'ITEM')
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_listcontents':
             return new IntermediateInput(InputOpcode.LIST_CONTENTS, InputType.STRING, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_listasarray':
             return new IntermediateInput(InputOpcode.LIST_ASARRAY, InputType.ARRAY, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
 
         case 'data_itemincelloftable':
             return new IntermediateInput(InputOpcode.TABLE_CELL_VALUE, InputType.ANY, {
                 column: this.descendInputOfBlock(block, 'COLUMN'),
                 row: this.descendInputOfBlock(block, 'ROW'),
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_itemsofdimensionoftable': {
             const dimension = block.fields.DIMENSION.value.toLowerCase();
             return new IntermediateInput(InputOpcode.TABLE_DIMENSION_VALUES, InputType.ARRAY, {
                 dimension,
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         }
         case 'data_lengthofdimensionoftable': {
             const dimension = block.fields.DIMENSION.value.toLowerCase();
@@ -380,14 +381,14 @@ class ScriptTreeGenerator {
                 dimension,
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         }
         case 'data_dimensioncountoftable': {
             const dimension = block.fields.DIMENSION.value.toLowerCase();
             return new IntermediateInput(InputOpcode.TABLE_DIMENSION_COUNT, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {
                 dimension,
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         }
         case 'data_tablecontainsitemincell':
             return new IntermediateInput(InputOpcode.TABLE_CONTAINS_VALUE, InputType.BOOLEAN, {
@@ -395,18 +396,18 @@ class ScriptTreeGenerator {
                 item: this.descendInputOfBlock(block, 'ITEM'),
                 column: this.descendInputOfBlock(block, 'COLUMN'),
                 row: this.descendInputOfBlock(block, 'ROW')
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_tableasarray':
             return new IntermediateInput(InputOpcode.TABLE_AS_ARRAY, InputType.ARRAY, {
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_tablecontents':
             return new IntermediateInput(InputOpcode.TABLE_CONTENTS, InputType.STRING, {
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
 
         case 'json_new_object':
-            return new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT);
+            return new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT, {}, false, {effects: Effect.NONE});
         case 'json_object': {
             const count = +block.fields.ITEMS.value;
             const keys = [];
@@ -430,45 +431,45 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_GET_PROPERTIES, InputType.ARRAY, {
                 property,
                 object: this.descendInputOfBlock(block, 'OBJ', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT, {}, false, {effects: Effect.NONE})).toType(InputType.OBJECT)
+            }, false, {effects: Effect.NONE});
         }
         case 'json_value_of_key':
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_KEY, InputType.ANY, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
                 object: this.descendInputOfBlock(block, 'OBJ', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT, {}, false, {effects: Effect.NONE})).toType(InputType.OBJECT)
+            }, false, {effects: Effect.NONE});
         case 'json_set_key':
             return new IntermediateInput(InputOpcode.JSON_SET_KEY, InputType.OBJECT, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
                 object: this.descendInputOfBlock(block, 'OBJ', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT, {}, false, {effects: Effect.NONE})).toType(InputType.OBJECT),
                 value: this.descendInputOfBlock(block, 'VALUE')
-            });
+            }, false, {effects: Effect.NONE});
         case 'json_delete_key':
             return new IntermediateInput(InputOpcode.JSON_DELETE_KEY, InputType.OBJECT, {
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING),
                 object: this.descendInputOfBlock(block, 'OBJ', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT, {}, false, {effects: Effect.NONE})).toType(InputType.OBJECT)
+            }, false, {effects: Effect.NONE});
         case 'json_merge_object': {
             const count = +block.fields.ITEMS.value;
             const items = [];
             for (let i = 0; i < count; i++) {
                 items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT));
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT, {}, false, {effects: Effect.NONE})).toType(InputType.OBJECT));
             }
-            return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT, InputType.OBJECT, {items, count});
+            return new IntermediateInput(InputOpcode.JSON_MERGE_OBJECT, InputType.OBJECT, {items, count}, false, {effects: Effect.NONE});
         }
         case 'json_has_key':
             return new IntermediateInput(InputOpcode.JSON_HAS_KEY, InputType.BOOLEAN, {
                 object: this.descendInputOfBlock(block, 'OBJ', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT)).toType(InputType.OBJECT),
+                    new IntermediateInput(InputOpcode.JSON_NEW_OBJECT, InputType.OBJECT, {}, false, {effects: Effect.NONE})).toType(InputType.OBJECT),
                 key: this.descendInputOfBlock(block, 'KEY').toType(InputType.STRING)
-            });
+            }, false, {effects: Effect.NONE});
         case 'json_new_array':
-            return new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY);
+            return new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE});
         case 'json_array': {
             const count = +block.fields.ITEMS.value;
             const items = [];
@@ -487,14 +488,14 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_VALUE_OF_INDEX, InputType.ANY, {
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY)
+            }, false, {effects: Effect.NONE});
         case 'json_index_of_value':
             return new IntermediateInput(InputOpcode.JSON_INDEX_OF_VALUE, InputType.NUMBER_WHOLE | InputType.STRING_NAN, {
                 value: this.descendInputOfBlock(block, 'VALUE'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY)
+            }, false, {effects: Effect.NONE});
         case 'json_add_item': {
             const count = +block.fields.ITEMS.value;
             const items = [];
@@ -504,60 +505,60 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_ADD_ITEM, InputType.ARRAY, {
                 items,
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY)
+            }, false, {effects: Effect.NONE});
         }
         case 'json_replace_index':
             return new IntermediateInput(InputOpcode.JSON_REPLACE_INDEX, InputType.ARRAY, {
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY),
                 item: this.descendInputOfBlock(block, 'ITEM')
-            });
+            }, false, {effects: Effect.NONE});
         case 'json_delete_index':
             return new IntermediateInput(InputOpcode.JSON_DELETE_INDEX, InputType.ARRAY, {
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY)
+            }, false, {effects: Effect.NONE});
         case 'json_delete_all_occurrences':
             return new IntermediateInput(InputOpcode.JSON_DELETE_ALL_OCCURRENCES, InputType.ARRAY, {
                 item: this.descendInputOfBlock(block, 'ITEM'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY)
+            }, false, {effects: Effect.NONE});
         case 'json_merge_array': {
             const count = +block.fields.ITEMS.value;
             const items = [];
             for (let i = 0; i < count; i++) {
                 items.push(this.descendInputOfBlock(block, `ITEMS_${i}_ITEM`, false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY));
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY));
             }
-            return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY, InputType.ARRAY, {items, count});
+            return new IntermediateInput(InputOpcode.JSON_MERGE_ARRAY, InputType.ARRAY, {items, count}, false, {effects: Effect.NONE});
         }
         case 'json_has_item':
             return new IntermediateInput(InputOpcode.JSON_HAS_ITEM, InputType.BOOLEAN, {
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY),
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY),
                 item: this.descendInputOfBlock(block, 'ITEM')
-            });
+            }, false, {effects: Effect.NONE});
         case 'json_array_length':
             return new IntermediateInput(InputOpcode.JSON_ARRAY_LENGTH, InputType.NUMBER_WHOLE, {
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY)
+            }, false, {effects: Effect.NONE});
         case 'json_slice_array':
             return new IntermediateInput(InputOpcode.JSON_SLICE_ARRAY, InputType.ARRAY, {
                 start: this.descendInputOfBlock(block, 'START'),
                 end: this.descendInputOfBlock(block, 'END'),
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY)
+            }, false, {effects: Effect.NONE});
         case 'json_reverse_array':
             return new IntermediateInput(InputOpcode.JSON_REVERSE_ARRAY, InputType.ARRAY, {
                 array: this.descendInputOfBlock(block, 'ARR', false,
-                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY)
-            });
+                    new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY)
+            }, false, {effects: Effect.NONE});
         case 'json_split': {
             const isJoin = block.fields.MODE.value.toLowerCase() === 'join';
             return new IntermediateInput(InputOpcode.JSON_SPLIT,
@@ -565,15 +566,15 @@ class ScriptTreeGenerator {
                     mode: isJoin ? 'join' : 'split',
                     input: this.descendInputOfBlock(block, 'INPUT').toType(isJoin ? InputType.ARRAY : InputType.STRING),
                     delimiter: this.descendInputOfBlock(block, 'DELIMITER').toType(InputType.STRING)
-                });
+                }, false, {effects: Effect.NONE});
         }
         case 'json_foreach_value':
-            return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY);
+            return new IntermediateInput(InputOpcode.JSON_FOREACH_VALUE, InputType.ANY, {}, false, {effects: Effect.NONE});
         case 'json_foreach_index':
-            return new IntermediateInput(InputOpcode.JSON_FOREACH_INDEX, InputType.NUMBER);
+            return new IntermediateInput(InputOpcode.JSON_FOREACH_INDEX, InputType.NUMBER, {}, false, {effects: Effect.NONE});
         case 'json_map': {
             const array = this.descendInputOfBlock(block, 'ARRAY', false,
-                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY);
+                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY);
             const methodInput = block.inputs.METHOD;
             let mapper;
             if (methodInput && methodInput.block) {
@@ -593,7 +594,7 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_MAP_INDEX, InputType.NUMBER | InputType.STRING_NAN);
         case 'json_filter': {
             const array = this.descendInputOfBlock(block, 'ARRAY', false,
-                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY);
+                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY);
             const methodInput = block.inputs.METHOD;
             let mapper;
             if (methodInput && methodInput.block) {
@@ -613,7 +614,7 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.JSON_FILTER_INDEX, InputType.NUMBER | InputType.STRING_NAN);
         case 'json_sort': {
             const array = this.descendInputOfBlock(block, 'ARRAY', false,
-                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY)).toType(InputType.ARRAY);
+                new IntermediateInput(InputOpcode.JSON_NEW_ARRAY, InputType.ARRAY, {}, false, {effects: Effect.NONE})).toType(InputType.ARRAY);
             const methodInput = block.inputs.METHOD;
             let mapper;
             if (methodInput && methodInput.block) {
@@ -642,97 +643,97 @@ class ScriptTreeGenerator {
 
         case 'looks_backdropnumbername':
             if (block.fields.NUMBER_NAME.value === 'number') {
-                return new IntermediateInput(InputOpcode.LOOKS_BACKDROP_NUMBER, InputType.NUMBER_POS_INT);
+                return new IntermediateInput(InputOpcode.LOOKS_BACKDROP_NUMBER, InputType.NUMBER_POS_INT, {}, false, {effects: Effect.NONE});
             }
             return new IntermediateInput(InputOpcode.LOOKS_BACKDROP_NAME, InputType.STRING);
         case 'looks_costumenumbername':
             if (block.fields.NUMBER_NAME.value === 'number') {
-                return new IntermediateInput(InputOpcode.LOOKS_COSTUME_NUMBER, InputType.NUMBER_POS_INT);
+                return new IntermediateInput(InputOpcode.LOOKS_COSTUME_NUMBER, InputType.NUMBER_POS_INT, {}, false, {effects: Effect.NONE});
             }
             return new IntermediateInput(InputOpcode.LOOKS_COSTUME_NAME, InputType.STRING);
         case 'looks_size':
-            return new IntermediateInput(InputOpcode.LOOKS_SIZE_GET, InputType.NUMBER_POS | InputType.NUMBER_ZERO);
+            return new IntermediateInput(InputOpcode.LOOKS_SIZE_GET, InputType.NUMBER_POS | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
 
         case 'motion_direction':
-            return new IntermediateInput(InputOpcode.MOTION_DIRECTION_GET, InputType.NUMBER_REAL);
+            return new IntermediateInput(InputOpcode.MOTION_DIRECTION_GET, InputType.NUMBER_REAL, {}, false, {effects: Effect.NONE});
         case 'motion_xposition':
-            return new IntermediateInput(InputOpcode.MOTION_X_GET, InputType.NUMBER);
+            return new IntermediateInput(InputOpcode.MOTION_X_GET, InputType.NUMBER, {}, false, {effects: Effect.NONE});
         case 'motion_yposition':
-            return new IntermediateInput(InputOpcode.MOTION_Y_GET, InputType.NUMBER);
+            return new IntermediateInput(InputOpcode.MOTION_Y_GET, InputType.NUMBER, {}, false, {effects: Effect.NONE});
 
         case 'operator_add':
             return new IntermediateInput(InputOpcode.OP_ADD, InputType.NUMBER_OR_NAN, {
                 left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
                 right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_and':
             return new IntermediateInput(InputOpcode.OP_AND, InputType.BOOLEAN, {
                 left: this.descendInputOfBlock(block, 'OPERAND1').toType(InputType.BOOLEAN),
                 right: this.descendInputOfBlock(block, 'OPERAND2').toType(InputType.BOOLEAN)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_contains':
             return new IntermediateInput(InputOpcode.OP_CONTAINS, InputType.BOOLEAN, {
                 string: this.descendInputOfBlock(block, 'STRING1').toType(InputType.STRING),
                 contains: this.descendInputOfBlock(block, 'STRING2').toType(InputType.STRING)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_divide':
             return new IntermediateInput(InputOpcode.OP_DIVIDE, InputType.NUMBER_OR_NAN, {
                 left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
                 right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_equals':
             return new IntermediateInput(InputOpcode.OP_EQUALS, InputType.BOOLEAN, {
                 left: this.descendInputOfBlock(block, 'OPERAND1'),
                 right: this.descendInputOfBlock(block, 'OPERAND2')
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_gt':
             return new IntermediateInput(InputOpcode.OP_GREATER, InputType.BOOLEAN, {
                 left: this.descendInputOfBlock(block, 'OPERAND1'),
                 right: this.descendInputOfBlock(block, 'OPERAND2')
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_join':
             return new IntermediateInput(InputOpcode.OP_JOIN, InputType.STRING, {
                 left: this.descendInputOfBlock(block, 'STRING1').toType(InputType.STRING),
                 right: this.descendInputOfBlock(block, 'STRING2').toType(InputType.STRING)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_length':
             return new IntermediateInput(InputOpcode.OP_LENGTH, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {
                 string: this.descendInputOfBlock(block, 'STRING').toType(InputType.STRING)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_letter_of':
             return new IntermediateInput(InputOpcode.OP_LETTER_OF, InputType.STRING, {
                 letter: this.descendInputOfBlock(block, 'LETTER').toType(InputType.NUMBER_INDEX),
                 string: this.descendInputOfBlock(block, 'STRING').toType(InputType.STRING)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_letters_in':
             return new IntermediateInput(InputOpcode.OP_LETTERS_IN, InputType.STRING, {
                 start: this.descendInputOfBlock(block, 'START').toType(InputType.NUMBER_INDEX),
                 end: this.descendInputOfBlock(block, 'END').toType(InputType.NUMBER_INDEX),
                 string: this.descendInputOfBlock(block, 'STRING').toType(InputType.STRING)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_lt':
             return new IntermediateInput(InputOpcode.OP_LESS, InputType.BOOLEAN, {
                 left: this.descendInputOfBlock(block, 'OPERAND1'),
                 right: this.descendInputOfBlock(block, 'OPERAND2')
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_mathop': {
             const value = this.descendInputOfBlock(block, 'NUM').toType(InputType.NUMBER);
             const operator = block.fields.OPERATOR.value.toLowerCase();
             switch (operator) {
-            case 'abs': return new IntermediateInput(InputOpcode.OP_ABS, InputType.NUMBER_POS | InputType.NUMBER_ZERO, {value});
-            case 'floor': return new IntermediateInput(InputOpcode.OP_FLOOR, InputType.NUMBER_INT | InputType.NUMBER_INF, {value});
-            case 'ceiling': return new IntermediateInput(InputOpcode.OP_CEILING, InputType.NUMBER_INT | InputType.NUMBER_INF, {value});
-            case 'sqrt': return new IntermediateInput(InputOpcode.OP_SQRT, InputType.NUMBER_OR_NAN, {value});
-            case 'sin': return new IntermediateInput(InputOpcode.OP_SIN, InputType.NUMBER_OR_NAN, {value});
-            case 'cos': return new IntermediateInput(InputOpcode.OP_COS, InputType.NUMBER_OR_NAN, {value});
-            case 'tan': return new IntermediateInput(InputOpcode.OP_TAN, InputType.NUMBER_OR_NAN, {value});
-            case 'asin': return new IntermediateInput(InputOpcode.OP_ASIN, InputType.NUMBER_OR_NAN, {value});
-            case 'acos': return new IntermediateInput(InputOpcode.OP_ACOS, InputType.NUMBER_OR_NAN, {value});
-            case 'atan': return new IntermediateInput(InputOpcode.OP_ATAN, InputType.NUMBER, {value});
-            case 'ln': return new IntermediateInput(InputOpcode.OP_LOG_E, InputType.NUMBER_OR_NAN, {value});
-            case 'log': return new IntermediateInput(InputOpcode.OP_LOG_10, InputType.NUMBER_OR_NAN, {value});
-            case 'e ^': return new IntermediateInput(InputOpcode.OP_POW_E, InputType.NUMBER, {value});
-            case '10 ^': return new IntermediateInput(InputOpcode.OP_POW_10, InputType.NUMBER, {value});
+            case 'abs': return new IntermediateInput(InputOpcode.OP_ABS, InputType.NUMBER_POS | InputType.NUMBER_ZERO, {value}, false, {effects: Effect.NONE});
+            case 'floor': return new IntermediateInput(InputOpcode.OP_FLOOR, InputType.NUMBER_INT | InputType.NUMBER_INF, {value}, false, {effects: Effect.NONE});
+            case 'ceiling': return new IntermediateInput(InputOpcode.OP_CEILING, InputType.NUMBER_INT | InputType.NUMBER_INF, {value}, false, {effects: Effect.NONE});
+            case 'sqrt': return new IntermediateInput(InputOpcode.OP_SQRT, InputType.NUMBER_OR_NAN, {value}, false, {effects: Effect.NONE});
+            case 'sin': return new IntermediateInput(InputOpcode.OP_SIN, InputType.NUMBER_OR_NAN, {value}, false, {effects: Effect.NONE});
+            case 'cos': return new IntermediateInput(InputOpcode.OP_COS, InputType.NUMBER_OR_NAN, {value}, false, {effects: Effect.NONE});
+            case 'tan': return new IntermediateInput(InputOpcode.OP_TAN, InputType.NUMBER_OR_NAN, {value}, false, {effects: Effect.NONE});
+            case 'asin': return new IntermediateInput(InputOpcode.OP_ASIN, InputType.NUMBER_OR_NAN, {value}, false, {effects: Effect.NONE});
+            case 'acos': return new IntermediateInput(InputOpcode.OP_ACOS, InputType.NUMBER_OR_NAN, {value}, false, {effects: Effect.NONE});
+            case 'atan': return new IntermediateInput(InputOpcode.OP_ATAN, InputType.NUMBER, {value}, false, {effects: Effect.NONE});
+            case 'ln': return new IntermediateInput(InputOpcode.OP_LOG_E, InputType.NUMBER_OR_NAN, {value}, false, {effects: Effect.NONE});
+            case 'log': return new IntermediateInput(InputOpcode.OP_LOG_10, InputType.NUMBER_OR_NAN, {value}, false, {effects: Effect.NONE});
+            case 'e ^': return new IntermediateInput(InputOpcode.OP_POW_E, InputType.NUMBER, {value}, false, {effects: Effect.NONE});
+            case '10 ^': return new IntermediateInput(InputOpcode.OP_POW_10, InputType.NUMBER, {value}, false, {effects: Effect.NONE});
             default: return this.createConstantInput(0);
             }
         }
@@ -751,11 +752,11 @@ class ScriptTreeGenerator {
             const value = this.descendInputOfBlock(block, 'VALUE');
 
             switch (type) {
-            case 'string': return new IntermediateInput(InputOpcode.CAST_STRING, InputType.STRING, {target: value});
-            case 'number': return new IntermediateInput(InputOpcode.CAST_NUMBER, InputType.NUMBER, {target: value});
-            case 'boolean': return new IntermediateInput(InputOpcode.CAST_BOOLEAN, InputType.BOOLEAN, {target: value});
-            case 'object': return new IntermediateInput(InputOpcode.CAST_OBJECT, InputType.OBJECT, {target: value});
-            case 'array': return new IntermediateInput(InputOpcode.CAST_ARRAY, InputType.ARRAY, {target: value});
+            case 'string': return new IntermediateInput(InputOpcode.CAST_STRING, InputType.STRING, {target: value}, false, {effects: Effect.NONE});
+            case 'number': return new IntermediateInput(InputOpcode.CAST_NUMBER, InputType.NUMBER, {target: value}, false, {effects: Effect.NONE});
+            case 'boolean': return new IntermediateInput(InputOpcode.CAST_BOOLEAN, InputType.BOOLEAN, {target: value}, false, {effects: Effect.NONE});
+            case 'object': return new IntermediateInput(InputOpcode.CAST_OBJECT, InputType.OBJECT, {target: value}, false, {effects: Effect.NONE});
+            case 'array': return new IntermediateInput(InputOpcode.CAST_ARRAY, InputType.ARRAY, {target: value}, false, {effects: Effect.NONE});
             default: return value;
             }
         }
@@ -771,21 +772,21 @@ class ScriptTreeGenerator {
             return new IntermediateInput(InputOpcode.OP_MOD, InputType.NUMBER_OR_NAN, {
                 left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
                 right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_multiply':
             return new IntermediateInput(InputOpcode.OP_MULTIPLY, InputType.NUMBER_OR_NAN, {
                 left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
                 right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_not':
             return new IntermediateInput(InputOpcode.OP_NOT, InputType.BOOLEAN, {
                 operand: this.descendInputOfBlock(block, 'OPERAND').toType(InputType.BOOLEAN)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_or':
             return new IntermediateInput(InputOpcode.OP_OR, InputType.BOOLEAN, {
                 left: this.descendInputOfBlock(block, 'OPERAND1').toType(InputType.BOOLEAN),
                 right: this.descendInputOfBlock(block, 'OPERAND2').toType(InputType.BOOLEAN)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_random': {
             const from = this.descendInputOfBlock(block, 'FROM');
             const to = this.descendInputOfBlock(block, 'TO');
@@ -809,7 +810,7 @@ class ScriptTreeGenerator {
                         high: (nFrom <= nTo ? to : from).toType(InputType.NUMBER),
                         useInts: true,
                         useFloats: false
-                    });
+                    }, false, {effects: Effect.NONE});
                 }
                 // Otherwise hint that these are floats
                 return new IntermediateInput(InputOpcode.OP_RANDOM, InputType.NUMBER_OR_NAN, {
@@ -817,7 +818,7 @@ class ScriptTreeGenerator {
                     high: (nFrom <= nTo ? to : from).toType(InputType.NUMBER),
                     useInts: false,
                     useFloats: true
-                });
+                }, false, {effects: Effect.NONE});
             } else if (from.opcode === InputOpcode.CONSTANT) {
                 // If only one value is known at compile-time, we can still attempt some optimizations.
                 if (!Cast.isInt(Cast.toNumber(from.inputs.value))) {
@@ -826,7 +827,7 @@ class ScriptTreeGenerator {
                         high: to.toType(InputType.NUMBER),
                         useInts: false,
                         useFloats: true
-                    });
+                    }, false, {effects: Effect.NONE});
                 }
             } else if (to.opcode === InputOpcode.CONSTANT) {
                 if (!Cast.isInt(Cast.toNumber(from.inputs.value))) {
@@ -835,7 +836,7 @@ class ScriptTreeGenerator {
                         high: to.toType(InputType.NUMBER),
                         useInts: false,
                         useFloats: true
-                    });
+                    }, false, {effects: Effect.NONE});
                 }
             }
             // No optimizations possible
@@ -844,24 +845,24 @@ class ScriptTreeGenerator {
                 high: to,
                 useInts: false,
                 useFloats: false
-            });
+            }, false, {effects: Effect.NONE});
         }
         case 'operator_round':
             return new IntermediateInput(InputOpcode.OP_ROUND, InputType.NUMBER_INT | InputType.NUMBER_INF, {
                 value: this.descendInputOfBlock(block, 'NUM').toType(InputType.NUMBER)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_subtract':
             return new IntermediateInput(InputOpcode.OP_SUBTRACT, InputType.NUMBER_OR_NAN, {
                 left: this.descendInputOfBlock(block, 'NUM1').toType(InputType.NUMBER),
                 right: this.descendInputOfBlock(block, 'NUM2').toType(InputType.NUMBER)
-            });
+            }, false, {effects: Effect.NONE});
         case 'operator_add_extendable': {
             const count = +block.fields.NUMS.value;
             const operands = [];
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
             }
-            return new IntermediateInput(InputOpcode.OP_ADD_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_ADD_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_subtract_extendable': {
             const count = +block.fields.NUMS.value;
@@ -869,7 +870,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
             }
-            return new IntermediateInput(InputOpcode.OP_SUBTRACT_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_SUBTRACT_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_multiply_extendable': {
             const count = +block.fields.NUMS.value;
@@ -877,7 +878,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
             }
-            return new IntermediateInput(InputOpcode.OP_MULTIPLY_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_MULTIPLY_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_divide_extendable': {
             const count = +block.fields.NUMS.value;
@@ -885,7 +886,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
             }
-            return new IntermediateInput(InputOpcode.OP_DIVIDE_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_DIVIDE_EXTENDABLE, InputType.NUMBER_OR_NAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_power': {
             const count = +block.fields.NUMS.value;
@@ -893,7 +894,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `NUMS_${i}_NUM`).toType(InputType.NUMBER));
             }
-            return new IntermediateInput(InputOpcode.OP_POWER, InputType.NUMBER_OR_NAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_POWER, InputType.NUMBER_OR_NAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_and_extendable': {
             const count = +block.fields.OPERANDS.value;
@@ -901,7 +902,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`).toType(InputType.BOOLEAN));
             }
-            return new IntermediateInput(InputOpcode.OP_AND_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_AND_EXTENDABLE, InputType.BOOLEAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_or_extendable': {
             const count = +block.fields.OPERANDS.value;
@@ -909,7 +910,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`).toType(InputType.BOOLEAN));
             }
-            return new IntermediateInput(InputOpcode.OP_OR_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_OR_EXTENDABLE, InputType.BOOLEAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_xor_extendable': {
             const count = +block.fields.OPERANDS.value;
@@ -917,7 +918,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`).toType(InputType.BOOLEAN));
             }
-            return new IntermediateInput(InputOpcode.OP_XOR_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_XOR_EXTENDABLE, InputType.BOOLEAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_join_extendable': {
             const count = +block.fields.STRINGS.value;
@@ -925,7 +926,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `STRINGS_${i}_STRING`).toType(InputType.STRING));
             }
-            return new IntermediateInput(InputOpcode.OP_JOIN_EXTENDABLE, InputType.STRING, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_JOIN_EXTENDABLE, InputType.STRING, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_lt_extendable': {
             const count = +block.fields.OPERANDS.value;
@@ -933,7 +934,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
             }
-            return new IntermediateInput(InputOpcode.OP_LESS_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_LESS_EXTENDABLE, InputType.BOOLEAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_equals_extendable': {
             const count = +block.fields.OPERANDS.value;
@@ -941,7 +942,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
             }
-            return new IntermediateInput(InputOpcode.OP_EQUALS_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_EQUALS_EXTENDABLE, InputType.BOOLEAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_gt_extendable': {
             const count = +block.fields.OPERANDS.value;
@@ -949,7 +950,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
             }
-            return new IntermediateInput(InputOpcode.OP_GREATER_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_GREATER_EXTENDABLE, InputType.BOOLEAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_lte': {
             const count = +block.fields.OPERANDS.value;
@@ -957,7 +958,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
             }
-            return new IntermediateInput(InputOpcode.OP_LESS_OR_EQUAL_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_LESS_OR_EQUAL_EXTENDABLE, InputType.BOOLEAN, {operands, count}, false, {effects: Effect.NONE});
         }
         case 'operator_gte': {
             const count = +block.fields.OPERANDS.value;
@@ -965,7 +966,7 @@ class ScriptTreeGenerator {
             for (let i = 0; i < count; i++) {
                 operands.push(this.descendInputOfBlock(block, `OPERANDS_${i}_OPERAND`));
             }
-            return new IntermediateInput(InputOpcode.OP_GREATER_OR_EQUAL_EXTENDABLE, InputType.BOOLEAN, {operands, count});
+            return new IntermediateInput(InputOpcode.OP_GREATER_OR_EQUAL_EXTENDABLE, InputType.BOOLEAN, {operands, count}, false, {effects: Effect.NONE});
         }
 
         case 'procedures_call': {
@@ -974,7 +975,7 @@ class ScriptTreeGenerator {
         }
 
         case 'sensing_answer':
-            return new IntermediateInput(InputOpcode.SENSING_ANSWER, InputType.STRING);
+            return new IntermediateInput(InputOpcode.SENSING_ANSWER, InputType.STRING, {}, false, {effects: Effect.NONE});
 
         case 'sensing_coloristouchingcolor':
             return new IntermediateInput(InputOpcode.SENSING_COLOR_TOUCHING_COLOR, InputType.BOOLEAN, {
@@ -983,19 +984,19 @@ class ScriptTreeGenerator {
             });
         case 'sensing_current':
             switch (block.fields.CURRENTMENU.value.toLowerCase()) {
-            case 'year': return new IntermediateInput(InputOpcode.SENSING_TIME_YEAR, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
-            case 'month': return new IntermediateInput(InputOpcode.SENSING_TIME_MONTH, InputType.NUMBER_POS_INT);
-            case 'date': return new IntermediateInput(InputOpcode.SENSING_TIME_DATE, InputType.NUMBER_POS_INT);
-            case 'dayofweek': return new IntermediateInput(InputOpcode.SENSING_TIME_WEEKDAY, InputType.NUMBER_POS_INT);
-            case 'hour': return new IntermediateInput(InputOpcode.SENSING_TIME_HOUR, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
-            case 'minute': return new IntermediateInput(InputOpcode.SENSING_TIME_MINUTE, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
-            case 'second': return new IntermediateInput(InputOpcode.SENSING_TIME_SECOND, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
-            case 'millisecond': return new IntermediateInput(InputOpcode.SENSING_TIME_MILLISECOND, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
-            case 'timestamp': return new IntermediateInput(InputOpcode.SENSING_TIME_TIMESTAMP, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
+            case 'year': return new IntermediateInput(InputOpcode.SENSING_TIME_YEAR, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
+            case 'month': return new IntermediateInput(InputOpcode.SENSING_TIME_MONTH, InputType.NUMBER_POS_INT, {}, false, {effects: Effect.NONE});
+            case 'date': return new IntermediateInput(InputOpcode.SENSING_TIME_DATE, InputType.NUMBER_POS_INT, {}, false, {effects: Effect.NONE});
+            case 'dayofweek': return new IntermediateInput(InputOpcode.SENSING_TIME_WEEKDAY, InputType.NUMBER_POS_INT, {}, false, {effects: Effect.NONE});
+            case 'hour': return new IntermediateInput(InputOpcode.SENSING_TIME_HOUR, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
+            case 'minute': return new IntermediateInput(InputOpcode.SENSING_TIME_MINUTE, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
+            case 'second': return new IntermediateInput(InputOpcode.SENSING_TIME_SECOND, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
+            case 'millisecond': return new IntermediateInput(InputOpcode.SENSING_TIME_MILLISECOND, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
+            case 'timestamp': return new IntermediateInput(InputOpcode.SENSING_TIME_TIMESTAMP, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
             default: return this.createConstantInput(0);
             }
         case 'sensing_dayssince2000':
-            return new IntermediateInput(InputOpcode.SENSING_TIME_DAYS_SINCE_2000, InputType.NUMBER);
+            return new IntermediateInput(InputOpcode.SENSING_TIME_DAYS_SINCE_2000, InputType.NUMBER, {}, false, {effects: Effect.NONE});
         case 'sensing_distanceto':
             return new IntermediateInput(InputOpcode.SENSING_DISTANCE, InputType.NUMBER_POS | InputType.NUMBER_ZERO, {
                 target: this.descendInputOfBlock(block, 'DISTANCETOMENU').toType(InputType.STRING)
@@ -1003,13 +1004,13 @@ class ScriptTreeGenerator {
         case 'sensing_keypressed':
             return new IntermediateInput(InputOpcode.SENSING_KEY_DOWN, InputType.BOOLEAN, {
                 key: this.descendInputOfBlock(block, 'KEY_OPTION', true)
-            });
+            }, false, {effects: Effect.NONE});
         case 'sensing_mousedown':
-            return new IntermediateInput(InputOpcode.SENSING_MOUSE_DOWN, InputType.BOOLEAN);
+            return new IntermediateInput(InputOpcode.SENSING_MOUSE_DOWN, InputType.BOOLEAN, {}, false, {effects: Effect.NONE});
         case 'sensing_mousex':
-            return new IntermediateInput(InputOpcode.SENSING_MOUSE_X, InputType.NUMBER);
+            return new IntermediateInput(InputOpcode.SENSING_MOUSE_X, InputType.NUMBER, {}, false, {effects: Effect.NONE});
         case 'sensing_mousey':
-            return new IntermediateInput(InputOpcode.SENSING_MOUSE_Y, InputType.NUMBER);
+            return new IntermediateInput(InputOpcode.SENSING_MOUSE_Y, InputType.NUMBER, {}, false, {effects: Effect.NONE});
         case 'sensing_of': {
             const property = block.fields.PROPERTY.value;
             const object = this.descendInputOfBlock(block, 'OBJECT').toType(InputType.STRING);
@@ -1053,7 +1054,7 @@ class ScriptTreeGenerator {
         }
         case 'sensing_timer':
             this.usesTimer = true;
-            return new IntermediateInput(InputOpcode.SENSING_TIMER_GET, InputType.NUMBER_POS_REAL | InputType.NUMBER_ZERO);
+            return new IntermediateInput(InputOpcode.SENSING_TIMER_GET, InputType.NUMBER_POS_REAL | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
         case 'sensing_touchingcolor':
             return new IntermediateInput(InputOpcode.SENSING_TOUCHING_COLOR, InputType.BOOLEAN, {
                 color: this.descendInputOfBlock(block, 'COLOR').toType(InputType.COLOR)
@@ -1063,33 +1064,33 @@ class ScriptTreeGenerator {
                 object: this.descendInputOfBlock(block, 'TOUCHINGOBJECTMENU')
             });
         case 'sensing_username':
-            return new IntermediateInput(InputOpcode.SENSING_USERNAME, InputType.STRING);
+            return new IntermediateInput(InputOpcode.SENSING_USERNAME, InputType.STRING, {}, false, {effects: Effect.NONE});
         case 'sensing_loudness':
             return new IntermediateInput(InputOpcode.SENSING_LOUDNESS, InputType.NUMBER);
         case 'sensing_loud':
             return new IntermediateInput(InputOpcode.SENSING_LOUD, InputType.BOOLEAN);
         case 'sensing_online':
-            return new IntermediateInput(InputOpcode.SENSING_ONLINE, InputType.BOOLEAN);
+            return new IntermediateInput(InputOpcode.SENSING_ONLINE, InputType.BOOLEAN, {}, false, {effects: Effect.NONE});
 
         case 'sound_sounds_menu':
             // This menu is special compared to other menus -- it actually has an opcode function.
             return this.createConstantInput(block.fields.SOUND_MENU.value, true);
         case 'sound_volume':
-            return new IntermediateInput(InputOpcode.SOUND_VOLUME, InputType.NUMBER);
+            return new IntermediateInput(InputOpcode.SOUND_VOLUME, InputType.NUMBER, {}, false, {effects: Effect.NONE});
 
         case 'control_inline_if_else':
             return new IntermediateInput(InputOpcode.CONTROL_INLINE_IF_ELSE, InputType.ANY, {
                 operand: this.descendInputOfBlock(block, 'OPERAND').toType(InputType.BOOLEAN),
                 then: this.descendInputOfBlock(block, 'THEN'),
                 else: this.descendInputOfBlock(block, 'ELSE')
-            });
+            }, false, {effects: Effect.NONE});
         case 'control_foreach_in_range_item':
-            return new IntermediateInput(InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM, InputType.NUMBER);
+            return new IntermediateInput(InputOpcode.CONTROL_FOREACH_IN_RANGE_ITEM, InputType.NUMBER, {}, false, {effects: Effect.NONE});
         case 'control_get_counter':
-            return new IntermediateInput(InputOpcode.CONTROL_COUNTER, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO);
+            return new IntermediateInput(InputOpcode.CONTROL_COUNTER, InputType.NUMBER_POS_INT | InputType.NUMBER_ZERO, {}, false, {effects: Effect.NONE});
 
         case 'tw_getLastKeyPressed':
-            return new IntermediateInput(InputOpcode.TW_KEY_LAST_PRESSED, InputType.STRING);
+            return new IntermediateInput(InputOpcode.TW_KEY_LAST_PRESSED, InputType.STRING, {}, false, {effects: Effect.NONE});
 
         default: {
             const opcodeFunction = this.runtime.getOpcodeFunction(block.opcode);
@@ -1184,7 +1185,7 @@ class ScriptTreeGenerator {
                 condition: this.createConstantInput(true).toType(InputType.BOOLEAN),
                 whenTrue: this.descendSubstack(block, 'SUBSTACK'),
                 whenFalse: new IntermediateStack()
-            });
+            }, false, {effects: Effect.NONE});
         case 'control_create_clone_of':
             return new IntermediateStackBlock(StackOpcode.CONTROL_CLONE_CREATE, {
                 target: this.descendInputOfBlock(block, 'CLONE_OPTION').toType(InputType.STRING)
@@ -1195,30 +1196,30 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.CONTROL_WHILE, {
                 condition: this.createConstantInput(true).toType(InputType.BOOLEAN),
                 do: this.descendSubstack(block, 'SUBSTACK')
-            }, this.analyzeLoop());
+            }, this.analyzeLoop(), {effects: Effect.NONE, promotesVariables: true});
         case 'control_for_each':
             return new IntermediateStackBlock(StackOpcode.CONTROL_FOR, {
                 variable: this.descendVariable(block, 'VARIABLE', SCALAR_TYPE),
                 count: this.descendInputOfBlock(block, 'VALUE').toType(InputType.NUMBER),
                 do: this.descendSubstack(block, 'SUBSTACK')
-            }, this.analyzeLoop());
+            }, this.analyzeLoop(), {effects: Effect.NONE, promotesVariables: true});
         case 'control_if':
             return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE, {
                 condition: this.descendInputOfBlock(block, 'CONDITION').toType(InputType.BOOLEAN),
                 whenTrue: this.descendSubstack(block, 'SUBSTACK'),
                 whenFalse: new IntermediateStack()
-            });
+            }, false, {effects: Effect.NONE});
         case 'control_if_else':
             return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE, {
                 condition: this.descendInputOfBlock(block, 'CONDITION').toType(InputType.BOOLEAN),
                 whenTrue: this.descendSubstack(block, 'SUBSTACK'),
                 whenFalse: this.descendSubstack(block, 'SUBSTACK2')
-            });
+            }, false, {effects: Effect.NONE});
         case 'control_repeat':
             return new IntermediateStackBlock(StackOpcode.CONTROL_REPEAT, {
                 times: this.descendInputOfBlock(block, 'TIMES').toType(InputType.NUMBER),
                 do: this.descendSubstack(block, 'SUBSTACK')
-            }, this.analyzeLoop());
+            }, this.analyzeLoop(), {effects: Effect.NONE, promotesVariables: true});
         case 'control_repeat_until': {
             // Dirty hack: automatically enable warp timer for this block if it uses timer
             // This fixes project that do things like "repeat until timer > 0.5"
@@ -1228,10 +1229,10 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.CONTROL_WHILE, {
                 condition: new IntermediateInput(InputOpcode.OP_NOT, InputType.BOOLEAN, {
                     operand: condition
-                }),
+                }, false, {effects: Effect.NONE}),
                 do: this.descendSubstack(block, 'SUBSTACK'),
                 warpTimer: needsWarpTimer
-            }, this.analyzeLoop() || needsWarpTimer);
+            }, this.analyzeLoop() || needsWarpTimer, {effects: Effect.NONE, promotesVariables: true});
         }
         case 'control_stop': {
             const level = block.fields.STOP_OPTION.value;
@@ -1242,7 +1243,7 @@ class ScriptTreeGenerator {
             } else if (level === 'this script') {
                 return new IntermediateStackBlock(StackOpcode.CONTROL_STOP_SCRIPT);
             }
-            return new IntermediateStackBlock(StackOpcode.NOP);
+            return new IntermediateStackBlock(StackOpcode.NOP, {}, false, {effects: Effect.NONE});
         }
         case 'control_wait':
             return new IntermediateStackBlock(StackOpcode.CONTROL_WAIT, {
@@ -1258,17 +1259,17 @@ class ScriptTreeGenerator {
                 do: this.descendSubstack(block, 'SUBSTACK'),
                 // We should consider analyzing this like we do for control_repeat_until
                 warpTimer: false
-            }, this.analyzeLoop());
+            }, this.analyzeLoop(), {effects: Effect.NONE, promotesVariables: true});
         case 'control_clear_counter':
-            return new IntermediateStackBlock(StackOpcode.CONTROL_CLEAR_COUNTER);
+            return new IntermediateStackBlock(StackOpcode.CONTROL_CLEAR_COUNTER, {}, false, {effects: Effect.NONE});
         case 'control_incr_counter':
-            return new IntermediateStackBlock(StackOpcode.CONTORL_INCR_COUNTER);
+            return new IntermediateStackBlock(StackOpcode.CONTORL_INCR_COUNTER, {}, false, {effects: Effect.NONE});
         case 'control_foreach_in_range':
             return new IntermediateStackBlock(StackOpcode.CONTROL_FOREACH_IN_RANGE, {
                 from: this.descendInputOfBlock(block, 'FROM').toType(InputType.NUMBER),
                 to: this.descendInputOfBlock(block, 'TO').toType(InputType.NUMBER),
                 do: this.descendSubstack(block, 'SUBSTACK')
-            }, this.analyzeLoop());
+            }, this.analyzeLoop(), {effects: Effect.NONE, promotesVariables: true});
         case 'control_if_extendable': {
             const count = +block.fields.BRANCHES.value;
             const branches = [];
@@ -1278,7 +1279,7 @@ class ScriptTreeGenerator {
                     do: this.descendSubstack(block, `SUBSTACKBRANCHES_${i}_BRANCH`)
                 });
             }
-            return new IntermediateStackBlock(StackOpcode.CONTROL_IF_EXTENDABLE, {branches, count});
+            return new IntermediateStackBlock(StackOpcode.CONTROL_IF_EXTENDABLE, {branches, count}, false, {effects: Effect.NONE});
         }
         case 'control_if_else_extendable': {
             const count = +block.fields.BRANCHES.value;
@@ -1290,7 +1291,7 @@ class ScriptTreeGenerator {
                 });
             }
             const elseBranch = this.descendSubstack(block, 'SUBSTACKELSE_BRANCH');
-            return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE_EXTENDABLE, {branches, count, elseBranch});
+            return new IntermediateStackBlock(StackOpcode.CONTROL_IF_ELSE_EXTENDABLE, {branches, count, elseBranch}, false, {effects: Effect.NONE});
         }
         case 'control_switch': {
             const count = +block.fields.CASES.value;
@@ -1307,7 +1308,7 @@ class ScriptTreeGenerator {
                 cases,
                 count,
                 defaultBranch
-            });
+            }, false, {effects: Effect.NONE});
         }
 
         case 'data_addtotable': {
@@ -1315,7 +1316,7 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.TABLE_ADD, {
                 dimension,
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         }
         case 'data_insertdimensiontotable': {
             const dimension = block.fields.DIMENSION.value;
@@ -1323,7 +1324,7 @@ class ScriptTreeGenerator {
                 dimension,
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         }
         case 'data_setcellintable':
             return new IntermediateStackBlock(StackOpcode.TABLE_SET_CELL, {
@@ -1331,30 +1332,30 @@ class ScriptTreeGenerator {
                 row: this.descendInputOfBlock(block, 'ROW'),
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE),
                 item: this.descendInputOfBlock(block, 'ITEM')
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_deletecellintable':
             return new IntermediateStackBlock(StackOpcode.TABLE_DELETE_CELL, {
                 COLUMN: this.descendInputOfBlock(block, 'COLUMN'),
                 row: this.descendInputOfBlock(block, 'ROW'),
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_deletedimensionintable': {
             const dimension = block.fields.DIMENSION.value;
             return new IntermediateStackBlock(StackOpcode.TABLE_DELETE, {
                 dimension,
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         }
         case 'data_deletealloftable':
             return new IntermediateStackBlock(StackOpcode.TABLE_DELETE_ALL, {
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_settableusingarray':
             return new IntermediateStackBlock(StackOpcode.TABLE_SET, {
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE),
                 arr: this.descendInputOfBlock(block, 'ARR')
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_showtable':
             return new IntermediateStackBlock(StackOpcode.TABLE_SHOW, {
                 table: this.descendVariable(block, 'TABLE', TABLE_TYPE)
@@ -1367,38 +1368,38 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.LIST_ADD, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
                 item: this.descendInputOfBlock(block, 'ITEM', true)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_changevariableby': {
             const variable = this.descendVariable(block, 'VARIABLE', SCALAR_TYPE);
             return new IntermediateStackBlock(StackOpcode.VAR_SET, {
                 variable,
                 value: new IntermediateInput(InputOpcode.OP_ADD, InputType.NUMBER_OR_NAN, {
-                    left: new IntermediateInput(InputOpcode.VAR_GET, InputType.ANY, {variable}).toType(InputType.NUMBER),
+                    left: new IntermediateInput(InputOpcode.VAR_GET, InputType.ANY, {variable}, false, {effects: Effect.NONE}).toType(InputType.NUMBER),
                     right: this.descendInputOfBlock(block, 'VALUE').toType(InputType.NUMBER)
-                })
-            });
+                }, false, {effects: Effect.NONE})
+            }, false, {effects: Effect.NONE});
         }
         case 'data_deletealloflist':
             return new IntermediateStackBlock(StackOpcode.LIST_DELETE_ALL, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_deleteoflist': {
             const index = this.descendInputOfBlock(block, 'INDEX');
             if (index.isConstant('all')) {
                 return new IntermediateStackBlock(StackOpcode.LIST_DELETE_ALL, {
                     list: this.descendVariable(block, 'LIST', LIST_TYPE)
-                });
+                }, false, {effects: Effect.NONE});
             }
             return new IntermediateStackBlock(StackOpcode.LIST_DELETE, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
                 index: index
-            });
+            }, false, {effects: Effect.NONE});
         }
         case 'data_setlistarray':
             return new IntermediateStackBlock(StackOpcode.LIST_SETLISTARRAY, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
                 array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_hidelist':
             return new IntermediateStackBlock(StackOpcode.LIST_HIDE, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
@@ -1412,18 +1413,18 @@ class ScriptTreeGenerator {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 item: this.descendInputOfBlock(block, 'ITEM', true)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_replaceitemoflist':
             return new IntermediateStackBlock(StackOpcode.LIST_REPLACE, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE),
                 index: this.descendInputOfBlock(block, 'INDEX'),
                 item: this.descendInputOfBlock(block, 'ITEM', true)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_setvariableto':
             return new IntermediateStackBlock(StackOpcode.VAR_SET, {
                 variable: this.descendVariable(block, 'VARIABLE', SCALAR_TYPE),
                 value: this.descendInputOfBlock(block, 'VALUE', true)
-            });
+            }, false, {effects: Effect.NONE});
         case 'data_showlist':
             return new IntermediateStackBlock(StackOpcode.LIST_SHOW, {
                 list: this.descendVariable(block, 'LIST', LIST_TYPE)
@@ -1437,7 +1438,7 @@ class ScriptTreeGenerator {
             return new IntermediateStackBlock(StackOpcode.JSON_FOREACH, {
                 array: this.descendInputOfBlock(block, 'ARRAY').toType(InputType.ARRAY),
                 substack: this.descendSubstack(block, 'SUBSTACK')
-            }, this.analyzeLoop());
+            }, this.analyzeLoop(), {effects: Effect.NONE, promotesVariables: true});
 
         case 'event_broadcast':
             return new IntermediateStackBlock(StackOpcode.EVENT_BROADCAST, {
@@ -1545,16 +1546,16 @@ class ScriptTreeGenerator {
         case 'motion_turnleft':
             return new IntermediateStackBlock(StackOpcode.MOTION_DIRECTION_SET, {
                 direction: new IntermediateInput(InputOpcode.OP_SUBTRACT, InputType.NUMBER, {
-                    left: new IntermediateInput(InputOpcode.MOTION_DIRECTION_GET, InputType.NUMBER),
+                    left: new IntermediateInput(InputOpcode.MOTION_DIRECTION_GET, InputType.NUMBER, {}, false, {effects: Effect.NONE}),
                     right: this.descendInputOfBlock(block, 'DEGREES').toType(InputType.NUMBER)
-                })
+                }, false, {effects: Effect.NONE})
             });
         case 'motion_turnright':
             return new IntermediateStackBlock(StackOpcode.MOTION_DIRECTION_SET, {
                 direction: new IntermediateInput(InputOpcode.OP_ADD, InputType.NUMBER, {
-                    left: new IntermediateInput(InputOpcode.MOTION_DIRECTION_GET, InputType.NUMBER),
+                    left: new IntermediateInput(InputOpcode.MOTION_DIRECTION_GET, InputType.NUMBER, {}, false, {effects: Effect.NONE}),
                     right: this.descendInputOfBlock(block, 'DEGREES').toType(InputType.NUMBER)
-                })
+                }, false, {effects: Effect.NONE})
             });
 
         case 'pen_clear':
@@ -1744,7 +1745,7 @@ class ScriptTreeGenerator {
                         }
                     }
                     if (compilerInterface && typeof compilerInterface === 'object' && compilerInterface.stack === null) {
-                        return new IntermediateStackBlock(StackOpcode.NOP);
+                        return new IntermediateStackBlock(StackOpcode.NOP, {}, false, {effects: Effect.NONE});
                     }
                     const hasExplicitStackCompiler = compilerInterface &&
                         typeof compilerInterface === 'object' && typeof compilerInterface.stack === 'function';

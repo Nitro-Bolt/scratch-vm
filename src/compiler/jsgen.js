@@ -18,7 +18,8 @@ const {
     IntermediateInput,
     IntermediateStack,
     IntermediateScript,
-    IntermediateRepresentation
+    IntermediateRepresentation,
+    Effect
 } = require('./intermediate');
 /* eslint-enable no-unused-vars */
 
@@ -135,6 +136,10 @@ class JSGenerator {
         this.usesTemporaryLocal = false;
 
         this.descendedIntoModulo = false;
+        /** @type {Array<{reference: string, local: string, written: boolean}>?} */
+        this.promotedVariables = null;
+        /** @type {IntermediateStackBlock?} */
+        this.promotedLoop = null;
         this.isInHat = false;
 
         this.debug = this.target.runtime.debug;
@@ -992,7 +997,7 @@ class JSGenerator {
             return 'runtime.ioDevices.keyboard.getLastKeyPressed()';
 
         case InputOpcode.VAR_GET:
-            return `${this.referenceVariable(node.variable)}.value`;
+            return this.variableValue(node.variable);
 
         default:
             log.warn(`JS: Unknown input: ${block.opcode}`, node);
@@ -1004,6 +1009,13 @@ class JSGenerator {
      * @param {IntermediateStackBlock} block Stacked block to compile.
      */
     descendStackedBlock (block) {
+        if (this.promotedVariables === null && block.promotesVariables) {
+            const variables = this.findPromotableVariables(block);
+            if (variables !== null) {
+                this.descendPromotedLoop(block, variables);
+                return;
+            }
+        }
         /** @type {Record<string, any>} */
         const node = block.inputs;
         switch (block.opcode) {
@@ -1104,8 +1116,9 @@ class JSGenerator {
             this.source += `var ${index} = 0; `;
             this.source += `while (${index} < ${this.descendInput(node.count)}) { `;
             this.source += `${index}++; `;
-            this.source += `${this.referenceVariable(node.variable)}.value = ${index};\n`;
+            this.source += `${this.variableValue(node.variable)} = ${index};\n`;
             this.descendStack(node.do, new Frame(true));
+            this.flushPromotedVariables(block);
             this.yieldLoop();
             this.source += '}\n';
             break;
@@ -1129,6 +1142,7 @@ class JSGenerator {
                 this.source += `for (var ${i} = ${this.descendInput(node.times)}; ${i} >= 0.5; ${i}--) {\n`;
             }
             this.descendStack(node.do, new Frame(true));
+            this.flushPromotedVariables(block);
             this.yieldLoop();
             this.source += `}\n`;
             break;
@@ -1165,6 +1179,7 @@ class JSGenerator {
         case StackOpcode.CONTROL_WHILE:
             this.source += `while (${this.descendInput(node.condition)}) {\n`;
             this.descendStack(node.do, new Frame(true));
+            this.flushPromotedVariables(block);
             if (node.warpTimer) {
                 this.yieldStuckOrNotWarp();
             } else {
@@ -1195,6 +1210,7 @@ class JSGenerator {
             this.source += `for (let ${loopVar} = ${fromVar}; ${fromVar} <= ${toVar} ? ${loopVar} <= ${toVar} : ${loopVar} >= ${toVar}; ${loopVar} += ${stepVar}) {\n`;
 
             if (node.do) this.descendStack(node.do, new Frame(true));
+            this.flushPromotedVariables(block);
             this.yieldLoop();
             this.source += `}\n`;
 
@@ -1373,6 +1389,7 @@ class JSGenerator {
 
             this.source += `for (const [${indVar}, ${valVar}] of toArray(${array}).entries()) {\n`;
             if (node.substack) this.descendStack(node.substack, new Frame(true));
+            this.flushPromotedVariables(block);
             this.yieldLoop();
             this.source += `}\n`;
 
@@ -1665,7 +1682,7 @@ class JSGenerator {
             break;
         case StackOpcode.VAR_SET: {
             const varReference = this.referenceVariable(node.variable);
-            this.source += `${varReference}.value = ${this.descendInput(node.value)};\n`;
+            this.source += `${this.variableValue(node.variable)} = ${this.descendInput(node.value)};\n`;
             if (node.variable.isCloud) {
                 this.source += `runtime.ioDevices.cloud.requestUpdateVariable("${sanitize(node.variable.name)}", ${varReference}.value);\n`;
             }
@@ -1783,6 +1800,110 @@ class JSGenerator {
         const blockFunction = `runtime.getAddonBlock("${sanitize(node.code)}").callback`;
         const blockId = `"${sanitize(node.blockId)}"`;
         return `yield* executeInCompatibilityLayer(${inputs}, ${blockFunction}, ${this.isWarp}, false, ${blockId})`;
+    }
+
+    /**
+     * Return the active local for a scalar variable, or its ordinary value property.
+     * @param {*} variable
+     * @returns {string}
+     */
+    variableValue (variable) {
+        const reference = this.referenceVariable(variable);
+        if (this.promotedVariables !== null) {
+            const promoted = this.promotedVariables.find(entry => entry.reference === reference);
+            if (promoted) return promoted.local;
+        }
+        return `${reference}.value`;
+    }
+
+    /**
+     * Analyze whether a loop can safely keep scalar variables in JavaScript locals.
+     * @param {IntermediateStackBlock} loop
+     * @returns {Array<{reference: string, written: boolean}>?}
+     */
+    findPromotableVariables (loop) {
+        if (!this.isWarp || this.warpTimer || loop.inputs.warpTimer) return null;
+
+        /** @type {Array<{reference: string, written: boolean, storesPossibleNaN: boolean}>} */
+        const variables = [];
+        const recordVariable = (variable, written, storesPossibleNaN) => {
+            if (!variable) return true;
+            // Typed variables cast through a property setter on every write. A local would bypass that setter and make
+            // subsequent reads in the loop observe an uncast value.
+            if (variable.isCloud || (variable.valueType && variable.valueType !== 'Any')) return false;
+            const reference = this.referenceVariable(variable);
+            let record = variables.find(entry => entry.reference === reference);
+            if (!record) {
+                record = {reference, written: false, storesPossibleNaN: false};
+                variables.push(record);
+            }
+            record.written = record.written || written;
+            record.storesPossibleNaN = record.storesPossibleNaN || storesPossibleNaN;
+            return true;
+        };
+        const visit = value => {
+            if (value instanceof IntermediateStack) return value.blocks.every(visit);
+            if (Array.isArray(value)) return value.every(visit);
+            if (!(value instanceof IntermediateStackBlock) && !(value instanceof IntermediateInput)) return true;
+
+            if (value.effects !== Effect.NONE) return false;
+
+            if (value.opcode === StackOpcode.VAR_SET || value.opcode === StackOpcode.CONTROL_FOR) {
+                if (!recordVariable(value.inputs.variable, true, false)) return false;
+            } else if (value.opcode === InputOpcode.VAR_GET) {
+                if (!recordVariable(value.inputs.variable, false, false)) return false;
+            }
+
+            if (value.opcode === StackOpcode.LIST_ADD || value.opcode === StackOpcode.LIST_INSERT ||
+                value.opcode === StackOpcode.LIST_REPLACE || value.opcode === StackOpcode.TABLE_SET_CELL) {
+                const item = value.inputs.item;
+                if (item instanceof IntermediateInput && item.opcode === InputOpcode.VAR_GET &&
+                    item.isSometimesType(InputType.NUMBER_NAN) &&
+                    !recordVariable(item.inputs.variable, false, true)) return false;
+            }
+            return Object.values(value.inputs).every(visit);
+        };
+
+        if (!visit(loop)) return null;
+        const promotable = variables
+            .filter(variable => !variable.storesPossibleNaN)
+            .map(variable => ({reference: variable.reference, written: variable.written}));
+        return promotable.length === 0 ? null : promotable;
+    }
+
+    /**
+     * Generate a loop with its scalar variables held in locals.
+     * @param {IntermediateStackBlock} loop
+     * @param {Array<{reference: string, written: boolean}>} variables
+     */
+    descendPromotedLoop (loop, variables) {
+        this.source += '{\n';
+        this.promotedVariables = variables.map(variable => ({
+            ...variable,
+            local: this.localVariables.next()
+        }));
+        this.promotedLoop = loop;
+        for (const variable of this.promotedVariables) {
+            this.source += `let ${variable.local} = ${variable.reference}.value;\n`;
+        }
+        try {
+            this.descendStackedBlock(loop);
+        } finally {
+            this.promotedVariables = null;
+            this.promotedLoop = null;
+        }
+        this.source += '}\n';
+    }
+
+    /**
+     * Synchronize written locals at the end of an outer promoted-loop iteration.
+     * @param {IntermediateStackBlock} loop
+     */
+    flushPromotedVariables (loop) {
+        if (loop !== this.promotedLoop) return;
+        for (const variable of this.promotedVariables) {
+            if (variable.written) this.source += `${variable.reference}.value = ${variable.local};\n`;
+        }
     }
 
     /**

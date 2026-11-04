@@ -3,7 +3,7 @@
 const Cast = require('../util/cast');
 const jsonEquals = require('../util/json-value');
 const {StackOpcode, InputOpcode, InputType} = require('./enums');
-const {IntermediateInput, IntermediateStack} = require('./intermediate');
+const {IntermediateInput, IntermediateStack, Effect} = require('./intermediate');
 
 /**
  * @typedef {import('./intermediate').IntermediateRepresentation} IntermediateRepresentation
@@ -32,7 +32,13 @@ const constantType = value => {
  * @param {InputType} [type]
  * @returns {IntermediateInput}
  */
-const constant = (value, type = constantType(value)) => new IntermediateInput(InputOpcode.CONSTANT, type, {value});
+const constant = (value, type = constantType(value)) => new IntermediateInput(
+    InputOpcode.CONSTANT,
+    type,
+    {value},
+    false,
+    {effects: Effect.NONE}
+);
 
 /**
  * @param {*} input

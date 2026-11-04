@@ -5,6 +5,17 @@ const {InputOpcode, InputType} = require('./enums.js');
 const log = require('../util/log');
 
 /**
+ * Direct effects of an IR node. Child nodes carry their own effects.
+ * @readonly
+ * @enum {number}
+ */
+const Effect = {
+    NONE: 0,
+    UNKNOWN: 1,
+    YIELDS: 2
+};
+
+/**
  * @fileoverview Common intermediates shared amongst parts of the compiler.
  */
 
@@ -16,8 +27,9 @@ class IntermediateStackBlock {
      * @param {import("./enums").StackOpcode} opcode
      * @param {Object} inputs
      * @param {boolean} yields
+     * @param {{effects?: number, promotesVariables?: boolean}} properties
      */
-    constructor (opcode, inputs = {}, yields = false) {
+    constructor (opcode, inputs = {}, yields = false, properties = {}) {
         /**
          * The type of the stackable block.
          * @type {import("./enums").StackOpcode}
@@ -35,6 +47,18 @@ class IntermediateStackBlock {
          * @type {boolean}
          */
         this.yields = yields;
+
+        /**
+         * Direct effects of this block. Its inputs and substacks carry their own effects.
+         * @type {number}
+         */
+        this.effects = yields ? Effect.YIELDS : (properties.effects ?? Effect.UNKNOWN);
+
+        /**
+         * Whether this node is a loop eligible to keep scalar variables in locals.
+         * @type {boolean}
+         */
+        this.promotesVariables = properties.promotesVariables === true;
 
         /**
          * ID of the Scratch block this was generated from, if any.
@@ -85,8 +109,9 @@ class IntermediateInput {
      * @param {InputType} type
      * @param {Object} inputs
      * @param {boolean} yields
+     * @param {{effects?: number}} properties
      */
-    constructor (opcode, type, inputs = {}, yields = false) {
+    constructor (opcode, type, inputs = {}, yields = false, properties = {}) {
         /**
          * @type {InputOpcode}
          */
@@ -106,6 +131,12 @@ class IntermediateInput {
          * @type {boolean}
          */
         this.yields = yields;
+
+        /**
+         * Direct effects of this input. Nested inputs carry their own effects.
+         * @type {number}
+         */
+        this.effects = yields ? Effect.YIELDS : (properties.effects ?? Effect.UNKNOWN);
     }
 
     /**
@@ -228,7 +259,9 @@ class IntermediateInput {
             return this;
         }
 
-        return new IntermediateInput(castOpcode, targetType, {target: this});
+        return new IntermediateInput(castOpcode, targetType, {target: this}, false, {
+            effects: Effect.NONE
+        });
     }
 }
 
@@ -420,5 +453,6 @@ module.exports = {
     IntermediateStack,
     IntermediateScript,
     IntermediateRepresentation,
+    Effect,
     stringifyType
 };
