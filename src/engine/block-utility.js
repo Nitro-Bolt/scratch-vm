@@ -163,9 +163,10 @@ class BlockUtility {
      * Start a specified procedure on this thread.
      * @param {string} procedureCode Procedure code for procedure to start.
      * @param {boolean=} isGlobal If true, resolve globally scoped procedures.
+     * @param {boolean=} runInParent If true, execute on the definition's target.
      */
-    startProcedure (procedureCode, isGlobal) {
-        this.sequencer.stepToProcedure(this.thread, procedureCode, isGlobal);
+    startProcedure (procedureCode, isGlobal, runInParent) {
+        this.sequencer.stepToProcedure(this.thread, procedureCode, isGlobal, runInParent);
     }
 
     /**

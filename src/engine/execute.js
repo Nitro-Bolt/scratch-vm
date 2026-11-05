@@ -135,25 +135,26 @@ const handlePromiseResolution = (resolvedValue, sequencer, thread, blockCached, 
     // Hat block is always the top and first block of the script. There are no loops to find.
     if (lastOperation && (!blockCached._isHat || thread.stackClick)) {
         let stackFrame;
-        let nextBlockId;
         do {
+            const currentBlockId = thread.peekStack();
+            const nextBlockId = thread.blockContainer.getNextBlock(currentBlockId);
+            if (nextBlockId !== null) {
+                thread.reuseStackForNextBlock(nextBlockId);
+                return;
+            }
+
             // In the case that the promise is the last block in the current thread stack
             // We need to pop out repeatedly until we find the next block.
             const popped = thread.popStack();
             if (popped === null) {
                 return;
             }
-            nextBlockId = thread.blockContainer.getNextBlock(popped);
-            if (nextBlockId !== null) {
-                // A next block exists so break out this loop
-                break;
-            }
             // Investigate the next block and if not in a loop,
             // then repeat and pop the next item off the stack frame
             stackFrame = thread.peekStackFrame();
         } while (stackFrame !== null && !stackFrame.isLoop);
 
-        thread.pushStack(nextBlockId);
+        thread.pushStack(null);
     }
 };
 

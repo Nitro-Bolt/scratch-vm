@@ -19,11 +19,12 @@ const compile = (/** @type {import("../engine/thread")} */ thread) => {
     const target = thread.target;
 
     const compileScript = (/** @type {import("./intermediate").IntermediateScript} */ script) => {
+        const compileTarget = script.executionTarget || target;
         if (script.cachedCompileResult) {
             return script.cachedCompileResult;
         }
 
-        const compiler = new JSGenerator(script, ir, target);
+        const compiler = new JSGenerator(script, ir, compileTarget);
         const result = compiler.compile();
         script.cachedCompileResult = result;
         return result;

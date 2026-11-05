@@ -355,8 +355,9 @@ class Sequencer {
      * @param {!Thread} thread Thread object to step to procedure.
      * @param {!string} procedureCode Procedure code of procedure to step to.
      * @param {boolean=} isGlobal If true, resolve globally scoped procedures.
+     * @param {boolean=} runInParent If true, execute on the definition's target.
      */
-    stepToProcedure (thread, procedureCode, isGlobal) {
+    stepToProcedure (thread, procedureCode, isGlobal, runInParent) {
         let definition = null;
         let definitionTarget = thread.target;
 
@@ -384,6 +385,14 @@ class Sequencer {
         if (!definition) {
             return;
         }
+        if (runInParent && !definitionTarget.isOriginal) {
+            for (const target of this.runtime.targets) {
+                if (target && target.isOriginal && target.blocks === definitionTarget.blocks) {
+                    definitionTarget = target;
+                    break;
+                }
+            }
+        }
         // Check if the call is recursive.
         // If so, set the thread to yield after pushing.
         const isRecursive = thread.isRecursiveCall(procedureCode);
@@ -399,6 +408,10 @@ class Sequencer {
         if (definitionTarget !== thread.target) {
             const procedureFrame = thread.peekStackFrame();
             procedureFrame.returnToBlockContainer = thread.blockContainer || thread.target.blocks;
+            if (runInParent) {
+                procedureFrame.returnToTarget = thread.target;
+                thread.target = definitionTarget;
+            }
             thread.blockContainer = definitionTarget.blocks;
         }
         // In known warp-mode threads, only yield when time is up.

@@ -40,6 +40,7 @@ class Scratch3ProcedureBlocks {
             callerBlockContainer.getNextBlock(currentBlock.parent) === currentBlock.id);
         const isReporter = !!mutation.return && (!isDual || !isStackCall);
         const isGlobal = mutation.global === true || mutation.global === 'true';
+        const runInParent = isGlobal && (mutation.runinparent === true || mutation.runinparent === 'true');
 
         if (stackFrame.executed) {
             if (isReporter) {
@@ -121,7 +122,7 @@ class Scratch3ProcedureBlocks {
             stackFrame.returnValue = '';
         }
 
-        util.startProcedure(procedureCode, isGlobal);
+        util.startProcedure(procedureCode, isGlobal, runInParent);
     }
 
     return (args, util) {

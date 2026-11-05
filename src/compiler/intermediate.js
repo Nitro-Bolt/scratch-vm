@@ -317,6 +317,12 @@ class IntermediateScript {
         this.isProcedure = false;
 
         /**
+         * Target used when a procedure executes somewhere other than the entry target.
+         * @type {import('../engine/target')?}
+         */
+        this.executionTarget = null;
+
+        /**
          * This procedure's variant, if any.
          * @type {string}
          */
@@ -359,6 +365,12 @@ class IntermediateScript {
          * @readonly
          */
         this.dependedProcedures = [];
+
+        /**
+         * Source context needed to resolve each procedure dependency.
+         * @type {Object.<string, object>}
+         */
+        this.procedureDependencyInfo = Object.create(null);
 
         /**
          * Cached result of compiling this script.

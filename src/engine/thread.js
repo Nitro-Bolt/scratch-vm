@@ -111,8 +111,12 @@ class _StackFrame {
      * @returns {_StackFrame} this
      */
     reuse (warpMode = this.warpMode) {
+        const returnToTarget = this.returnToTarget;
+        const returnToBlockContainer = this.returnToBlockContainer;
         this.reset();
         this.warpMode = Boolean(warpMode);
+        this.returnToTarget = returnToTarget;
+        this.returnToBlockContainer = returnToBlockContainer;
         return this;
     }
 

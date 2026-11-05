@@ -1977,8 +1977,13 @@ class JSGenerator {
 
         // Setup the factory
         script += `(function ${this.getScriptFactoryName()}(thread) { `;
-        script += 'const target = thread.target; ';
-        script += 'const runtime = target.runtime; ';
+        if (this.script.executionTarget) {
+            script += 'const runtime = thread.target.runtime; ';
+            script += `const target = runtime.getTargetById(${JSON.stringify(this.script.executionTarget.id)}); `;
+        } else {
+            script += 'const target = thread.target; ';
+            script += 'const runtime = target.runtime; ';
+        }
         script += 'const stage = runtime.getTargetForStage();\n';
         if (this.sampler) {
             script += 'const pc = runtime.sampler.pc;\n';
@@ -2005,6 +2010,11 @@ class JSGenerator {
             script += args.join(',');
         }
         script += ') {\n';
+        if (this.script.executionTarget) {
+            script += 'const previousTarget = thread.target;\n';
+            script += 'thread.target = target;\n';
+            script += 'try {\n';
+        }
         const catchErrors = this.target.runtime.compilerOptions.catchErrors;
         if (catchErrors) {
             script += 'try {\n';
@@ -2022,6 +2032,11 @@ class JSGenerator {
             script += `runtime.visualReport(target, "${sanitize(this.script.bottomBlockId)}", String(error), true);\n`;
             script += 'retire();\n';
             script += '};\n';
+        }
+        if (this.script.executionTarget) {
+            script += '} finally {\n';
+            script += 'thread.target = previousTarget;\n';
+            script += '}\n';
         }
         script += '}; })';
 

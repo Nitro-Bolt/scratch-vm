@@ -1043,6 +1043,7 @@ class Blocks {
                 block.mutation.argumentdropdowns = nextMutation.argumentdropdowns;
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
+                block.mutation.runinparent = nextMutation.runinparent;
                 block.mutation.colour = nextMutation.colour;
                 block.mutation.output = nextMutation.output;
                 block.mutation.dual = nextMutation.dual;
@@ -1061,6 +1062,7 @@ class Blocks {
                 block.mutation.argumentdropdowns = nextMutation.argumentdropdowns;
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
+                block.mutation.runinparent = nextMutation.runinparent;
                 block.mutation.colour = nextMutation.colour;
                 block.mutation.output = nextMutation.output;
                 block.mutation.dual = nextMutation.dual;
