@@ -339,7 +339,7 @@ class Blocks {
      */
     static normalizeProcedureDefaults (proccode, names, ids, defaults) {
         const paramTypes = [];
-        const regex = /%([snboar])/g;
+        const regex = /%([nbdoamscr])/g;
         let match;
         while ((match = regex.exec(proccode)) !== null) {
             paramTypes.push(match[1]);
@@ -1112,7 +1112,7 @@ class Blocks {
         }
 
         const argumentTypes = [];
-        const argumentPattern = /(?:^|[^\\])%([nbdoasr])/g;
+        const argumentPattern = /(?:^|[^\\])%([nbdoamscr])/g;
         let match;
         while ((match = argumentPattern.exec(mutation.proccode || ''))) {
             argumentTypes.push(match[1]);
@@ -1160,7 +1160,7 @@ class Blocks {
                 continue;
             }
 
-            if (argumentType !== 's' && argumentType !== 'n' && argumentType !== 'd') {
+            if (argumentType !== 's' && argumentType !== 'm' && argumentType !== 'n' && argumentType !== 'd') {
                 continue;
             }
 
@@ -1191,10 +1191,11 @@ class Blocks {
             }
 
             const isNumber = argumentType === 'n';
+            const isMultiline = argumentType === 'm';
             const fieldName = isNumber ? 'NUM' : 'TEXT';
             this._blocks[shadowId] = {
                 id: shadowId,
-                opcode: isNumber ? 'math_number' : 'text',
+                opcode: isNumber ? 'math_number' : (isMultiline ? 'text_multiline' : 'text'),
                 inputs: {},
                 fields: {
                     [fieldName]: {
