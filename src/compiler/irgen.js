@@ -1956,7 +1956,9 @@ class ScriptTreeGenerator {
         const runsInParent = isGlobal && innerDefinition && innerDefinition.mutation &&
             (innerDefinition.mutation.runinparent === true || innerDefinition.mutation.runinparent === 'true');
         const executionTarget = runsInParent ? source.target : this.target;
-        const variant = generateProcedureVariant(procedureCode, isWarp, source.target.id, executionTarget.id);
+        const executionTargetId = executionTarget.isOriginal ?
+            executionTarget.id : executionTarget.sprite.clones[0].id;
+        const variant = generateProcedureVariant(procedureCode, isWarp, source.target.id, executionTargetId);
 
         if (!this.script.dependedProcedures.includes(variant)) {
             this.script.dependedProcedures.push(variant);
@@ -2582,11 +2584,8 @@ class IRGenerator {
                 const runInParent = !!(source.requireGlobal && prototype && prototype.mutation &&
                     (prototype.mutation.runinparent === true || prototype.mutation.runinparent === 'true'));
                 const executionTarget = runInParent ? source.target : source.contextTarget;
-                const canUseProcedureCache = executionTarget === source.target;
-                let explicitExecutionTarget = executionTarget;
-                if (!canUseProcedureCache && executionTarget === this.thread.target) {
-                    explicitExecutionTarget = null;
-                }
+                const canUseProcedureCache = runInParent || executionTarget.sprite === source.target.sprite;
+                const explicitExecutionTarget = runInParent ? executionTarget : null;
 
                 if (canUseProcedureCache && procedureTreeCache[procedureVariant]) {
                     const result = procedureTreeCache[procedureVariant];
