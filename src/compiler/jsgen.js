@@ -38,6 +38,9 @@ const sanitize = string => {
     return JSON.stringify(string).slice(1, -1);
 };
 
+// Camera-related constants
+const CAMERA_EXT = 'runtime.ext_camera';
+
 // Pen-related constants
 const PEN_EXT = 'runtime.ext_pen';
 const PEN_STATE = `${PEN_EXT}._getPenState(target)`;
@@ -356,6 +359,23 @@ class JSGenerator {
             } else if (block.isSometimesType(InputType.STRING)) {
                 return `"${sanitize(node.value.toString())}"`;
             } throw new Error(`JS: Unknown constant input type '${block.type}'.`);
+
+        case InputOpcode.CAMERA_CURRENT:
+            return `${CAMERA_EXT}.currentCamera({TARGETS: ${this.descendInput(node.target)}}, {target})`;
+        case InputOpcode.CAMERA_ALL:
+            return `${CAMERA_EXT}.allCameras()`;
+        case InputOpcode.CAMERA_MOUSE_X:
+            return `${CAMERA_EXT}.mouseX({}, {target})`;
+        case InputOpcode.CAMERA_MOUSE_Y:
+            return `${CAMERA_EXT}.mouseY({}, {target})`;
+        case InputOpcode.CAMERA_X_GET:
+            return `${CAMERA_EXT}.cameraXPosition({CAMERAS: ${this.descendInput(node.camera)}})`;
+        case InputOpcode.CAMERA_Y_GET:
+            return `${CAMERA_EXT}.cameraYPosition({CAMERAS: ${this.descendInput(node.camera)}})`;
+        case InputOpcode.CAMERA_DIRECTION_GET:
+            return `${CAMERA_EXT}.cameraDirection({CAMERAS: ${this.descendInput(node.camera)}})`;
+        case InputOpcode.CAMERA_ZOOM_GET:
+            return `${CAMERA_EXT}.cameraZoom({CAMERAS: ${this.descendInput(node.camera)}})`;
 
         case InputOpcode.PEN_PAPER_EXISTS:
             return `${PEN_EXT}._paperExists(${this.descendInput(node.paper)})`;
@@ -1480,6 +1500,73 @@ class JSGenerator {
         case StackOpcode.NOP:
             break;
 
+        case StackOpcode.CAMERA_CREATE:
+            this.source += `${CAMERA_EXT}.createCamera({CAMERA: ${this.descendInput(node.camera)}});\n`;
+            break;
+        case StackOpcode.CAMERA_DELETE:
+            this.source += `${CAMERA_EXT}.deleteCamera({CAMERA: ${this.descendInput(node.camera)}});\n`;
+            break;
+        case StackOpcode.CAMERA_BIND:
+            this.source += `${CAMERA_EXT}.bindCamera({TARGETS: ${this.descendInput(node.target)}, ` +
+                `CAMERAS: ${this.descendInput(node.camera)}}, {target});\n`;
+            break;
+        case StackOpcode.CAMERA_MOVE:
+            this.source += `${CAMERA_EXT}.moveCamera({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `X: ${this.descendInput(node.x)}, Y: ${this.descendInput(node.y)}});\n`;
+            break;
+        case StackOpcode.CAMERA_MOVE_TO_TARGET:
+            this.source += `${CAMERA_EXT}.moveCameraToTarget({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `TARGETS: ${this.descendInput(node.target)}}, {target});\n`;
+            break;
+        case StackOpcode.CAMERA_CHANGE:
+            this.source += `${CAMERA_EXT}.changeCameraBy({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `X: ${this.descendInput(node.x)}, Y: ${this.descendInput(node.y)}});\n`;
+            break;
+        case StackOpcode.CAMERA_MOVE_STEPS:
+            this.source += `${CAMERA_EXT}.moveCameraSteps({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `STEPS: ${this.descendInput(node.steps)}});\n`;
+            break;
+        case StackOpcode.CAMERA_X_SET:
+            this.source += `${CAMERA_EXT}.setCameraX({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `X: ${this.descendInput(node.x)}});\n`;
+            break;
+        case StackOpcode.CAMERA_X_CHANGE:
+            this.source += `${CAMERA_EXT}.changeCameraX({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `X: ${this.descendInput(node.x)}});\n`;
+            break;
+        case StackOpcode.CAMERA_Y_SET:
+            this.source += `${CAMERA_EXT}.setCameraY({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `Y: ${this.descendInput(node.y)}});\n`;
+            break;
+        case StackOpcode.CAMERA_Y_CHANGE:
+            this.source += `${CAMERA_EXT}.changeCameraY({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `Y: ${this.descendInput(node.y)}});\n`;
+            break;
+        case StackOpcode.CAMERA_TURN_RIGHT:
+            this.source += `${CAMERA_EXT}.turnCameraRight({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `DEGREES: ${this.descendInput(node.degrees)}});\n`;
+            break;
+        case StackOpcode.CAMERA_TURN_LEFT:
+            this.source += `${CAMERA_EXT}.turnCameraLeft({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `DEGREES: ${this.descendInput(node.degrees)}});\n`;
+            break;
+        case StackOpcode.CAMERA_DIRECTION_SET:
+            this.source += `${CAMERA_EXT}.setCameraDirection({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `DIRECTION: ${this.descendInput(node.direction)}});\n`;
+            break;
+        case StackOpcode.CAMERA_POINT_TOWARDS_TARGET:
+            this.source += `${CAMERA_EXT}.pointCameraTowardsTarget({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `TARGETS: ${this.descendInput(node.target)}}, {target});\n`;
+            break;
+        case StackOpcode.CAMERA_ZOOM_SET:
+            this.source += `${CAMERA_EXT}.setCameraZoom({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `SIZE: ${this.descendInput(node.zoom)}});\n`;
+            break;
+        case StackOpcode.CAMERA_ZOOM_CHANGE:
+            this.source += `${CAMERA_EXT}.changeCameraZoom({CAMERAS: ${this.descendInput(node.camera)}, ` +
+                `SIZE: ${this.descendInput(node.zoom)}});\n`;
+            break;
+
         case StackOpcode.PEN_CLEAR:
             this.source += `${PEN_EXT}.clear();\n`;
             break;
@@ -2074,6 +2161,7 @@ JSGenerator.unstable_exports = {
     functionNameVariablePool,
     generatorNameVariablePool,
     VariablePool,
+    CAMERA_EXT,
     PEN_EXT,
     PEN_STATE,
     Frame,

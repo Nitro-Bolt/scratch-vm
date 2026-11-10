@@ -288,6 +288,33 @@ class ScriptTreeGenerator {
         case 'checkbox':
             return this.createConstantInput(true).toType(InputType.BOOLEAN);
 
+        case 'camera_currentCamera':
+            return new IntermediateInput(InputOpcode.CAMERA_CURRENT, InputType.STRING, {
+                target: this.descendInputOfBlock(block, 'TARGETS').toType(InputType.STRING)
+            });
+        case 'camera_allCameras':
+            return new IntermediateInput(InputOpcode.CAMERA_ALL, InputType.ARRAY);
+        case 'camera_mouseX':
+            return new IntermediateInput(InputOpcode.CAMERA_MOUSE_X, InputType.NUMBER);
+        case 'camera_mouseY':
+            return new IntermediateInput(InputOpcode.CAMERA_MOUSE_Y, InputType.NUMBER);
+        case 'camera_cameraXPosition':
+            return new IntermediateInput(InputOpcode.CAMERA_X_GET, InputType.NUMBER, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING)
+            });
+        case 'camera_cameraYPosition':
+            return new IntermediateInput(InputOpcode.CAMERA_Y_GET, InputType.NUMBER, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING)
+            });
+        case 'camera_cameraDirection':
+            return new IntermediateInput(InputOpcode.CAMERA_DIRECTION_GET, InputType.NUMBER, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING)
+            });
+        case 'camera_cameraZoom':
+            return new IntermediateInput(InputOpcode.CAMERA_ZOOM_GET, InputType.NUMBER, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING)
+            });
+
         case 'pen_paperExists':
             return new IntermediateInput(InputOpcode.PEN_PAPER_EXISTS, InputType.BOOLEAN, {
                 paper: this.descendInputOfBlock(block, 'PAPER').toType(InputType.STRING)
@@ -1571,6 +1598,92 @@ class ScriptTreeGenerator {
                     left: new IntermediateInput(InputOpcode.MOTION_DIRECTION_GET, InputType.NUMBER),
                     right: this.descendInputOfBlock(block, 'DEGREES').toType(InputType.NUMBER)
                 })
+            });
+
+        case 'camera_createCamera':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_CREATE, {
+                camera: this.descendInputOfBlock(block, 'CAMERA').toType(InputType.STRING)
+            });
+        case 'camera_deleteCamera':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_DELETE, {
+                camera: this.descendInputOfBlock(block, 'CAMERA').toType(InputType.STRING)
+            });
+        case 'camera_bindCamera':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_BIND, {
+                target: this.descendInputOfBlock(block, 'TARGETS').toType(InputType.STRING),
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING)
+            });
+        case 'camera_moveCamera':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_MOVE, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                x: this.descendInputOfBlock(block, 'X').toType(InputType.NUMBER),
+                y: this.descendInputOfBlock(block, 'Y').toType(InputType.NUMBER)
+            });
+        case 'camera_moveCameraToTarget':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_MOVE_TO_TARGET, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                target: this.descendInputOfBlock(block, 'TARGETS').toType(InputType.STRING)
+            });
+        case 'camera_changeCameraBy':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_CHANGE, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                x: this.descendInputOfBlock(block, 'X').toType(InputType.NUMBER),
+                y: this.descendInputOfBlock(block, 'Y').toType(InputType.NUMBER)
+            });
+        case 'camera_moveCameraSteps':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_MOVE_STEPS, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                steps: this.descendInputOfBlock(block, 'STEPS').toType(InputType.NUMBER)
+            });
+        case 'camera_setCameraX':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_X_SET, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                x: this.descendInputOfBlock(block, 'X').toType(InputType.NUMBER)
+            });
+        case 'camera_changeCameraX':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_X_CHANGE, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                x: this.descendInputOfBlock(block, 'X').toType(InputType.NUMBER)
+            });
+        case 'camera_setCameraY':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_Y_SET, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                y: this.descendInputOfBlock(block, 'Y').toType(InputType.NUMBER)
+            });
+        case 'camera_changeCameraY':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_Y_CHANGE, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                y: this.descendInputOfBlock(block, 'Y').toType(InputType.NUMBER)
+            });
+        case 'camera_turnCameraRight':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_TURN_RIGHT, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                degrees: this.descendInputOfBlock(block, 'DEGREES').toType(InputType.NUMBER)
+            });
+        case 'camera_turnCameraLeft':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_TURN_LEFT, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                degrees: this.descendInputOfBlock(block, 'DEGREES').toType(InputType.NUMBER)
+            });
+        case 'camera_setCameraDirection':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_DIRECTION_SET, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                direction: this.descendInputOfBlock(block, 'DIRECTION').toType(InputType.NUMBER)
+            });
+        case 'camera_pointCameraTowardsTarget':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_POINT_TOWARDS_TARGET, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                target: this.descendInputOfBlock(block, 'TARGETS').toType(InputType.STRING)
+            });
+        case 'camera_setCameraZoom':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_ZOOM_SET, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                zoom: this.descendInputOfBlock(block, 'SIZE').toType(InputType.NUMBER)
+            });
+        case 'camera_changeCameraZoom':
+            return new IntermediateStackBlock(StackOpcode.CAMERA_ZOOM_CHANGE, {
+                camera: this.descendInputOfBlock(block, 'CAMERAS').toType(InputType.STRING),
+                zoom: this.descendInputOfBlock(block, 'SIZE').toType(InputType.NUMBER)
             });
 
         case 'pen_clear':
