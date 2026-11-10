@@ -1161,6 +1161,42 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
+     * Replace a sound while preserving its name, index, and folder.
+     * @param {!object} soundObject Object representing the replacement sound.
+     * @param {!int} soundIndex Index of the sound to replace.
+     * @param {string} optTargetId The target containing the sound, or the editing target if omitted.
+     * @returns {Promise<void>} A promise that resolves after the sound is replaced.
+     */
+    replaceSound (soundObject, soundIndex, optTargetId) {
+        const target = optTargetId ? this.runtime.getTargetById(optTargetId) : this.editingTarget;
+        const originalSound = target && target.getSounds()[soundIndex];
+        if (!target || !originalSound) {
+            return Promise.reject(new Error('Sound not found'));
+        }
+
+        const soundBank = target.sprite.soundBank;
+        return loadSound(soundObject, this.runtime, soundBank).then(() => {
+            if (target.sprite.clones.length === 0 || target.getSounds()[soundIndex] !== originalSound) {
+                if (soundBank && typeof soundObject.soundId === 'string' &&
+                    typeof soundBank.removeSoundPlayer === 'function') {
+                    soundBank.removeSoundPlayer(soundObject.soundId);
+                }
+                throw new Error('Sound is no longer available');
+            }
+
+            soundObject.name = originalSound.name;
+            soundObject.folderId = originalSound.folderId;
+            target.sprite.sounds[soundIndex] = soundObject;
+            if (soundBank && typeof originalSound.soundId === 'string' &&
+                typeof soundBank.removeSoundPlayer === 'function') {
+                soundBank.removeSoundPlayer(originalSound.soundId);
+            }
+            this.emitTargetsUpdate();
+            this.runtime.emitProjectChanged();
+        });
+    }
+
+    /**
      * Rename a sound on the current editing target.
      * @param {int} soundIndex - the index of the sound to be renamed.
      * @param {string} newName - the desired new name of the sound (will be modified if already in use).
@@ -1277,6 +1313,36 @@ class VirtualMachine extends EventEmitter {
         }
         // If the target cannot be found by id, return a rejected promise
         return Promise.reject(new Error(`No target with ID: ${optTargetId}`));
+    }
+
+    /**
+     * Replace an asset while preserving its name, index, and folder.
+     * @param {!object} assetObject Object representing the replacement asset.
+     * @param {!int} assetIndex Index of the asset to replace.
+     * @param {string} optTargetId The target containing the asset, or the editing target if omitted.
+     * @returns {Promise<void>} A promise that resolves after the asset is replaced.
+     */
+    replaceAsset (assetObject, assetIndex, optTargetId) {
+        const target = optTargetId ? this.runtime.getTargetById(optTargetId) : this.editingTarget;
+        const originalAsset = target && target.getAssets()[assetIndex];
+        if (!target || !originalAsset) {
+            return Promise.reject(new Error('Asset not found'));
+        }
+
+        return loadAsset(assetObject, this.runtime).then(loadedAsset => {
+            if (!loadedAsset || !loadedAsset.asset) {
+                throw new Error(`Could not load asset: ${assetObject.md5}`);
+            }
+            if (target.sprite.clones.length === 0 || target.getAssets()[assetIndex] !== originalAsset) {
+                throw new Error('Asset is no longer available');
+            }
+
+            loadedAsset.name = originalAsset.name;
+            loadedAsset.folderId = originalAsset.folderId;
+            target.sprite.assets[assetIndex] = loadedAsset;
+            this.emitTargetsUpdate();
+            this.runtime.emitProjectChanged();
+        });
     }
 
     /**
