@@ -1029,6 +1029,48 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
+     * Replace a costume while preserving its name, index, and folder.
+     * @param {string} md5ext - the MD5 and extension of the replacement costume.
+     * @param {!object} costumeObject Object representing the replacement costume.
+     * @param {!int} costumeIndex Index of the costume to replace.
+     * @param {string} optTargetId The target containing the costume, or the editing target if omitted.
+     * @param {string} optVersion Asset format version passed to the costume loader.
+     * @returns {Promise<void>} A promise that resolves after the costume is replaced.
+     */
+    replaceCostume (md5ext, costumeObject, costumeIndex, optTargetId, optVersion) {
+        const target = optTargetId ? this.runtime.getTargetById(optTargetId) : this.editingTarget;
+        const originalCostume = target && target.getCostumes()[costumeIndex];
+        if (!target || !originalCostume) {
+            return Promise.reject(new Error('Costume not found'));
+        }
+
+        return loadCostume(md5ext, costumeObject, this.runtime, optVersion).then(() => {
+            if (target.sprite.clones.length === 0 || target.getCostumes()[costumeIndex] !== originalCostume) {
+                if (this.runtime.renderer && typeof costumeObject.skinId === 'number') {
+                    this.runtime.renderer.destroySkin(costumeObject.skinId);
+                }
+                throw new Error('Costume is no longer available');
+            }
+
+            costumeObject.name = originalCostume.name;
+            costumeObject.folderId = originalCostume.folderId;
+            target.sprite.costumes[costumeIndex] = costumeObject;
+
+            for (const clone of target.sprite.clones) {
+                if (clone.currentCostume === costumeIndex) {
+                    clone.setCostume(costumeIndex);
+                }
+            }
+
+            if (this.runtime.renderer && typeof originalCostume.skinId === 'number') {
+                this.runtime.renderer.destroySkin(originalCostume.skinId);
+            }
+            this.emitTargetsUpdate();
+            this.runtime.emitProjectChanged();
+        });
+    }
+
+    /**
      * Duplicate the costume at the given index. Add it at that index + 1.
      * @param {!int} costumeIndex Index of costume to duplicate
      * @returns {?Promise} - a promise that resolves when the costume has been decoded and added
