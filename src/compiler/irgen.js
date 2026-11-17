@@ -2021,6 +2021,7 @@ class ScriptTreeGenerator {
 
         /** @type {[string[], string[], string[]]} */
         const [paramNames, paramIds, paramDefaults] = paramNamesIdsAndDefaults;
+        const extendables = JSON.parse(block.mutation.argumentextendables || '[]');
 
         const addonBlock = this.runtime.getAddonBlock(procedureCode);
         if (addonBlock) {
@@ -2028,7 +2029,9 @@ class ScriptTreeGenerator {
             const args = {};
             for (let i = 0; i < paramIds.length; i++) {
                 let value;
-                if (block.inputs[paramIds[i]] && block.inputs[paramIds[i]].block) {
+                if (extendables.includes(paramIds[i])) {
+                    value = this.descendProcedureExtendable(block, paramIds[i]);
+                } else if (block.inputs[paramIds[i]] && block.inputs[paramIds[i]].block) {
                     value = this.descendInputOfBlock(block, paramIds[i], true);
                 } else {
                     value = this.createConstantInput(paramDefaults[i], true);
@@ -2086,7 +2089,9 @@ class ScriptTreeGenerator {
         const args = [];
         for (let i = 0; i < paramIds.length; i++) {
             let value;
-            if (block.inputs[paramIds[i]] && block.inputs[paramIds[i]].block) {
+            if (extendables.includes(paramIds[i])) {
+                value = this.descendProcedureExtendable(block, paramIds[i]);
+            } else if (block.inputs[paramIds[i]] && block.inputs[paramIds[i]].block) {
                 if (paramIds[i].startsWith('SUBSTACK')) {
                     value = this.descendSubstack(block, paramIds[i]);
                 } else {
@@ -2108,6 +2113,24 @@ class ScriptTreeGenerator {
             },
             yields: !this.script.isWarp && procedureCode === this.script.procedureCode
         };
+    }
+
+    /**
+     * Compile native extendable values into the procedure's array parameter.
+     * @param {*} block The procedure call.
+     * @param {string} id The extendable parameter ID.
+     * @returns {IntermediateInput} The collected values.
+     */
+    descendProcedureExtendable (block, id) {
+        const count = Number(block.fields[id].value);
+        const items = [];
+        for (let i = 0; i < count; i++) {
+            items.push(this.descendInputOfBlock(block, `${id}_${i}_VALUE`));
+        }
+        return new IntermediateInput(InputOpcode.JSON_ARRAY, InputType.ARRAY, {
+            items,
+            count
+        });
     }
 
     /**

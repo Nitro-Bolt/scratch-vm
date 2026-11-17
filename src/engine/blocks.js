@@ -1041,6 +1041,8 @@ class Blocks {
                 block.mutation.argumentnames = nextMutation.argumentnames;
                 block.mutation.argumentdefaults = nextMutation.argumentdefaults;
                 block.mutation.argumentdropdowns = nextMutation.argumentdropdowns;
+                block.mutation.argumentextendables = nextMutation.argumentextendables;
+                block.mutation.argumentextendableoptions = nextMutation.argumentextendableoptions;
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
                 block.mutation.runinparent = nextMutation.runinparent;
@@ -1057,9 +1059,12 @@ class Blocks {
             }
 
             if (block.opcode === 'procedures_call') {
+                const previousOptions = block.mutation.argumentextendableoptions;
                 block.mutation.proccode = nextProcCode;
                 block.mutation.argumentids = nextMutation.argumentids;
                 block.mutation.argumentdropdowns = nextMutation.argumentdropdowns;
+                block.mutation.argumentextendables = nextMutation.argumentextendables;
+                block.mutation.argumentextendableoptions = nextMutation.argumentextendableoptions;
                 block.mutation.warp = nextMutation.warp;
                 block.mutation.global = nextMutation.global;
                 block.mutation.runinparent = nextMutation.runinparent;
@@ -1077,7 +1082,7 @@ class Blocks {
                         delete block.mutation.return;
                     }
                 }
-                this._syncGlobalProcedureInputs(block, nextMutation);
+                this._syncGlobalProcedureInputs(block, nextMutation, previousOptions);
                 changed = true;
             }
         }
@@ -1094,9 +1099,10 @@ class Blocks {
      * new string/number inputs receive their standard default shadows.
      * @param {!object} block Procedure call block.
      * @param {!object} mutation Updated procedure prototype mutation.
+     * @param {string=} previousOptions Previous extendable settings JSON.
      * @private
      */
-    _syncGlobalProcedureInputs (block, mutation) {
+    _syncGlobalProcedureInputs (block, mutation, previousOptions) {
         let argumentIds;
         try {
             argumentIds = JSON.parse(mutation.argumentids || '[]');
@@ -1111,17 +1117,67 @@ class Blocks {
             argumentDropdowns = [];
         }
 
-        const argumentTypes = [];
+        let argumentTypes = [];
         const argumentPattern = /(?:^|[^\\])%([nbdoamscr])/g;
         let match;
         while ((match = argumentPattern.exec(mutation.proccode || ''))) {
             argumentTypes.push(match[1]);
         }
 
+        const extendables = JSON.parse(mutation.argumentextendables || '[]');
+        const options = JSON.parse(mutation.argumentextendableoptions || '{}');
+        const oldOptions = JSON.parse(previousOptions || '{}');
+        const changedTypeInputs = [];
+        const expandedIds = [];
+        const expandedTypes = [];
+        block.fields = block.fields || {};
+        for (let i = 0; i < argumentIds.length; i++) {
+            const id = argumentIds[i];
+            if (!extendables.includes(id)) {
+                expandedIds.push(id);
+                expandedTypes.push(argumentTypes[i]);
+                continue;
+            }
+            const settings = options[id] || {
+                type: 's',
+                min: 0,
+                max: null
+            };
+            let count = 2;
+            if (block.fields[id]) {
+                count = Number(block.fields[id].value);
+            }
+            count = Math.max(settings.min, count);
+            if (settings.max !== null) {
+                count = Math.min(settings.max, count);
+            }
+            block.fields[id] = {
+                name: id,
+                value: String(count)
+            };
+            for (let j = 0; j < count; j++) {
+                const inputId = `${id}_${j}_VALUE`;
+                expandedIds.push(inputId);
+                expandedTypes.push(settings.type);
+                const oldType = (oldOptions[id] || {type: 's'}).type;
+                if (oldType !== settings.type) {
+                    changedTypeInputs.push(inputId);
+                }
+            }
+        }
+        for (const id of Object.keys(block.fields)) {
+            if (!extendables.includes(id)) {
+                delete block.fields[id];
+            }
+        }
+        argumentIds = expandedIds;
+        argumentTypes = expandedTypes;
+
         block.inputs = block.inputs || {};
-        const activeArgumentIds = new Set(argumentIds);
         for (const inputId of Object.keys(block.inputs)) {
-            if (activeArgumentIds.has(inputId)) continue;
+            if (argumentIds.includes(inputId) && !changedTypeInputs.includes(inputId)) {
+                continue;
+            }
             const input = block.inputs[inputId];
             const child = input && this._blocks[input.block];
             const shadowId = input && input.shadow;
@@ -1160,7 +1216,14 @@ class Blocks {
                 continue;
             }
 
-            if (argumentType !== 's' && argumentType !== 'm' && argumentType !== 'n' && argumentType !== 'd') {
+            const shadowDefinition = {
+                s: ['text', 'TEXT', ''],
+                n: ['math_number', 'NUM', '1'],
+                m: ['text_multiline', 'TEXT', ''],
+                b: ['checkbox', 'CHECKBOX', 'FALSE'],
+                r: ['colour_picker', 'COLOUR', '#ff0000']
+            }[argumentType];
+            if (!shadowDefinition && argumentType !== 'd') {
                 continue;
             }
 
@@ -1190,17 +1253,15 @@ class Blocks {
                 continue;
             }
 
-            const isNumber = argumentType === 'n';
-            const isMultiline = argumentType === 'm';
-            const fieldName = isNumber ? 'NUM' : 'TEXT';
+            const [opcode, fieldName, defaultValue] = shadowDefinition;
             this._blocks[shadowId] = {
                 id: shadowId,
-                opcode: isNumber ? 'math_number' : (isMultiline ? 'text_multiline' : 'text'),
+                opcode,
                 inputs: {},
                 fields: {
                     [fieldName]: {
                         name: fieldName,
-                        value: isNumber ? '1' : ''
+                        value: defaultValue
                     }
                 },
                 next: null,

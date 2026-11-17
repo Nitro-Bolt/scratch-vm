@@ -75,8 +75,11 @@ class Scratch3ProcedureBlocks {
         // not take any arguments. This is so that `getParam` down the line does not look
         // at earlier stack frames for the values of a given parameter (#1729)
         util.initParams();
+        const extendables = JSON.parse(mutation.argumentextendables || '[]');
         for (let i = 0; i < paramIds.length; i++) {
-            if (Object.prototype.hasOwnProperty.call(args, paramIds[i])) {
+            if (extendables.includes(paramIds[i])) {
+                util.pushParam(paramNames[i], util.extendableToArray(args, paramIds[i], 'VALUE'));
+            } else if (Object.prototype.hasOwnProperty.call(args, paramIds[i])) {
                 util.pushParam(paramNames[i], args[paramIds[i]]);
             } else {
                 util.pushParam(paramNames[i], paramDefaults[i]);
