@@ -478,14 +478,14 @@ class Blocks {
     // ---------------------------------------------------------------------
 
     /**
-     * Create event listener for blocks, variables, and comments. Handles validation and
+     * Create event listener for blocks, variables, comments, and groups. Handles validation and
      * serves as a generic adapter between the blocks, variables, and the
      * runtime interface.
      * @param {object} e Blockly "block" or "variable" event
      */
     blocklyListen (e) {
         // Validate event
-        if (typeof e !== 'object') return;
+        if (!e || typeof e !== 'object') return;
         if (typeof e.blockId !== 'string' && typeof e.varId !== 'string' &&
             typeof e.commentId !== 'string' && typeof e.groupId !== 'string') {
             return;
@@ -493,23 +493,13 @@ class Blocks {
         const stage = this.runtime.getTargetForStage();
         const editingTarget = this.runtime.getEditingTarget();
 
-        if (e.type === 'group_change' && editingTarget) {
-            if (e.newState) {
-                editingTarget.createGroup(e.newState);
-            } else {
-                delete editingTarget.groups[e.groupId];
-            }
-            this.emitProjectChanged();
-            return;
-        }
-
         // UI event: clicked scripts toggle in the runtime.
         if (e.element === 'stackclick') {
             this.runtime.toggleScript(e.blockId, {stackClick: true});
             return;
         }
 
-        // Block create/update/destroy
+        // Dispatch block, variable, comment, and group events.
         switch (e.type) {
         case 'create': {
             const newBlocks = adapter(e);
@@ -550,21 +540,6 @@ class Blocks {
                 this.runtime.emitBlockEndDrag(newBlocks, e.blockId);
             }
             break;
-        case 'group_drag_outside':
-            this.runtime.emitBlockDragUpdate(e.isOutside);
-            break;
-        case 'group_end_drag': {
-            this.runtime.emitBlockDragUpdate(false);
-            if (e.isOutside) {
-                const newBlocks = e.xmls.reduce((all, xml) =>
-                    all.concat(adapter({xml})), []);
-                const group = Object.assign({}, e.groupState, {
-                    blocks: newBlocks.filter(block => block.topLevel).map(block => block.id)
-                });
-                this.runtime.emitBlockEndDrag(newBlocks, group.blocks[0] || null, group);
-            }
-            break;
-        }
         case 'delete':
             // Don't accept delete events for missing blocks,
             // or shadow blocks being obscured.
@@ -765,6 +740,30 @@ class Blocks {
                 this.emitProjectChanged();
             }
             break;
+        case 'group_change':
+            if (!editingTarget || typeof e.groupId !== 'string') return;
+            if (e.newState) {
+                editingTarget.createGroup(Object.assign({}, e.newState, {id: e.groupId}));
+            } else {
+                delete editingTarget.groups[e.groupId];
+            }
+            this.emitProjectChanged();
+            break;
+        case 'group_drag_outside':
+            this.runtime.emitBlockDragUpdate(e.isOutside);
+            break;
+        case 'group_end_drag': {
+            this.runtime.emitBlockDragUpdate(false);
+            if (e.isOutside) {
+                const newBlocks = e.xmls.reduce((all, xml) =>
+                    all.concat(adapter({xml})), []);
+                const group = Object.assign({}, e.groupState, {
+                    blocks: newBlocks.filter(block => block.topLevel).map(block => block.id)
+                });
+                this.runtime.emitBlockEndDrag(newBlocks, group.blocks[0] || null, group);
+            }
+            break;
+        }
         }
     }
 

@@ -17,17 +17,22 @@ class Group {
         this.height = Math.max(Number(state.height) || 240, 96);
         this.expandedWidth = Math.max(Number(state.expandedWidth) || this.width, 160);
         this.expandedHeight = Math.max(Number(state.expandedHeight) || this.height, 96);
-        this.collapsed = state.collapsed === true;
-        this.blocks = Array.isArray(state.blocks) ? state.blocks.slice() : [];
-        if (this.collapsed) this.height = 32;
+        this.collapsed = state.collapsed === true || state.collapsed === 'true';
+        this.blocks = Array.isArray(state.blocks) ? state.blocks.slice() :
+            typeof state.blocks === 'string' && state.blocks.trim() ? state.blocks.trim().split(/\s+/) : [];
+        if (this.collapsed) {
+            this.width = 200;
+            this.height = 32;
+        }
     }
 
     toXML () {
-        return `<group id="${this.id}" title="${xmlEscape(this.title)}" colour="${this.colour || ''}" ` +
+        return `<group id="${xmlEscape(this.id)}" title="${xmlEscape(this.title)}" ` +
+            `colour="${xmlEscape(this.colour || '')}" ` +
             `x="${this.x}" y="${this.y}" ` +
             `width="${this.width}" height="${this.height}" expandedWidth="${this.expandedWidth}" ` +
             `expandedHeight="${this.expandedHeight}" ` +
-            `collapsed="${this.collapsed}" blocks="${this.blocks.join(' ')}"></group>`;
+            `collapsed="${this.collapsed}" blocks="${xmlEscape(this.blocks.join(' '))}"></group>`;
     }
 }
 
