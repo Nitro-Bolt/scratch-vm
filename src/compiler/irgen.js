@@ -789,6 +789,10 @@ class ScriptTreeGenerator {
             default: return this.createConstantInput(0);
             }
         }
+        case 'operator_constant_text': {
+            const constant = block.fields.CONSTANT.value;
+            return this.createConstantInput(constant);
+        }
         case 'operator_cast': {
             const type = block.fields.TYPE.value.toLowerCase();
             const value = this.descendInputOfBlock(block, 'VALUE');

@@ -50,6 +50,7 @@ class Scratch3OperatorsBlocks {
             operator_round: this.round,
             operator_mathop: this.mathop,
             operator_constant: this.constant,
+            operator_constant_text: this.constantText,
             operator_cast: this.cast,
             operator_typeof: this.typeof,
             checkbox: this.checkbox
@@ -284,6 +285,10 @@ class Scratch3OperatorsBlocks {
         case 'epsilon': return Number.EPSILON;
         }
         return 0;
+    }
+
+    constantText (args) {
+        return Cast.toString(args.CONSTANT);
     }
 
     cast (args) {
