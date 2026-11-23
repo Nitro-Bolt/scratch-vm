@@ -152,6 +152,11 @@ const compress = projectData => {
             }
         }
 
+        // Group membership must follow the rewritten block IDs.
+        for (const group of Object.values(target.groups || {})) {
+            group.blocks = group.blocks.map(id => pool.getNewId(id));
+        }
+
         target.blocks = newBlocks;
         target.comments = newComments;
     }
