@@ -1808,6 +1808,61 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
+     * Move several target-owned assets as one ordered group.
+     * @param {'costume'|'sound'|'asset'} kind item kind
+     * @param {string} targetId target owning the items
+     * @param {Array<number>} itemIndices item indices in their current order
+     * @param {?string} folderId destination folder, or null for the root
+     * @param {number=} newIndex destination in the collection before removal
+     * @returns {boolean} true when the collection changed
+     */
+    setItemsFolder (kind, targetId, itemIndices, folderId, newIndex) {
+        const target = this.runtime.getTargetById(targetId);
+        if (!target || !target.isOriginal) throw new Error('Target does not exist.');
+        if (!Array.isArray(itemIndices)) throw new Error('Folder item indices must be an array.');
+        if (typeof newIndex !== 'undefined' && !Number.isFinite(newIndex)) {
+            throw new Error('Folder item destination must be finite.');
+        }
+        const collections = {
+            costume: target.getCostumes(),
+            sound: target.getSounds(),
+            asset: target.getAssets()
+        };
+        const items = collections[kind];
+        if (!items) throw new Error('Unsupported folder item kind.');
+        const normalizedIndices = itemIndices.filter((index, position) =>
+            Number.isInteger(index) && index >= 0 && index < items.length && itemIndices.indexOf(index) === position
+        ).sort((first, second) => first - second);
+        if (normalizedIndices.length === 0) return false;
+        const normalizedFolderId = folderId || null;
+        if (normalizedFolderId) {
+            const folder = this.runtime.projectFolders.find(candidate => candidate.id === normalizedFolderId);
+            if (!folder || folder.kind !== kind || folder.scopeId !== targetId) {
+                throw new Error('Folder does not exist in this item scope.');
+            }
+        }
+        const selectedItems = normalizedIndices.map(index => items[index]);
+        const oldFolderIds = selectedItems.map(item => item.folderId).filter((id, index, ids) =>
+            id && ids.indexOf(id) === index
+        );
+        selectedItems.forEach(item => {
+            item.folderId = normalizedFolderId;
+        });
+        if (typeof newIndex !== 'undefined') {
+            const selectedCostume = kind === 'costume' ? items[target.currentCostume] : null;
+            const remainingItems = items.filter(item => !selectedItems.includes(item));
+            const insertionIndex = Math.max(0, Math.min(remainingItems.length,
+                Math.trunc(newIndex)));
+            remainingItems.splice(insertionIndex, 0, ...selectedItems);
+            target.sprite[`${kind}s`] = remainingItems;
+            if (selectedCostume) target.currentCostume = remainingItems.indexOf(selectedCostume);
+        }
+        oldFolderIds.filter(id => id !== normalizedFolderId).forEach(id => this._removeFolderIfEmpty(id));
+        this.emitTargetsUpdate();
+        return true;
+    }
+
+    /**
      * Get a string representation of the image from storage.
      * @param {int} costumeIndex - the index of the costume to be got.
      * @return {string} the costume's SVG string if it's SVG,
